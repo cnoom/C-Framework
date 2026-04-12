@@ -1,0 +1,21 @@
+{
+  "name": "CFramework.Editor.Tests",
+  "rootNamespace": "CFramework.EditorTests",
+  "references": [
+    "CFramework.Runtime",
+    "CFramework.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

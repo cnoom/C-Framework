@@ -1,0 +1,30 @@
+{
+  "name": "CFramework.Runtime.Tests",
+  "rootNamespace": "CFramework.Tests",
+  "references": [
+    "CFramework.Runtime",
+    "UnityEngine.TestRunner",
+    "UniTask",
+    "R3.Unity",
+    "Unity.Addressables",
+    "Unity.ResourceManager",
+    "VContainer"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll",
+    "R3.dll",
+    "Sirenix.Serialization.dll",
+    "Sirenix.OdinInspector.Attributes.dll",
+    "Sirenix.Utilities.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
