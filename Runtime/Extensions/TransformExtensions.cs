@@ -12,51 +12,57 @@ namespace CFramework.Runtime.Extensions
         /// <summary>
         /// 重置位置为零点
         /// </summary>
-        public static Transofrm ResetPosition(this Transform transform)
+        public static Transform ResetPosition(this Transform transform)
         {
             transform.position = Vector3.zero;
+            return transform;
         }
 
         /// <summary>
         /// 重置本地位置为零点
         /// </summary>
-        public static Transofrm ResetLocalPosition(this Transform transform)
+        public static Transform ResetLocalPosition(this Transform transform)
         {
             transform.localPosition = Vector3.zero;
+            return transform;
         }
 
         /// <summary>
         /// 重置旋转为默认值
         /// </summary>
-        public static Transofrm ResetRotation(this Transform transform)
+        public static Transform ResetRotation(this Transform transform)
         {
             transform.rotation = Quaternion.identity;
+            return transform;
         }
 
         /// <summary>
         /// 重置本地旋转为默认值
         /// </summary>
-        public static Transofrm ResetLocalRotation(this Transform transform)
+        public static Transform ResetLocalRotation(this Transform transform)
         {
             transform.localRotation = Quaternion.identity;
+            return transform;
         }
 
         /// <summary>
         /// 重置缩放为一
         /// </summary>
-        public static Transofrm ResetScale(this Transform transform)
+        public static Transform ResetScale(this Transform transform)
         {
             transform.localScale = Vector3.one;
+            return transform;
         }
 
         /// <summary>
         /// 重置所有属性（位置、旋转、缩放）
         /// </summary>
-        public static Transofrm ResetAll(this Transform transform)
+        public static Transform ResetAll(this Transform transform)
         {
             transform.localPosition = Vector3.zero;
             transform.localRotation = Quaternion.identity;
             transform.localScale = Vector3.one;
+            return transform;
         }
 
         #endregion
@@ -66,83 +72,91 @@ namespace CFramework.Runtime.Extensions
         /// <summary>
         /// 设置 X 坐标
         /// </summary>
-        public static Transofrm WithX(this Transform transform, float x)
+        public static Transform WithX(this Transform transform, float x)
         {
             var pos = transform.position;
             pos.x = x;
             transform.position = pos;
+            return transform;
         }
 
         /// <summary>
         /// 设置 Y 坐标
         /// </summary>
-        public static Transofrm WithY(this Transform transform, float y)
+        public static Transform WithY(this Transform transform, float y)
         {
             var pos = transform.position;
             pos.y = y;
             transform.position = pos;
+            return transform;
         }
 
         /// <summary>
         /// 设置 Z 坐标
         /// </summary>
-        public static Transofrm WithZ(this Transform transform, float z)
+        public static Transform WithZ(this Transform transform, float z)
         {
             var pos = transform.position;
             pos.z = z;
             transform.position = pos;
+            return transform;
         }
 
         /// <summary>
         /// 设置本地 X 坐标
         /// </summary>
-        public static Transofrm WithLocalX(this Transform transform, float x)
+        public static Transform WithLocalX(this Transform transform, float x)
         {
             var pos = transform.localPosition;
             pos.x = x;
             transform.localPosition = pos;
+            return transform;
         }
 
         /// <summary>
         /// 设置本地 Y 坐标
         /// </summary>
-        public static Transofrm WithLocalY(this Transform transform, float y)
+        public static Transform WithLocalY(this Transform transform, float y)
         {
             var pos = transform.localPosition;
             pos.y = y;
             transform.localPosition = pos;
+            return transform;
         }
 
         /// <summary>
         /// 设置本地 Z 坐标
         /// </summary>
-        public static Transofrm WithLocalZ(this Transform transform, float z)
+        public static Transform WithLocalZ(this Transform transform, float z)
         {
             var pos = transform.localPosition;
             pos.z = z;
             transform.localPosition = pos;
+            return transform;
         }
 
         /// <summary>
         /// 仅设置位置 XY 分量，Z 不变
         /// </summary>
-        public static Transofrm WithPositionXY(this Transform transform, float x, float y)
+        public static Transform WithPositionXY(this Transform transform, float x, float y)
         {
             var pos = transform.position;
             pos.x = x;
             pos.y = y;
             transform.position = pos;
+            return transform;
         }
 
         /// <summary>
         /// 仅设置位置 XZ 分量，Y 不变
         /// </summary>
-        public static Transofrm WithPositionXZ(this Transform transform, float x, float z)
+        public static Transform WithPositionXZ(this Transform transform, float x, float z)
         {
             var pos = transform.position;
             pos.x = x;
             pos.z = z;
             transform.position = pos;
+            return transform;
         }
 
         #endregion
@@ -152,61 +166,67 @@ namespace CFramework.Runtime.Extensions
         /// <summary>
         /// 设置欧拉角 X 分量
         /// </summary>
-        public static Transofrm WithEulerX(this Transform transform, float x)
+        public static Transform WithEulerX(this Transform transform, float x)
         {
             var euler = transform.eulerAngles;
             euler.x = x;
             transform.eulerAngles = euler;
+            return transform;
         }
 
         /// <summary>
         /// 设置欧拉角 Y 分量
         /// </summary>
-        public static Transofrm WithEulerY(this Transform transform, float y)
+        public static Transform WithEulerY(this Transform transform, float y)
         {
             var euler = transform.eulerAngles;
             euler.y = y;
             transform.eulerAngles = euler;
+            return transform;
         }
 
         /// <summary>
         /// 设置欧拉角 Z 分量
         /// </summary>
-        public static Transofrm WithEulerZ(this Transform transform, float z)
+        public static Transform WithEulerZ(this Transform transform, float z)
         {
             var euler = transform.eulerAngles;
             euler.z = z;
             transform.eulerAngles = euler;
+            return transform;
         }
 
         /// <summary>
         /// 设置本地欧拉角 X 分量
         /// </summary>
-        public static Transofrm WithLocalEulerX(this Transform transform, float x)
+        public static Transform WithLocalEulerX(this Transform transform, float x)
         {
             var euler = transform.localEulerAngles;
             euler.x = x;
             transform.localEulerAngles = euler;
+            return transform;
         }
 
         /// <summary>
         /// 设置本地欧拉角 Y 分量
         /// </summary>
-        public static Transofrm WithLocalEulerY(this Transform transform, float y)
+        public static Transform WithLocalEulerY(this Transform transform, float y)
         {
             var euler = transform.localEulerAngles;
             euler.y = y;
             transform.localEulerAngles = euler;
+            return transform;
         }
 
         /// <summary>
         /// 设置本地欧拉角 Z 分量
         /// </summary>
-        public static Transofrm WithLocalEulerZ(this Transform transform, float z)
+        public static Transform WithLocalEulerZ(this Transform transform, float z)
         {
             var euler = transform.localEulerAngles;
             euler.z = z;
             transform.localEulerAngles = euler;
+            return transform;
         }
 
         #endregion
@@ -216,65 +236,77 @@ namespace CFramework.Runtime.Extensions
         /// <summary>
         /// 设置缩放 X 分量
         /// </summary>
-        public static Transofrm WithScaleX(this Transform transform, float x)
+        public static Transform WithScaleX(this Transform transform, float x)
         {
             var scale = transform.localScale;
             scale.x = x;
             transform.localScale = scale;
+            return transform;
         }
 
         /// <summary>
         /// 设置缩放 Y 分量
         /// </summary>
-        public static Transofrm WithScaleY(this Transform transform, float y)
+        public static Transform WithScaleY(this Transform transform, float y)
         {
             var scale = transform.localScale;
             scale.y = y;
             transform.localScale = scale;
+            return transform;
         }
 
         /// <summary>
         /// 设置缩放 Z 分量
         /// </summary>
-        public static Transofrm WithScaleZ(this Transform transform, float z)
+        public static Transform WithScaleZ(this Transform transform, float z)
         {
             var scale = transform.localScale;
             scale.z = z;
             transform.localScale = scale;
+            return transform;
         }
 
         /// <summary>
         /// 统一设置缩放值
         /// </summary>
-        public static Transofrm WithUniformScale(this Transform transform, float scale)
+        public static Transform WithUniformScale(this Transform transform, float scale)
         {
             transform.localScale = Vector3.one * scale;
+            return transform;
         }
 
         #endregion
 
         #region 层级操作
 
+        public static Transform WithParent(this Transform transform, Transform parent, bool worldPositionStays = true)
+        {
+            transform.SetParent(parent, worldPositionStays);
+            return transform;
+        }
+
         /// <summary>
         /// 销毁所有子物体
         /// </summary>
-        public static Transofrm DestroyAllChildren(this Transform transform)
+        public static Transform DestroyAllChildren(this Transform transform)
         {
             for (int i = transform.childCount - 1; i >= 0; i--)
             {
                 Object.Destroy(transform.GetChild(i).gameObject);
             }
+            return transform;
         }
 
         /// <summary>
         /// 立即销毁所有子物体（编辑器模式使用）
         /// </summary>
-        public static Transofrm DestroyImmediateAllChildren(this Transform transform)
+        public static Transform DestroyImmediateAllChildren(this Transform transform)
         {
             for (int i = transform.childCount - 1; i >= 0; i--)
             {
                 Object.DestroyImmediate(transform.GetChild(i).gameObject);
             }
+            return transform;
         }
 
         /// <summary>
@@ -289,19 +321,19 @@ namespace CFramework.Runtime.Extensions
             }
 
             var go = new GameObject(name);
-            go.transform.WithParent(transform, false);
-            return go.transform;
+            return go.transform.WithParent(transform, false);
         }
 
         /// <summary>
         /// 遍历所有子物体执行操作
         /// </summary>
-        public static Transofrm ForEachChild(this Transform transform, System.Action<Transform> action)
+        public static Transform ForEachChild(this Transform transform, System.Action<Transform> action)
         {
             for (int i = 0; i < transform.childCount; i++)
             {
                 action.Invoke(transform.GetChild(i));
             }
+            return transform;
         }
 
         /// <summary>
