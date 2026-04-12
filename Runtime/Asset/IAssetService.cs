@@ -8,6 +8,33 @@ using Object = UnityEngine.Object;
 namespace CFramework
 {
     /// <summary>
+    ///     资源加载提供者接口
+    ///     <para>抽象底层资源加载实现（Addressables、Resources 等），便于测试替换</para>
+    /// </summary>
+    public interface IAssetProvider
+    {
+        /// <summary>
+        ///     异步加载资源
+        /// </summary>
+        UniTask<Object> LoadAssetAsync<T>(object key, CancellationToken ct = default) where T : Object;
+
+        /// <summary>
+        ///     异步实例化预制体
+        /// </summary>
+        UniTask<GameObject> InstantiateAsync(object key, Transform parent, CancellationToken ct = default);
+
+        /// <summary>
+        ///     释放资源句柄
+        /// </summary>
+        void ReleaseHandle(object key, bool isInstance);
+
+        /// <summary>
+        ///     获取资源占用内存大小（字节）
+        /// </summary>
+        long GetAssetMemorySize(object key);
+    }
+
+    /// <summary>
     ///     资源服务接口
     /// </summary>
     public interface IAssetService

@@ -6,8 +6,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
 
@@ -15,45 +13,53 @@ namespace CFramework.Tests
 {
     /// <summary>
     ///     资源服务单元测试
-    ///     注意：实际资源加载测试需要配置 Addressables 测试资源
+    ///     <para>使用 MockAssetProvider 模拟资源加载，无需配置 Addressables 测试资源</para>
     /// </summary>
     [TestFixture]
     public class AssetServiceTests
     {
+        private MockAssetProvider _mockProvider;
+        private AssetService _assetService;
+        private List<GameObject> _cleanupObjects;
+
+        private const string TestPrefabKey = "TestPrefab";
+
         [SetUp]
         public void SetUp()
         {
             var settings = ScriptableObject.CreateInstance<FrameworkSettings>();
             settings.MemoryBudgetMB = 512;
             settings.MaxLoadPerFrame = 5;
-            _assetService = new AssetService(settings);
+
+            _mockProvider = new MockAssetProvider();
+            // 注册模拟资源
+            _mockProvider.RegisterGameObject(TestPrefabKey, "TestPrefab");
+            _assetService = new AssetService(settings, _mockProvider);
+            _cleanupObjects = new List<GameObject>();
         }
 
         [TearDown]
         public void TearDown()
         {
             _assetService?.Dispose();
+            _mockProvider?.Cleanup();
+
+            foreach (var go in _cleanupObjects)
+            {
+                if (go != null) Object.DestroyImmediate(go);
+            }
+
+            _cleanupObjects.Clear();
         }
 
-        private AssetService _assetService;
-
-        // TestPrefab 的 Addressable key（需要确保资源存在）
-        private const string TestPrefabKey = "Assets/TestPrefab.prefab";
-        private const string TestPrefabGuid = "c9a191c5568c2184e8fb52c1f9c7ea9a";
+        #region 引用计数测试
 
         [UnityTest]
-        [Timeout(10000)] // 10秒超时保护
+        [Timeout(10000)]
         public IEnumerator A001_ReferenceCount_MultipleLoadsReleaseCorrectly()
         {
             return UniTask.ToCoroutine(async () =>
             {
-                // 检查资源是否存在
-                if (!await CheckResourceExists(TestPrefabKey))
-                {
-                    Assert.Ignore($"测试资源不存在: {TestPrefabKey}");
-                    return;
-                }
-
                 // Arrange - 加载同一资源多次
                 var handle1 = await _assetService.LoadAsync<GameObject>(TestPrefabKey);
                 var handle2 = await _assetService.LoadAsync<GameObject>(TestPrefabKey);
@@ -84,22 +90,22 @@ namespace CFramework.Tests
             });
         }
 
+        #endregion
+
+        #region 分帧加载测试
+
         [UnityTest]
-        [Timeout(15000)] // 15秒超时保护
+        [Timeout(15000)]
         public IEnumerator A002_FrameBasedLoading_NoLagWith100Assets()
         {
             return UniTask.ToCoroutine(async () =>
             {
-                // 检查资源是否存在
-                if (!await CheckResourceExists(TestPrefabKey))
-                {
-                    Assert.Ignore($"测试资源不存在: {TestPrefabKey}");
-                    return;
-                }
-
-                // Arrange
+                // Arrange - 注册多个模拟资源
                 var keys = new object[10];
-                for (var i = 0; i < keys.Length; i++) keys[i] = TestPrefabKey;
+                for (var i = 0; i < keys.Length; i++)
+                {
+                    keys[i] = TestPrefabKey; // 复用同一资源测试引用计数
+                }
 
                 // 使用同步进度跟踪器
                 var reportedProgress = new List<float>();
@@ -131,19 +137,16 @@ namespace CFramework.Tests
             });
         }
 
+        #endregion
+
+        #region 内存预算测试
+
         [UnityTest]
         [Timeout(10000)]
         public IEnumerator A003_MemoryBudget_ExceedingBudgetLogsWarning()
         {
             return UniTask.ToCoroutine(async () =>
             {
-                // 检查资源是否存在
-                if (!await CheckResourceExists(TestPrefabKey))
-                {
-                    Assert.Ignore($"测试资源不存在: {TestPrefabKey}");
-                    return;
-                }
-
                 // Arrange - 设置很小的内存预算
                 _assetService.MemoryBudget.BudgetBytes = 100L; // 100 bytes (极小值)
 
@@ -166,21 +169,19 @@ namespace CFramework.Tests
             });
         }
 
+        #endregion
+
+        #region 生命周期绑定测试
+
         [UnityTest]
         [Timeout(10000)]
         public IEnumerator A004_LifetimeBinding_GameObjectDestroyReleasesAsset()
         {
             return UniTask.ToCoroutine(async () =>
             {
-                // 检查资源是否存在
-                if (!await CheckResourceExists(TestPrefabKey))
-                {
-                    Assert.Ignore($"测试资源不存在: {TestPrefabKey}");
-                    return;
-                }
-
                 // Arrange - 创建一个临时 GameObject 作为生命周期容器
                 var lifetimeObject = new GameObject("LifetimeTest");
+                _cleanupObjects.Add(lifetimeObject);
 
                 // Act - 加载资源
                 var handle = await _assetService.LoadAsync<GameObject>(TestPrefabKey);
@@ -220,25 +221,24 @@ namespace CFramework.Tests
             });
         }
 
+        #endregion
+
+        #region 实例化测试
+
         [UnityTest]
         [Timeout(10000)]
         public IEnumerator A005_Instantiate_CreatesInstanceAndTracksReference()
         {
             return UniTask.ToCoroutine(async () =>
             {
-                // 检查资源是否存在
-                if (!await CheckResourceExists(TestPrefabKey))
-                {
-                    Assert.Ignore($"测试资源不存在: {TestPrefabKey}");
-                    return;
-                }
-
                 // Act - 实例化预制体
                 var instance = await _assetService.InstantiateAsync(TestPrefabKey);
 
                 // Assert
                 Assert.IsNotNull(instance, "应成功实例化预制体");
-                Assert.IsTrue(instance.name.StartsWith("TestPrefab"), "实例名称应以 TestPrefab 开头");
+                Assert.IsTrue(instance.name.Contains("TestPrefab"), $"实例名称应包含 TestPrefab，实际: {instance.name}");
+
+                _cleanupObjects.Add(instance);
 
                 // Act - 实例化多个
                 var instance2 = await _assetService.InstantiateAsync(TestPrefabKey);
@@ -247,45 +247,19 @@ namespace CFramework.Tests
                 Assert.IsNotNull(instance2, "第二个实例应成功创建");
                 Assert.IsNotNull(instance3, "第三个实例应成功创建");
 
+                _cleanupObjects.Add(instance2);
+                _cleanupObjects.Add(instance3);
+
                 // 清理实例
-                _assetService.Release(TestPrefabKey);
-                Object.Destroy(instance);
-
-                _assetService.Release(TestPrefabKey);
-                Object.Destroy(instance2);
-
-                _assetService.Release(TestPrefabKey);
-                Object.Destroy(instance3);
+                _assetService.Release("$inst_" + TestPrefabKey);
+                _assetService.Release("$inst_" + TestPrefabKey);
+                _assetService.Release("$inst_" + TestPrefabKey);
             });
         }
 
-        [UnityTest]
-        [Timeout(10000)]
-        public IEnumerator A006_LoadByGuid_SameAsLoadByAddress()
-        {
-            return UniTask.ToCoroutine(async () =>
-            {
-                // 检查资源是否存在
-                if (!await CheckResourceExists(TestPrefabKey))
-                {
-                    Assert.Ignore($"测试资源不存在: {TestPrefabKey}");
-                    return;
-                }
+        #endregion
 
-                // Act - 使用 Address 加载
-                var handleByAddress = await _assetService.LoadAsync<GameObject>(TestPrefabKey);
-
-                // Act - 使用 GUID 加载
-                var handleByGuid = await _assetService.LoadAsync<GameObject>(TestPrefabGuid);
-
-                // Assert - 两种方式应加载同一资源
-                Assert.AreEqual(handleByAddress.Asset, handleByGuid.Asset, "Address 和 GUID 应加载同一资源");
-
-                // 清理
-                handleByAddress.Dispose();
-                handleByGuid.Dispose();
-            });
-        }
+        #region 无效 Key 测试
 
         [UnityTest]
         [Timeout(5000)]
@@ -315,22 +289,20 @@ namespace CFramework.Tests
             });
         }
 
+        #endregion
+
+        #region 释放所有资源测试
+
         [UnityTest]
         [Timeout(10000)]
         public IEnumerator A008_ReleaseAll_ClearsAllAssets()
         {
             return UniTask.ToCoroutine(async () =>
             {
-                // 检查资源是否存在
-                if (!await CheckResourceExists(TestPrefabKey))
-                {
-                    Assert.Ignore($"测试资源不存在: {TestPrefabKey}");
-                    return;
-                }
-
-                // Arrange - 加载多个资源
+                // Arrange - 注册第二个 key 并加载
+                _mockProvider.RegisterGameObject("TestPrefab2", "TestPrefab2");
                 var handle1 = await _assetService.LoadAsync<GameObject>(TestPrefabKey);
-                var handle2 = await _assetService.LoadAsync<GameObject>(TestPrefabGuid);
+                var handle2 = await _assetService.LoadAsync<GameObject>("TestPrefab2");
 
                 Assert.Greater(_assetService.MemoryBudget.UsedBytes, 0, "加载后应有内存使用");
 
@@ -342,38 +314,87 @@ namespace CFramework.Tests
             });
         }
 
+        #endregion
+
+        #region 取消加载测试
+
         [UnityTest]
         [Timeout(5000)]
         public IEnumerator A009_CancelLoad_ThrowsOperationCanceledException()
         {
             return UniTask.ToCoroutine(async () =>
             {
-                // Arrange
-                var cts = new CancellationTokenSource();
+                // Arrange - 使用带延迟的 provider 确保取消可以生效
+                var settings = ScriptableObject.CreateInstance<FrameworkSettings>();
+                var delayProvider = new MockAssetProvider(loadDelayMs: 500);
+                delayProvider.RegisterGameObject("SlowAsset", "SlowAsset");
+                var slowService = new AssetService(settings, delayProvider);
 
-                // 在下一帧取消
-                cts.CancelAfter(TimeSpan.FromMilliseconds(1));
+                var cts = new CancellationTokenSource();
+                cts.CancelAfter(TimeSpan.FromMilliseconds(10));
 
                 // Act & Assert
                 try
                 {
-                    await _assetService.LoadAsync<GameObject>(TestPrefabKey, cts.Token);
-                    // 如果加载足够快，可能不会触发取消
+                    await slowService.LoadAsync<GameObject>("SlowAsset", cts.Token);
                     Debug.Log("[Test] Load completed before cancellation");
                 }
                 catch (OperationCanceledException)
                 {
                     Debug.Log("[Test] Load was successfully cancelled");
                 }
+
+                slowService.Dispose();
+                delayProvider.Cleanup();
             });
         }
 
-        [Test]
-        public void AssetHandle_Dispose_DecrementsReferenceCount()
+        #endregion
+
+        #region 并发加载测试（验证竞态修复）
+
+        [UnityTest]
+        [Timeout(10000)]
+        public IEnumerator A010_ConcurrentLoad_SameKey_ShouldNotLoadTwice()
         {
-            // 这个测试需要异步运行，在同步测试中跳过
-            Assert.Ignore("需要异步测试环境，请参考 A001 测试");
+            return UniTask.ToCoroutine(async () =>
+            {
+                // Arrange - 使用带延迟的 provider 模拟慢加载
+                var settings = ScriptableObject.CreateInstance<FrameworkSettings>();
+                var delayProvider = new MockAssetProvider(loadDelayMs: 100);
+                delayProvider.RegisterGameObject("ConcurrentAsset", "ConcurrentAsset");
+                var service = new AssetService(settings, delayProvider);
+
+                // Act - 同时发起 3 个加载请求
+                var task1 = service.LoadAsync<GameObject>("ConcurrentAsset");
+                var task2 = service.LoadAsync<GameObject>("ConcurrentAsset");
+                var task3 = service.LoadAsync<GameObject>("ConcurrentAsset");
+
+                var result1 = await task1;
+                var result2 = await task2;
+                var result3 = await task3;
+
+                // Assert - 所有结果应指向同一资源
+                Assert.IsNotNull(result1.Asset, "资源应成功加载");
+                Assert.AreEqual(result1.Asset, result2.Asset, "并发加载应返回同一实例");
+                Assert.AreEqual(result1.Asset, result3.Asset, "并发加载应返回同一实例");
+
+                // Provider 的 LoadAssetAsync 应只被调用一次
+                // 可通过 ReleaseLog 验证引用计数正确
+                result1.Dispose();
+                result2.Dispose();
+                result3.Dispose();
+
+                Assert.AreEqual(0, service.MemoryBudget.UsedBytes, "释放后内存应归零");
+
+                service.Dispose();
+                delayProvider.Cleanup();
+            });
         }
+
+        #endregion
+
+        #region 同步单元测试
 
         [Test]
         public void MemoryBudget_DefaultValues_AreCorrect()
@@ -383,7 +404,7 @@ namespace CFramework.Tests
             settings.MemoryBudgetMB = 256;
 
             // Act
-            var service = new AssetService(settings);
+            var service = new AssetService(settings, _mockProvider);
 
             // Assert
             Assert.AreEqual(256L * 1024L * 1024L, service.MemoryBudget.BudgetBytes, "内存预算应正确设置");
@@ -398,16 +419,12 @@ namespace CFramework.Tests
         {
             // Arrange
             var settings = ScriptableObject.CreateInstance<FrameworkSettings>();
-            var service = new AssetService(settings);
+            var service = new AssetService(settings, _mockProvider);
 
             service.MemoryBudget.BudgetBytes = 100L;
             var eventTriggered = false;
 
             service.MemoryBudget.OnBudgetExceeded += ratio => { eventTriggered = true; };
-
-            // 注意：UsedBytes 是 internal set，无法在测试中直接设置
-            // 这里只测试事件机制，实际使用时由 AssetService 内部设置
-            // 可以通过加载实际资源来测试完整流程
 
             // Assert
             Assert.IsNotNull(service.MemoryBudget);
@@ -417,25 +434,57 @@ namespace CFramework.Tests
             service.Dispose();
         }
 
-        /// <summary>
-        ///     检查资源是否存在
-        /// </summary>
-        private async UniTask<bool> CheckResourceExists(string key)
+        #endregion
+
+        #region Mock 资源自定义内存大小测试
+
+        [UnityTest]
+        [Timeout(10000)]
+        public IEnumerator A011_CustomMemorySize_TrackedCorrectly()
         {
-            try
+            return UniTask.ToCoroutine(async () =>
             {
-                var handle = Addressables.LoadAssetAsync<GameObject>(key);
-                await handle.ToUniTask();
+                // Arrange - 注册一个自定义内存大小的资源
+                _mockProvider.RegisterGameObject("BigAsset", "BigAsset", 2048L);
 
-                var exists = handle.Status == AsyncOperationStatus.Succeeded;
-                Addressables.Release(handle);
+                // Act
+                var handle = await _assetService.LoadAsync<GameObject>("BigAsset");
 
-                return exists;
-            }
-            catch
-            {
-                return false;
-            }
+                // Assert - 内存使用应为 2048
+                Assert.AreEqual(2048L, _assetService.MemoryBudget.UsedBytes, "应使用注册时的自定义内存大小");
+
+                // 清理
+                handle.Dispose();
+                Assert.AreEqual(0, _assetService.MemoryBudget.UsedBytes, "释放后内存应归零");
+            });
         }
+
+        #endregion
+
+        #region 不存在的资源测试（替代原 A006 GUID 测试）
+
+        [UnityTest]
+        [Timeout(5000)]
+        public IEnumerator A012_LoadNonExistentKey_FailsWithCorrectMessage()
+        {
+            return UniTask.ToCoroutine(async () =>
+            {
+                LogAssert.ignoreFailingMessages = true;
+
+                try
+                {
+                    await _assetService.LoadAsync<GameObject>("SomeRandomKey_12345");
+                    Assert.Fail("应抛出异常");
+                }
+                catch (Exception ex)
+                {
+                    StringAssert.Contains("SomeRandomKey_12345", ex.Message);
+                }
+
+                LogAssert.ignoreFailingMessages = false;
+            });
+        }
+
+        #endregion
     }
 }

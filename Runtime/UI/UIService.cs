@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using System.Threading.Tasks;
 using CFramework.Utility;
 using Cysharp.Threading.Tasks;
 using R3;
@@ -18,7 +17,7 @@ namespace CFramework.Runtime.UI
     ///     <para>管理 UI 面板的加载、缓存、生命周期和导航栈</para>
     ///     <para>约定：Prefab 名称 = 类名（typeof(T).Name），自动推导 Addressable Key</para>
     /// </summary>
-    public sealed class UIService : IUIService, IInitializable, IDisposable
+    public sealed class UIService : IUIService, IStartable, IDisposable
     {
         private readonly IAssetService _assetService;
         private readonly LinkedList<string> _navigationStack = new();
@@ -42,7 +41,15 @@ namespace CFramework.Runtime.UI
             _maxStackCapacity = settings.MaxNavigationStack;
         }
 
-        public async void Initialize()
+        public void Start()
+        {
+            InitializeAsync().Forget();
+        }
+
+        /// <summary>
+        ///     异步初始化 UIRoot
+        /// </summary>
+        private async UniTaskVoid InitializeAsync()
         {
             try
             {

@@ -41,25 +41,25 @@ namespace CFramework
         {
             var type = typeof(T);
 
-            // 1. 触发Subject（响应式订阅）
             Subject<T> subject = null;
             bool hasSubject;
+            List<SyncHandler> handlers;
+
+            // 单次锁获取，防止与 Dispose 竞态
             lock (_lock)
             {
                 hasSubject = _subjects.TryGetValue(type, out var s);
                 if (hasSubject) subject = (Subject<T>)s;
+
+                if (!_syncHandlers.TryGetValue(type, out handlers)) handlers = null;
+                else handlers = new List<SyncHandler>(handlers);
             }
 
+            // 1. 触发Subject（响应式订阅）
             if (hasSubject) subject.OnNext(evt);
 
             // 2. 触发同步处理器（已在订阅时按优先级降序排列）
-            List<SyncHandler> handlers;
-            lock (_lock)
-            {
-                if (!_syncHandlers.TryGetValue(type, out handlers)) return;
-                // 复制列表以避免迭代时修改
-                handlers = new List<SyncHandler>(handlers);
-            }
+            if (handlers == null) return;
 
             foreach (var handler in handlers)
                 try

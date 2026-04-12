@@ -94,7 +94,18 @@ namespace CFramework
             ThrowIfDisposed();
 
             var compositeKey = (key.Name, typeof(T));
-            return _values.Remove(compositeKey);
+            var removed = _values.Remove(compositeKey);
+
+            if (removed)
+            {
+                // 触发响应式通知（发送 default 值表示已移除）
+                if (_subjects.TryGetValue(compositeKey, out var subject)) ((Subject<T>)subject).OnNext(default);
+
+                // 触发全局变化通知
+                _keyChangedSubject.OnNext(new BlackboardChange(key.Name, typeof(T)));
+            }
+
+            return removed;
         }
 
         /// <summary>
@@ -103,6 +114,13 @@ namespace CFramework
         public void Clear()
         {
             ThrowIfDisposed();
+
+            // 触发所有 Subject 的通知
+            foreach (var kvp in _subjects)
+            {
+                _keyChangedSubject.OnNext(new BlackboardChange(kvp.Key.name, kvp.Key.type));
+            }
+
             _values.Clear();
         }
 

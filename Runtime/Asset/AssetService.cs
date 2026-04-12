@@ -1,28 +1,27 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using CFramework.Profiling;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 using Object = UnityEngine.Object;
 
 namespace CFramework
 {
     /// <summary>
-    ///     资源服务实现（基于Addressables）
+    ///     资源服务实现（基于 IAssetProvider）
     /// </summary>
     public sealed class AssetService : IAssetService, IDisposable
     {
-        private readonly Dictionary<object, AsyncOperationHandle> _handles = new();
+        private readonly Dictionary<object, bool> _instanceFlags = new();
+        private readonly Dictionary<object, Object> _loadedAssets = new();
+        private readonly Dictionary<object, UniTaskCompletionSource<Object>> _loadingTasks = new();
         private readonly object _lock = new();
+        private readonly IAssetProvider _provider;
         private readonly Dictionary<object, int> _refCounts = new();
-        private readonly FrameworkSettings _settings;
 
-        public AssetService(FrameworkSettings settings)
+        public AssetService(FrameworkSettings settings, IAssetProvider provider = null)
         {
-            _settings = settings;
+            _provider = provider ?? new AddressableAssetProvider();
             MemoryBudget = new AssetMemoryBudget
             {
                 BudgetBytes = settings.MemoryBudgetMB * 1024L * 1024L
@@ -33,52 +32,80 @@ namespace CFramework
 
         public async UniTask<AssetHandle> LoadAsync<T>(object key, CancellationToken ct = default) where T : Object
         {
+            UniTaskCompletionSource<Object> loadingTcs = null;
+            bool isLoader;
+
             lock (_lock)
             {
-                if (_refCounts.TryGetValue(key, out _))
+                // 已加载完成：增加引用计数并返回
+                if (_refCounts.TryGetValue(key, out _) && !_loadingTasks.ContainsKey(key))
                 {
                     _refCounts[key]++;
-                    var existingHandle = _handles[key];
-                    return new AssetHandle(existingHandle.Result as T, this, key);
+                    return new AssetHandle(_loadedAssets[key], this, key);
+                }
+
+                // 正在加载中：等待已存在的加载任务完成
+                if (_loadingTasks.TryGetValue(key, out var existingTcs))
+                {
+                    loadingTcs = existingTcs;
+                    isLoader = false;
+                }
+                else
+                {
+                    // 首次加载：创建占位任务，当前请求即为发起者
+                    loadingTcs = new UniTaskCompletionSource<Object>();
+                    _loadingTasks[key] = loadingTcs;
+                    _refCounts[key] = 1;
+                    isLoader = true;
                 }
             }
 
-            var handle = Addressables.LoadAssetAsync<T>(key);
-            await handle.ToUniTask(cancellationToken: ct);
+            if (!isLoader)
+            {
+                // 等待发起者完成加载
+                var loadedAsset = await loadingTcs.Task;
+                lock (_lock)
+                {
+                    _refCounts.TryGetValue(key, out var count);
+                    _refCounts[key] = count + 1;
+                }
+                return new AssetHandle(loadedAsset as T, this, key);
+            }
 
-            if (handle.Status != AsyncOperationStatus.Succeeded) throw new Exception($"Failed to load asset: {key}");
+            // 当前请求是加载发起者，执行实际加载
+            var asset = await _provider.LoadAssetAsync<T>(key, ct);
 
             lock (_lock)
             {
-                _handles[key] = handle;
-                _refCounts[key] = 1;
+                _loadedAssets[key] = asset;
+                _loadingTasks.Remove(key);
 
                 // 更新内存使用
-                MemoryBudget.UsedBytes += Profiler.GetAllocatedMemoryForHandle(handle);
+                MemoryBudget.UsedBytes += _provider.GetAssetMemorySize(key);
                 MemoryBudget.CheckBudget();
             }
 
-            return new AssetHandle(handle.Result, this, key);
+            // 通知所有等待者
+            loadingTcs.TrySetResult(asset);
+
+            return new AssetHandle(asset, this, key);
         }
 
         public async UniTask<GameObject> InstantiateAsync(object key, Transform parent = null,
             CancellationToken ct = default)
         {
-            var handle = Addressables.InstantiateAsync(key, parent);
-            await handle.ToUniTask(cancellationToken: ct);
-
-            if (handle.Status != AsyncOperationStatus.Succeeded) throw new Exception($"Failed to instantiate: {key}");
+            var instance = await _provider.InstantiateAsync(key, parent, ct);
 
             // 使用独立前缀避免与 LoadAsync 的 key 冲突
             var instKey = "$inst_" + key;
             lock (_lock)
             {
-                _handles[instKey] = handle;
+                _instanceFlags[instKey] = true;
                 _refCounts.TryGetValue(instKey, out var count);
                 _refCounts[instKey] = count + 1;
             }
 
-            return handle.Result;
+            return instance;
         }
 
         public IDisposable LinkToScope(object key, object scope)
@@ -116,12 +143,14 @@ namespace CFramework
                 if (count <= 0)
                 {
                     // 引用计数归零，释放资源
-                    if (_handles.TryGetValue(key, out var handle))
+                    var isInstance = _instanceFlags.ContainsKey(key);
+
+                    if (_loadedAssets.ContainsKey(key) || isInstance)
                     {
-                        // 更新内存使用
-                        MemoryBudget.UsedBytes -= Profiler.GetAllocatedMemoryForHandle(handle);
-                        Addressables.Release(handle);
-                        _handles.Remove(key);
+                        MemoryBudget.UsedBytes -= _provider.GetAssetMemorySize(key);
+                        _provider.ReleaseHandle(key, isInstance);
+                        _loadedAssets.Remove(key);
+                        _instanceFlags.Remove(key);
                     }
 
                     _refCounts.Remove(key);
@@ -137,8 +166,14 @@ namespace CFramework
         {
             lock (_lock)
             {
-                foreach (var handle in _handles.Values) Addressables.Release(handle);
-                _handles.Clear();
+                foreach (var kvp in _loadedAssets)
+                    _provider.ReleaseHandle(kvp.Key, false);
+
+                foreach (var kvp in _instanceFlags)
+                    _provider.ReleaseHandle(kvp.Key, true);
+
+                _loadedAssets.Clear();
+                _instanceFlags.Clear();
                 _refCounts.Clear();
                 MemoryBudget.UsedBytes = 0;
             }
@@ -266,19 +301,6 @@ namespace CFramework
                 _key = key;
                 _service = service;
             }
-        }
-    }
-}
-
-// 内部使用的Profiler辅助类
-namespace CFramework.Profiling
-{
-    internal static class Profiler
-    {
-        public static long GetAllocatedMemoryForHandle(AsyncOperationHandle handle)
-        {
-            // 简化实现，实际项目中可以使用更精确的内存统计
-            return handle.IsValid() && handle.Result is Object ? 1024L : 0L;
         }
     }
 }

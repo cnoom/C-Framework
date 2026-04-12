@@ -115,10 +115,12 @@ namespace CFramework
         /// </summary>
         public static GameScope Create(FrameworkSettings settings = null)
         {
+            settings ??= FrameworkSettings.LoadDefault();
             var go = new GameObject("[GameScope]");
+            go.SetActive(false);
             var scope = go.AddComponent<GameScope>();
             scope._settings = settings;
-            scope._settings ??= FrameworkSettings.LoadDefault();
+            go.SetActive(true);
             return scope;
         }
 

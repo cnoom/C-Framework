@@ -79,8 +79,8 @@ namespace CFramework
         {
             if (!_states.TryGetValue(key, out var newState)) return false;
 
-            // 如果已经是当前状态，不切换
-            if (_currentState == newState) return false;
+            // 如果已经是当前状态（按键比较），不切换
+            if (_currentState != null && EqualityComparer<TKey>.Default.Equals(_currentState.Key, key)) return false;
 
             // 不允许在切换过程中再次切换
             if (IsTransitioning) return false;

@@ -100,10 +100,13 @@ namespace CFramework
 
         private async UniTask UnloadAllAdditiveScenesAsync(CancellationToken ct)
         {
+            // 确保 CurrentScene 已初始化，避免误删所有场景
+            var currentScene = CurrentScene ?? SceneManager.GetActiveScene().name;
+
             for (var i = SceneManager.sceneCount - 1; i >= 0; i--)
             {
                 var scene = SceneManager.GetSceneAt(i);
-                if (scene.isLoaded && scene.name != CurrentScene) await UnloadAdditiveAsync(scene.name, ct);
+                if (scene.isLoaded && scene.name != currentScene) await UnloadAdditiveAsync(scene.name, ct);
             }
         }
     }

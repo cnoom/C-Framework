@@ -44,16 +44,26 @@ namespace CFramework
     internal sealed class DisposeOnDestroy : MonoBehaviour
     {
         private readonly List<AssetHandle> _handles = new();
+        private readonly object _lock = new();
+        private bool _destroyed;
 
         private void OnDestroy()
         {
-            foreach (var handle in _handles) handle.Dispose();
-            _handles.Clear();
+            lock (_lock)
+            {
+                _destroyed = true;
+                foreach (var handle in _handles) handle.Dispose();
+                _handles.Clear();
+            }
         }
 
         public void Add(AssetHandle handle)
         {
-            _handles.Add(handle);
+            lock (_lock)
+            {
+                if (_destroyed) return;
+                _handles.Add(handle);
+            }
         }
     }
 }

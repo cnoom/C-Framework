@@ -32,7 +32,7 @@ namespace CFramework
 
         public override bool Equals(object obj)
         {
-            return obj is BlackboardKey<T> other && other.Name == Name;
+            return obj is BlackboardKey<T> other && other.Name == Name && other.GetType() == GetType();
         }
 
         public static bool operator ==(BlackboardKey<T> left, BlackboardKey<T> right)
