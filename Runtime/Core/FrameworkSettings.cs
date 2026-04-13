@@ -20,14 +20,19 @@ namespace CFramework
         [Tooltip("UIRoot Prefab 的 Addressable Key")]
         public string UIRootAddress = "UIRoot";
 
-        [Header("Audio")] [Tooltip("默认BGM音量")] [Range(0f, 1f)]
-        public float DefaultBGMVolume = 0.8f;
+        [Header("Audio — 数据驱动配置")]
+        [Tooltip("AudioMixer 资源地址（Addressable Key）")]
+        public string AudioMixerAddress = "MasterMixer";
 
-        [Tooltip("默认SFX音量")] [Range(0f, 1f)] public float DefaultSFXVolume = 1f;
+        [Tooltip("各分组预分配 Slot 数量（枚举名:数量，逗号分隔）\n如 Master_BGM:2,Master_SFX:5,Master_SFX_Combat:3")]
+        [TextArea(2, 4)]
+        public string GroupSlotConfig = "Master_BGM:2,Master_SFX:5,Master_Voice:1,Master_Ambient:1";
 
-        [Tooltip("默认语音音量")] [Range(0f, 1f)] public float DefaultVoiceVolume = 1f;
+        [Tooltip("分组 Slot 自动扩容上限")]
+        public int MaxSlotsPerGroup = 20;
 
-        [Tooltip("默认环境音量")] [Range(0f, 1f)] public float DefaultAmbientVolume = 0.5f;
+        [Tooltip("音量持久化存储键前缀")]
+        public string VolumePrefsPrefix = "Audio_Volume_";
 
         [Header("Save")] [Tooltip("自动保存间隔(秒)")]
         public int AutoSaveInterval = 60;

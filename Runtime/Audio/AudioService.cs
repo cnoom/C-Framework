@@ -1,386 +1,285 @@
-using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using VContainer.Unity;
-using Object = UnityEngine.Object;
 
 namespace CFramework
 {
     /// <summary>
-    ///     音频服务实现
+    ///     音频服务实现 —— 数据驱动，基于 AudioMixer 动态解析
+    ///     <para>核心职责：协调 AudioMixerTree / AudioVolumeController / AudioPlaybackController / AudioSnapshotController</para>
     /// </summary>
-    public sealed class AudioService : IAudioService, IDisposable, IStartable
+    public sealed class AudioService : IAudioService, IStartable
     {
         private readonly IAssetService _assetService;
-        private readonly string[] _bgmKeys = new string[2];
-
-        // 双音轨
-        private readonly AudioSource[] _bgmTracks = new AudioSource[2];
-
-        // 音量状态
-        private readonly bool[] _groupMuted = new bool[4];
-        private readonly float[] _groupVolumes = { 0.8f, 1f, 1f, 0.5f };
         private readonly FrameworkSettings _settings;
-        private readonly Queue<AudioSource> _sfxPool = new();
 
-        // SFX对象池
-        private readonly GameObject _sfxRoot;
+        private AudioMixerTree _tree;
+        private AudioVolumeController _volumeCtrl;
+        private AudioPlaybackController _playbackCtrl;
+        private AudioSnapshotController _snapshotCtrl;
 
-        // Ambient
-        private AudioSource _ambientSource;
+        private AudioMixer _mixer;
+        private bool _initialized;
 
-        private CancellationTokenSource _cts;
-
-        // Voice
-        private AudioSource _voiceSource;
+        // 全局暂停状态
+        private List<(AudioGroup group, int slotIndex)> _pausedSlots = new();
 
         public AudioService(IAssetService assetService, FrameworkSettings settings)
         {
             _assetService = assetService;
             _settings = settings;
-
-            _groupVolumes[(int)AudioGroup.BGM] = settings.DefaultBGMVolume;
-            _groupVolumes[(int)AudioGroup.SFX] = settings.DefaultSFXVolume;
-            _groupVolumes[(int)AudioGroup.Voice] = settings.DefaultVoiceVolume;
-            _groupVolumes[(int)AudioGroup.Ambient] = settings.DefaultAmbientVolume;
-
-            // 创建音频根节点
-            _sfxRoot = new GameObject("[SFX]");
-            Object.DontDestroyOnLoad(_sfxRoot);
         }
 
-        public int ActiveTrack { get; private set; }
-
-        public float BGMVolume
-        {
-            get => _groupVolumes[(int)AudioGroup.BGM];
-            set
-            {
-                _groupVolumes[(int)AudioGroup.BGM] = value;
-                UpdateBGMVolume();
-            }
-        }
-
-        public float SFXVolume
-        {
-            get => _groupVolumes[(int)AudioGroup.SFX];
-            set => _groupVolumes[(int)AudioGroup.SFX] = value;
-        }
-
-        public float VoiceVolume
-        {
-            get => _groupVolumes[(int)AudioGroup.Voice];
-            set
-            {
-                _groupVolumes[(int)AudioGroup.Voice] = value;
-                if (_voiceSource != null) _voiceSource.volume = value;
-            }
-        }
-
-        public float AmbientVolume
-        {
-            get => _groupVolumes[(int)AudioGroup.Ambient];
-            set
-            {
-                _groupVolumes[(int)AudioGroup.Ambient] = value;
-                if (_ambientSource != null) _ambientSource.volume = value;
-            }
-        }
-
-        public void Dispose()
-        {
-            _cts?.Cancel();
-            foreach (var track in _bgmTracks)
-                if (track != null)
-                {
-                    track.Stop();
-                    Object.Destroy(track.gameObject);
-                }
-
-            if (_voiceSource != null) Object.Destroy(_voiceSource.gameObject);
-            if (_ambientSource != null) Object.Destroy(_ambientSource.gameObject);
-            if (_sfxRoot != null) Object.Destroy(_sfxRoot);
-        }
+        #region IStartable
 
         public void Start()
         {
-            _cts = new CancellationTokenSource();
-            // 创建BGM音轨
-            for (var i = 0; i < 2; i++)
-            {
-                var go = new GameObject($"[BGM Track {i}]");
-                Object.DontDestroyOnLoad(go);
-                _bgmTracks[i] = go.AddComponent<AudioSource>();
-                _bgmTracks[i].loop = true;
-                _bgmTracks[i].playOnAwake = false;
-            }
-
-            // 创建Voice源
-            var voiceGo = new GameObject("[Voice]");
-            Object.DontDestroyOnLoad(voiceGo);
-            _voiceSource = voiceGo.AddComponent<AudioSource>();
-            _voiceSource.playOnAwake = false;
-
-            // 创建Ambient源
-            var ambientGo = new GameObject("[Ambient]");
-            Object.DontDestroyOnLoad(ambientGo);
-            _ambientSource = ambientGo.AddComponent<AudioSource>();
-            _ambientSource.loop = true;
-            _ambientSource.playOnAwake = false;
-        }
-
-
-        #region BGM
-
-        public async UniTask PlayBGMAsync(string key, int track = 0, float fadeIn = 1f,
-            CancellationToken ct = default)
-        {
-            if (track < 0 || track > 1) track = 0;
-
-            var handle = await _assetService.LoadAsync<AudioClip>(key, ct);
-            var clip = handle.As<AudioClip>();
-
-            if (clip == null)
-            {
-                Debug.LogWarning($"[AudioService] Failed to load BGM: {key}");
-                return;
-            }
-
-            _bgmKeys[track] = key;
-            _bgmTracks[track].clip = clip;
-            _bgmTracks[track].volume = 0f;
-            _bgmTracks[track].Play();
-
-            // 淡入
-            if (fadeIn > 0)
-                await FadeVolumeAsync(_bgmTracks[track], BGMVolume, fadeIn, ct);
-            else
-                _bgmTracks[track].volume = BGMVolume;
-
-            ActiveTrack = track;
-        }
-
-        public void StopBGM(int track, float fadeOut = 1f)
-        {
-            if (track < 0 || track > 1) return;
-
-            var source = _bgmTracks[track];
-
-            if (fadeOut > 0 && source.isPlaying)
-            {
-                FadeVolumeAsync(source, 0f, fadeOut, _cts.Token)
-                    .ContinueWith(() =>
-                    {
-                        source.Stop();
-                        _bgmKeys[track] = null;
-                    })
-                    .Forget();
-            }
-            else
-            {
-                source.Stop();
-                _bgmKeys[track] = null;
-            }
-        }
-
-        public async UniTask CrossFadeAsync(string newBGM, float duration = 1f,
-            CancellationToken ct = default)
-        {
-            var nextTrack = 1 - ActiveTrack;
-
-            // 并行执行：新BGM淡入，旧BGM淡出
-            await UniTask.WhenAll(
-                PlayBGMAsync(newBGM, nextTrack, duration, ct),
-                StopBGMAsync(ActiveTrack, duration, ct)
-            );
-
-            ActiveTrack = nextTrack;
-        }
-
-        private async UniTask StopBGMAsync(int track, float fadeOut, CancellationToken ct)
-        {
-            if (track < 0 || track > 1) return;
-
-            var source = _bgmTracks[track];
-            await FadeVolumeAsync(source, 0f, fadeOut, ct);
-            source.Stop();
-            _bgmKeys[track] = null;
+            // IStartable 由 VContainer 自动调用
+            // 初始化延迟到 InitializeAsync 被显式调用
         }
 
         #endregion
 
-        #region 通道控制
+        #region 初始化
 
-        public void MuteGroup(AudioGroup group, bool mute)
+        public async UniTask InitializeAsync(AudioMixer mixer)
         {
-            _groupMuted[(int)group] = mute;
-
-            switch (group)
+            if (_initialized)
             {
-                case AudioGroup.BGM:
-                    UpdateBGMVolume();
-                    break;
-                case AudioGroup.Voice:
-                    if (_voiceSource != null) _voiceSource.mute = mute;
-                    break;
-                case AudioGroup.Ambient:
-                    if (_ambientSource != null) _ambientSource.mute = mute;
-                    break;
+                Debug.LogWarning("[Audio] Already initialized, disposing old resources first.");
+                DisposeInternal();
             }
+
+            _mixer = mixer;
+
+            // 1. 解析 Mixer → 生成 GameObject + Slot
+            _tree = new AudioMixerTree();
+            var slotConfig = ParseSlotConfig(_settings.GroupSlotConfig);
+            _tree.Build(mixer, slotConfig: slotConfig, maxSlotsPerGroup: _settings.MaxSlotsPerGroup);
+
+            // 2. 音量控制器
+            _volumeCtrl = new AudioVolumeController(mixer, _tree, _settings.VolumePrefsPrefix);
+
+            // 3. 验证 Exposed Parameters
+            _volumeCtrl.ValidateExposedParameters(_tree.GetAllGroups());
+
+            // 4. 加载持久化音量
+            _volumeCtrl.LoadPersistentVolumes(_tree.GetAllGroups());
+
+            // 5. 播放控制器
+            _playbackCtrl = new AudioPlaybackController(_tree, _assetService);
+
+            // 6. 快照控制器
+            _snapshotCtrl = new AudioSnapshotController(mixer);
+
+            _initialized = true;
+            Debug.Log($"[Audio] Initialized. Groups: {_tree.GetAllGroups().Count}, " +
+                      $"Snapshots: {_snapshotCtrl.SnapshotNames.Count}");
         }
+
+        #endregion
+
+        #region 音量控制
 
         public void SetGroupVolume(AudioGroup group, float volume)
         {
-            _groupVolumes[(int)group] = Mathf.Clamp01(volume);
-
-            switch (group)
-            {
-                case AudioGroup.BGM:
-                    UpdateBGMVolume();
-                    break;
-                case AudioGroup.Voice:
-                    if (_voiceSource != null) _voiceSource.volume = _groupVolumes[(int)group];
-                    break;
-                case AudioGroup.Ambient:
-                    if (_ambientSource != null) _ambientSource.volume = _groupVolumes[(int)group];
-                    break;
-            }
+            ThrowIfNotInitialized();
+            _volumeCtrl.SetVolume(group, volume);
         }
 
-        private void UpdateBGMVolume()
+        public float GetGroupVolume(AudioGroup group)
         {
-            foreach (var track in _bgmTracks)
-                if (track != null)
-                    track.volume = _groupMuted[(int)AudioGroup.BGM] ? 0f : BGMVolume;
+            ThrowIfNotInitialized();
+            return _volumeCtrl.GetVolume(group);
+        }
+
+        public void MuteGroup(AudioGroup group, bool mute)
+        {
+            ThrowIfNotInitialized();
+            _volumeCtrl.Mute(group, mute);
+        }
+
+        public bool IsGroupMuted(AudioGroup group)
+        {
+            ThrowIfNotInitialized();
+            return _volumeCtrl.IsMuted(group);
         }
 
         #endregion
 
-        #region SFX / Voice / Ambient
+        #region 快照系统
 
-        public void PlaySFX(string key, float volume = 1f, float pitch = 1f)
+        public UniTask TransitionToSnapshotAsync(string snapshotName, float duration = 1f)
         {
-            PlaySFXInternal(key, Vector3.zero, volume, pitch, false);
+            ThrowIfNotInitialized();
+            return _snapshotCtrl.TransitionToAsync(snapshotName, duration);
         }
 
-        public void PlaySFXAt(string key, Vector3 position, float volume = 1f)
+        public string CurrentSnapshot
         {
-            PlaySFXInternal(key, position, volume, 1f, true);
-        }
-
-        private async void PlaySFXInternal(string key, Vector3 position, float volume, float pitch, bool spatial)
-        {
-            try
+            get
             {
-                var handle = await _assetService.LoadAsync<AudioClip>(key);
-                var clip = handle.As<AudioClip>();
-
-                if (clip == null) return;
-
-                var source = GetOrCreateSFXSource();
-                source.transform.position = position;
-                source.spatialBlend = spatial ? 1f : 0f;
-                source.volume = volume * SFXVolume;
-                source.pitch = pitch;
-                source.PlayOneShot(clip);
-
-                // 延迟回收（pitch 越大播放越快，时长越短）
-                var delayMs = (int)(clip.length / pitch * 1000) + 100;
-                UniTask.Delay(delayMs)
-                    .ContinueWith(() => ReturnSFXSource(source))
-                    .Forget();
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[AudioService] Failed to play SFX: {key}, Error: {ex.Message}");
+                ThrowIfNotInitialized();
+                return _snapshotCtrl.CurrentSnapshot;
             }
         }
 
-        public async UniTask PlayVoiceAsync(string key, CancellationToken ct = default)
+        public IReadOnlyList<string> GetSnapshotNames()
         {
-            var handle = await _assetService.LoadAsync<AudioClip>(key, ct);
-            var clip = handle.As<AudioClip>();
-
-            if (clip == null) return;
-
-            _voiceSource.clip = clip;
-            _voiceSource.volume = VoiceVolume;
-            _voiceSource.Play();
-
-            await UniTask.WaitWhile(() => _voiceSource.isPlaying, cancellationToken: ct);
+            ThrowIfNotInitialized();
+            return _snapshotCtrl.SnapshotNames;
         }
 
-        public async void PlayAmbient(string key, float fadeIn = 1f)
+        #endregion
+
+        #region 播放控制
+
+        public UniTask<AudioSourceSlot> PlayAsync(AudioGroup group, string clipKey,
+            AudioPlayOptions options = default, CancellationToken ct = default)
         {
-            try
-            {
-                var handle = await _assetService.LoadAsync<AudioClip>(key);
-                var clip = handle.As<AudioClip>();
-
-                if (clip == null) return;
-
-                _ambientSource.clip = clip;
-                _ambientSource.volume = 0f;
-                _ambientSource.Play();
-
-                if (fadeIn > 0)
-                    await FadeVolumeAsync(_ambientSource, AmbientVolume, fadeIn);
-                else
-                    _ambientSource.volume = AmbientVolume;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[AudioService] Failed to play Ambient: {key}, Error: {ex.Message}");
-            }
+            ThrowIfNotInitialized();
+            return _playbackCtrl.PlayAsync(group, clipKey, options, ct);
         }
 
-        public void StopAmbient(float fadeOut = 1f)
+        public void Stop(AudioGroup group, int slotIndex = -1, float fadeOut = 0f)
         {
-            if (fadeOut > 0)
-                FadeVolumeAsync(_ambientSource, 0f, fadeOut)
-                    .ContinueWith(() => _ambientSource.Stop())
-                    .Forget();
+            ThrowIfNotInitialized();
+            if (slotIndex < 0)
+                _playbackCtrl.StopLast(group, fadeOut);
             else
-                _ambientSource.Stop();
+                _playbackCtrl.Stop(group, slotIndex, fadeOut);
         }
 
-        #endregion
-
-        #region 工具方法
-
-        private AudioSource GetOrCreateSFXSource()
+        public void StopAll(AudioGroup group, float fadeOut = 0f)
         {
-            if (_sfxPool.Count > 0) return _sfxPool.Dequeue();
-
-            var go = new GameObject("[SFX]");
-            go.transform.SetParent(_sfxRoot.transform);
-            return go.AddComponent<AudioSource>();
+            ThrowIfNotInitialized();
+            _playbackCtrl.StopAll(group, fadeOut);
         }
 
-        private void ReturnSFXSource(AudioSource source)
-        {
-            source.Stop();
-            source.clip = null;
-            _sfxPool.Enqueue(source);
-        }
-
-        private async UniTask FadeVolumeAsync(AudioSource source, float targetVolume, float duration,
+        public UniTask CrossFadeAsync(AudioGroup group, string newClipKey,
+            float duration = 1f, AudioPlayOptions options = default,
             CancellationToken ct = default)
         {
-            var startVolume = source.volume;
-            var elapsed = 0f;
+            ThrowIfNotInitialized();
+            return _playbackCtrl.CrossFadeAsync(group, newClipKey, duration, options, ct);
+        }
 
-            while (elapsed < duration)
+        #endregion
+
+        #region 暂停/恢复
+
+        public void PauseAll()
+        {
+            ThrowIfNotInitialized();
+            _pausedSlots = _playbackCtrl.PauseAll();
+        }
+
+        public void ResumeAll()
+        {
+            ThrowIfNotInitialized();
+            _playbackCtrl.ResumeSlots(_pausedSlots);
+            _pausedSlots.Clear();
+        }
+
+        #endregion
+
+        #region 查询
+
+        public IReadOnlyList<AudioGroup> GetAllGroups()
+        {
+            ThrowIfNotInitialized();
+            return _tree.GetAllGroups();
+        }
+
+        public bool HasGroup(AudioGroup group)
+        {
+            ThrowIfNotInitialized();
+            return _tree.HasGroup(group);
+        }
+
+        public AudioGroupInfo GetGroupInfo(AudioGroup group)
+        {
+            ThrowIfNotInitialized();
+            var node = _tree.GetNode(group);
+            if (node == null)
+                return default;
+
+            return new AudioGroupInfo
             {
-                elapsed += Time.deltaTime;
-                var t = elapsed / duration;
-                source.volume = Mathf.Lerp(startVolume, targetVolume, t);
-                await UniTask.Yield(ct);
+                Group = group,
+                Path = node.Path,
+                TotalSlots = node.TotalSlotCount,
+                ActiveSlots = node.ActiveSlotCount,
+                Volume = _volumeCtrl.GetVolume(group),
+                IsMuted = _volumeCtrl.IsMuted(group)
+            };
+        }
+
+        #endregion
+
+        #region 持久化
+
+        public void SaveVolumes()
+        {
+            ThrowIfNotInitialized();
+            _volumeCtrl.SavePersistentVolumes();
+        }
+
+        #endregion
+
+        #region IDisposable
+
+        public void Dispose()
+        {
+            // 保存音量设置
+            if (_initialized && _volumeCtrl != null)
+                _volumeCtrl.SavePersistentVolumes();
+
+            DisposeInternal();
+        }
+
+        private void DisposeInternal()
+        {
+            _tree?.Dispose();
+            _tree = null;
+            _volumeCtrl = null;
+            _playbackCtrl = null;
+            _snapshotCtrl = null;
+            _mixer = null;
+            _pausedSlots.Clear();
+            _initialized = false;
+        }
+
+        #endregion
+
+        #region 内部工具
+
+        private void ThrowIfNotInitialized()
+        {
+            if (!_initialized)
+                throw new System.InvalidOperationException(
+                    "[Audio] AudioService has not been initialized. Call InitializeAsync() first.");
+        }
+
+        /// <summary>
+        ///     解析 Slot 配置字符串
+        ///     <para>格式："Master_BGM:2,Master_SFX:5,Master_SFX_Combat:3"</para>
+        /// </summary>
+        private static Dictionary<string, int> ParseSlotConfig(string config)
+        {
+            var result = new Dictionary<string, int>();
+            if (string.IsNullOrEmpty(config)) return result;
+
+            foreach (var entry in config.Split(','))
+            {
+                var parts = entry.Trim().Split(':');
+                if (parts.Length == 2 && int.TryParse(parts[1], out var count))
+                    result[parts[0].Trim()] = count;
             }
 
-            source.volume = targetVolume;
+            return result;
         }
 
         #endregion
