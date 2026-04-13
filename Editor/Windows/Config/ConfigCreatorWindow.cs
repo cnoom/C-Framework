@@ -1,3 +1,4 @@
+#if ODIN_INSPECTOR
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -518,3 +519,4 @@ namespace CFramework.Editor.Windows.Config
         #endregion
     }
 }
+#endif

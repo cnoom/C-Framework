@@ -1,8 +1,10 @@
 #if UNITY_EDITOR
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Audio;
 
 namespace CFramework.Editor
 {
@@ -100,8 +102,8 @@ namespace CFramework.Editor
             // 递归收集所有 Group
             var rootGroups = mixer.FindMatchingGroups("Master");
             var first = true;
-            foreach (var root in rootGroups)
-                BuildEnumEntries(sb, root, "Master", ref first);
+            if (rootGroups.Length > 0)
+                BuildEnumEntries(sb, mixer, "Master", ref first);
 
             sb.AppendLine();
             sb.AppendLine("    }");
@@ -118,7 +120,11 @@ namespace CFramework.Editor
                 $"枚举文件已生成:\n{OutputPath}", "OK");
         }
 
-        private static void BuildEnumEntries(StringBuilder sb, AudioMixerGroup group,
+        /// <summary>
+        ///     递归生成枚举条目
+        ///     <para>使用 FindMatchingGroups 发现子分组（AudioMixerGroup.children 在运行时不可用）</para>
+        /// </summary>
+        private static void BuildEnumEntries(StringBuilder sb, AudioMixer mixer,
             string path, ref bool first)
         {
             // 枚举成员名 = 路径中 / 替换为 _
@@ -132,11 +138,21 @@ namespace CFramework.Editor
             sb.Append($"        [Description(\"{path}\")]");
             sb.Append($"\n        {enumName} = {hash}");
 
-            // 递归子分组
-            foreach (var child in group.children)
+            // 通过 FindMatchingGroups 发现直接子分组
+            var allUnder = mixer.FindMatchingGroups(path);
+            var discovered = new HashSet<string>();
+            for (int i = 1; i < allUnder.Length; i++)
             {
-                var childPath = $"{path}/{child.name}";
-                BuildEnumEntries(sb, child, childPath, ref first);
+                var childName = allUnder[i].name;
+                if (discovered.Contains(childName)) continue;
+
+                var childPath = $"{path}/{childName}";
+                var childGroups = mixer.FindMatchingGroups(childPath);
+                if (childGroups.Length > 0)
+                {
+                    discovered.Add(childName);
+                    BuildEnumEntries(sb, mixer, childPath, ref first);
+                }
             }
         }
     }

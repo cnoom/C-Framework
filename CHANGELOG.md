@@ -2,6 +2,27 @@
 
 框架所有重要变更均记录于此。
 
+## [1.5.0] - 2026-04-13
+
+### 变更
+
+- **Odin Inspector 改为可选依赖**：框架不再强制依赖 Odin Inspector
+  - 移除 asmdef 中对 Odin DLL 的硬引用，改为 `versionDefines` 自动检测
+  - 添加 Odin 特性桩（Stubs），确保代码在无 Odin 环境下可编译
+  - `OdinDetector` 自动检测 Odin 是否安装并管理 `ODIN_INSPECTOR` 定义符号
+
+### 新增
+
+- **默认配置表可视化编辑器**：无 Odin 时提供内置编辑器窗口
+  - `ConfigEditorWindow`：双栏布局，左侧配置表列表 + 搜索，右侧使用 ReorderableList 编辑数据
+  - `ConfigCreatorWindow`：标准 EditorGUI 表单界面，支持配置表创建和代码生成
+  - `ConfigTableEditor`：自定义 Inspector，显示配置表信息和数据列表
+  - `AddressableConfigPreviewWindow`：预览窗口的默认实现
+
+### 修复
+
+- ConfigTable 的 `dataList` 字段在无 Odin 环境下使用 `[SerializeField]` 确保序列化
+
 ## [1.4.2] - 2026-03-31
 
 ### 修复

@@ -11,14 +11,13 @@ namespace CFramework
     public abstract class ConfigTable<TKey, TValue> : ConfigTableBase where TValue : class, IConfigItem<TKey>
     {
         /// <summary>
-        ///     配置数据列表（Odin 序列化支持）
+        ///     配置数据列表
         /// </summary>
+#if ODIN_INSPECTOR
         [OdinSerialize]
-        // [ListDrawerSettings(
-        //     ListElementLabelName = "Key",
-        //     ShowItemCount = true,
-        //     DraggableItems = true
-        // )]
+#else
+        [SerializeField]
+#endif
         [TableList]
         [ShowInInspector]
         [PropertyOrder(1)]

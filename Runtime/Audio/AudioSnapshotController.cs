@@ -15,16 +15,24 @@ namespace CFramework
         private readonly Dictionary<string, AudioMixerSnapshot> _snapshots = new();
         private string _currentSnapshot;
 
-        public AudioSnapshotController(AudioMixer mixer)
+        /// <summary>
+        ///     构造函数
+        /// </summary>
+        /// <param name="mixer">目标 AudioMixer</param>
+        /// <param name="snapshots">快照数组（从外部传入，运行时 AudioMixer 不暴露 snapshots 属性）</param>
+        public AudioSnapshotController(AudioMixer mixer, AudioMixerSnapshot[] snapshots)
         {
             _mixer = mixer;
-            // 自动解析 Mixer 中所有 Snapshot
-            foreach (var snapshot in mixer.snapshots)
-                _snapshots[snapshot.name] = snapshot;
+            // 从传入的快照数组构建缓存
+            if (snapshots != null)
+            {
+                foreach (var snapshot in snapshots)
+                    _snapshots[snapshot.name] = snapshot;
+            }
 
             // 设置初始快照
-            if (_snapshots.Count > 0)
-                _currentSnapshot = mixer.snapshots[0].name;
+            if (_snapshots.Count > 0 && snapshots != null)
+                _currentSnapshot = snapshots[0].name;
         }
 
         /// <summary>

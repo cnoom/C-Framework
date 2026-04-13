@@ -31,8 +31,8 @@ namespace CFramework.EditorTests
             Assert.Greater(_settings.MemoryBudgetMB, 0, "内存预算应大于0");
             Assert.Greater(_settings.MaxLoadPerFrame, 0, "每帧最大加载数应大于0");
             Assert.Greater(_settings.MaxNavigationStack, 0, "最大导航栈深度应大于0");
-            Assert.GreaterOrEqual(_settings.DefaultBGMVolume, 0f, "BGM 音量应大于等于0");
-            Assert.LessOrEqual(_settings.DefaultBGMVolume, 1f, "BGM 音量应小于等于1");
+            Assert.Greater(_settings.MaxSlotsPerGroup, 0, "每组最大 Slot 数应大于0");
+            Assert.IsFalse(string.IsNullOrEmpty(_settings.VolumePrefsPrefix), "音量存储前缀不应为空");
         }
 
         [Test]
@@ -58,12 +58,12 @@ namespace CFramework.EditorTests
             // Act
             _settings.MemoryBudgetMB = 1024;
             _settings.MaxLoadPerFrame = 10;
-            _settings.DefaultBGMVolume = 0.8f;
+            _settings.MaxSlotsPerGroup = 30;
 
             // Assert
             Assert.AreEqual(1024, _settings.MemoryBudgetMB);
             Assert.AreEqual(10, _settings.MaxLoadPerFrame);
-            Assert.AreEqual(0.8f, _settings.DefaultBGMVolume);
+            Assert.AreEqual(30, _settings.MaxSlotsPerGroup);
         }
     }
 }

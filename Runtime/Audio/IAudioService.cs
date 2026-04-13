@@ -21,7 +21,7 @@ namespace CFramework
         ///     <para>解析 Snapshot 列表 → 构建快照缓存</para>
         ///     <para>解析 Exposed Parameters → 构建音量控制映射</para>
         /// </summary>
-        UniTask InitializeAsync(AudioMixer mixer);
+        UniTask InitializeAsync(AudioMixer mixer, AudioMixerSnapshot[] snapshots = null);
 
         #endregion
 

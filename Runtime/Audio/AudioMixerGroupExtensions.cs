@@ -6,7 +6,7 @@ namespace CFramework
 {
     /// <summary>
     ///     AudioMixerGroup 路径扩展方法
-    ///     <para>Unity 的 AudioMixerGroup 没有公开的路径属性，需要自行获取</para>
+    ///     <para>Unity 运行时 AudioMixerGroup 不暴露 children 属性，使用 FindMatchingGroups 替代</para>
     /// </summary>
     public static class AudioMixerGroupExtensions
     {
@@ -20,7 +20,7 @@ namespace CFramework
             var mixer = group.audioMixer;
             if (mixer == null) return group.name;
 
-            return BuildPath(mixer, group);
+            return FindGroupPath(mixer, group);
         }
 
         /// <summary>
@@ -31,44 +31,71 @@ namespace CFramework
             var result = new List<string>();
             if (mixer == null) return result;
 
-            foreach (var root in mixer.FindMatchingGroups("Master"))
-                CollectPathsRecursive(root, "Master", result);
-
+            CollectPathsBFS(mixer, "Master", result);
             return result;
         }
 
-        private static string BuildPath(AudioMixer mixer, AudioMixerGroup target)
+        /// <summary>
+        ///     通过广度优先搜索查找指定分组的完整路径
+        /// </summary>
+        private static string FindGroupPath(AudioMixer mixer, AudioMixerGroup target)
         {
-            foreach (var root in mixer.FindMatchingGroups("Master"))
+            var queue = new Queue<string>();
+            queue.Enqueue("Master");
+
+            while (queue.Count > 0)
             {
-                var result = SearchPath(root, target, "Master");
-                if (result != null) return result;
+                var path = queue.Dequeue();
+                var groups = mixer.FindMatchingGroups(path);
+                if (groups.Length == 0) continue;
+
+                // 首元素为精确匹配当前路径的分组
+                if (groups[0] == target)
+                    return path;
+
+                // 将直接子分组路径加入队列
+                var discovered = new HashSet<string>();
+                for (int i = 1; i < groups.Length; i++)
+                {
+                    var name = groups[i].name;
+                    if (!discovered.Contains(name))
+                    {
+                        discovered.Add(name);
+                        queue.Enqueue(path + "/" + name);
+                    }
+                }
             }
 
             return target.name; // fallback
         }
 
-        private static string SearchPath(AudioMixerGroup current, AudioMixerGroup target, string path)
+        /// <summary>
+        ///     广度优先收集所有分组路径
+        /// </summary>
+        private static void CollectPathsBFS(AudioMixer mixer, string rootPath, List<string> result)
         {
-            if (current == target) return path;
+            var queue = new Queue<string>();
+            queue.Enqueue(rootPath);
 
-            foreach (var child in current.children)
+            while (queue.Count > 0)
             {
-                var childPath = $"{path}/{child.name}";
-                var result = SearchPath(child, target, childPath);
-                if (result != null) return result;
-            }
+                var path = queue.Dequeue();
+                var groups = mixer.FindMatchingGroups(path);
+                if (groups.Length == 0) continue;
 
-            return null;
-        }
+                result.Add(path);
 
-        private static void CollectPathsRecursive(AudioMixerGroup group, string path, List<string> result)
-        {
-            result.Add(path);
-            foreach (var child in group.children)
-            {
-                var childPath = $"{path}/{child.name}";
-                CollectPathsRecursive(child, childPath, result);
+                // 发现直接子分组
+                var discovered = new HashSet<string>();
+                for (int i = 1; i < groups.Length; i++)
+                {
+                    var name = groups[i].name;
+                    if (!discovered.Contains(name))
+                    {
+                        discovered.Add(name);
+                        queue.Enqueue(path + "/" + name);
+                    }
+                }
             }
         }
     }

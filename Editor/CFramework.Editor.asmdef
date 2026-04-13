@@ -13,15 +13,15 @@
   ],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
-  "overrideReferences": true,
-  "precompiledReferences": [
-    "Sirenix.OdinInspector.Attributes.dll",
-    "Sirenix.OdinInspector.Editor.dll",
-    "Sirenix.Serialization.dll",
-    "Sirenix.Utilities.Editor.dll"
-  ],
+  "overrideReferences": false,
   "autoReferenced": true,
   "defineConstraints": [],
-  "versionDefines": [],
+  "versionDefines": [
+    {
+      "name": "Sirenix.OdinInspector.Attributes",
+      "expression": "",
+      "define": "ODIN_INSPECTOR"
+    }
+  ],
   "noEngineReferences": false
 }

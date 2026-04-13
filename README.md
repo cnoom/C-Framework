@@ -1,6 +1,6 @@
 # CFramework
 
-基于 VContainer、UniTask、R3、Odin 和 Addressables 的 Unity 游戏开发框架。
+基于 VContainer、UniTask、R3 和 Addressables 的 Unity 游戏开发框架。Odin Inspector 为可选依赖。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Unity 2021.3+](https://img.shields.io/badge/Unity-2021.3%2B-blue.svg)](https://unity3d.com/get-unity/download)
@@ -25,8 +25,11 @@
 - VContainer 1.17.0+
 - UniTask 2.5.0+
 - R3 1.3.0+
-- Odin Inspector 3.0+
 - Addressables 1.21+
+
+### 可选依赖
+
+- **Odin Inspector 3.0+**：安装后将自动检测并启用增强的 Inspector 和编辑器功能。未安装时框架提供默认的可视化编辑实现。
 
 ## 安装
 
@@ -317,7 +320,8 @@ Core 模块是框架的基础，提供以下能力：
 - **ConfigTable<TKey, TValue>**：泛型配置表，类型安全的数据访问
 - 数据源标记：支持 ScriptableObject、Binary、Json、Network 等多种来源
 - 热重载：支持运行时重新加载配置数据
-- Odin 序列化：支持复杂类型
+- Odin 序列化：支持复杂类型（Odin 为可选依赖，未安装时使用 Unity 原生序列化）
+- 可视化编辑：内置配置表编辑器窗口，支持搜索、增删改数据
 
 ### Save 模块
 

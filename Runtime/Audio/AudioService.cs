@@ -45,7 +45,7 @@ namespace CFramework
 
         #region 初始化
 
-        public async UniTask InitializeAsync(AudioMixer mixer)
+        public UniTask InitializeAsync(AudioMixer mixer, AudioMixerSnapshot[] snapshots = null)
         {
             if (_initialized)
             {
@@ -73,11 +73,13 @@ namespace CFramework
             _playbackCtrl = new AudioPlaybackController(_tree, _assetService);
 
             // 6. 快照控制器
-            _snapshotCtrl = new AudioSnapshotController(mixer);
+            _snapshotCtrl = new AudioSnapshotController(mixer, snapshots);
 
             _initialized = true;
             Debug.Log($"[Audio] Initialized. Groups: {_tree.GetAllGroups().Count}, " +
                       $"Snapshots: {_snapshotCtrl.SnapshotNames.Count}");
+
+            return UniTask.CompletedTask;
         }
 
         #endregion

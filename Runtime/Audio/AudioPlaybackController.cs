@@ -262,7 +262,7 @@ namespace CFramework
         /// <summary>
         ///     渐入渐出核心
         /// </summary>
-        private async UniTaskVoid FadeAsync(
+        private async UniTask FadeAsync(
             AudioSourceSlot slot, float from, float to, float duration, CancellationToken ct)
         {
             try

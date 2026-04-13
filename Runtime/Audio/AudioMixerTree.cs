@@ -44,9 +44,10 @@ namespace CFramework
             }
 
             // 递归解析 Mixer Group 层级
+            // 注意：FindMatchingGroups 返回匹配路径的所有分组（含后代），首元素为精确匹配
             var rootGroups = mixer.FindMatchingGroups("Master");
-            foreach (var group in rootGroups)
-                BuildRecursive(group, _root.transform, slotConfig, maxSlotsPerGroup);
+            if (rootGroups.Length > 0)
+                BuildRecursive(mixer, rootGroups[0], "Master", _root.transform, slotConfig, maxSlotsPerGroup);
         }
 
         /// <summary>
@@ -91,10 +92,13 @@ namespace CFramework
             }
         }
 
-        private void BuildRecursive(AudioMixerGroup group, Transform parent,
-            Dictionary<string, int> slotConfig, int maxSlotsPerGroup)
+        /// <summary>
+        ///     递归构建 Mixer Group 层级结构
+        ///     <para>使用 FindMatchingGroups 替代运行时不可用的 AudioMixerGroup.children 属性</para>
+        /// </summary>
+        private void BuildRecursive(AudioMixer mixer, AudioMixerGroup group, string path,
+            Transform parent, Dictionary<string, int> slotConfig, int maxSlotsPerGroup)
         {
-            var path = group.GetPath();
             var node = new AudioGroupNode(group, path, parent, maxSlotsPerGroup);
             _nodes[PathHash(path)] = node;
             _pathLookup[PathHash(path)] = path;
@@ -107,9 +111,24 @@ namespace CFramework
             if (slotCount > 0)
                 node.PreAllocateSlots(slotCount);
 
-            // 递归处理子分组
-            foreach (var child in group.children)
-                BuildRecursive(child, node.Transform, slotConfig, maxSlotsPerGroup);
+            // 通过 FindMatchingGroups 发现直接子分组
+            // FindMatchingGroups(path) 返回 path 处的分组及其所有后代
+            var allUnder = mixer.FindMatchingGroups(path);
+            var discovered = new HashSet<string>();
+            for (int i = 1; i < allUnder.Length; i++)
+            {
+                var childName = allUnder[i].name;
+                if (discovered.Contains(childName)) continue;
+
+                // 验证是否为直接子分组：尝试匹配 path/childName
+                var childPath = path + "/" + childName;
+                var childGroups = mixer.FindMatchingGroups(childPath);
+                if (childGroups.Length > 0)
+                {
+                    discovered.Add(childName);
+                    BuildRecursive(mixer, childGroups[0], childPath, node.Transform, slotConfig, maxSlotsPerGroup);
+                }
+            }
         }
 
         /// <summary>

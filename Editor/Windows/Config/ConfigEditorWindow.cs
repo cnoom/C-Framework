@@ -1,3 +1,4 @@
+#if ODIN_INSPECTOR
 using System;
 using System.Collections.Generic;
 using Sirenix.OdinInspector;
@@ -255,3 +256,4 @@ namespace CFramework.Editor.Windows.Config
         #endregion
     }
 }
+#endif
