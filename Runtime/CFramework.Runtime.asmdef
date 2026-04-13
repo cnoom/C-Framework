@@ -2,6 +2,7 @@
   "name": "CFramework.Runtime",
   "rootNamespace": "CFramework",
   "references": [
+    "UnityEngine.AudioModule",
     "VContainer",
     "UniTask",
     "R3.Unity",
@@ -14,7 +15,6 @@
   "allowUnsafeCode": false,
   "overrideReferences": true,
   "precompiledReferences": [
-    "UnityEngine.AudioModule.dll",
     "Sirenix.Serialization.dll",
     "Sirenix.OdinInspector.Attributes.dll",
     "R3.dll",
