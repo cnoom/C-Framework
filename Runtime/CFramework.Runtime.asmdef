@@ -3,6 +3,7 @@
   "rootNamespace": "CFramework",
   "references": [
     "UnityEngine.Audio",
+    "UnityEngine.AudioModule",
     "VContainer",
     "UniTask",
     "R3.Unity",
