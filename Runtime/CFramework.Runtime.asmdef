@@ -14,6 +14,7 @@
   "allowUnsafeCode": false,
   "overrideReferences": true,
   "precompiledReferences": [
+    "UnityEngine.AudioModule.dll",
     "Sirenix.Serialization.dll",
     "Sirenix.OdinInspector.Attributes.dll",
     "R3.dll",
