@@ -20,7 +20,6 @@ namespace CFramework
         [Tooltip("UIRoot Prefab 的 Addressable Key")]
         public string UIRootAddress = "UIRoot";
 
-#if CFRAMEWORK_AUDIO
         [Header("Audio — 数据驱动配置")]
         [Tooltip("AudioMixer 资源地址（Addressable Key）")]
         public string AudioMixerAddress = "MasterMixer";
@@ -34,7 +33,6 @@ namespace CFramework
 
         [Tooltip("音量持久化存储键前缀")]
         public string VolumePrefsPrefix = "Audio_Volume_";
-#endif
 
         [Header("Save")] [Tooltip("自动保存间隔(秒)")]
         public int AutoSaveInterval = 60;
