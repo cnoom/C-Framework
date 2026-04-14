@@ -1,28 +1,27 @@
 {
-  "name": "CFramework.Runtime",
-  "rootNamespace": "CFramework",
-  "references": [
-    "UnityEngine.Audio",
-    "UnityEngine.AudioModule",
-    "VContainer",
-    "UniTask",
-    "R3.Unity",
-    "Unity.Addressables",
-    "UniTask.Addressables",
-    "Unity.ResourceManager"
-  ],
-  "includePlatforms": [],
-  "excludePlatforms": [],
-  "allowUnsafeCode": false,
-  "overrideReferences": false,
-  "autoReferenced": true,
-  "defineConstraints": [],
-  "versionDefines": [
-    {
-      "name": "Sirenix.OdinInspector.Attributes",
-      "expression": "",
-      "define": "ODIN_INSPECTOR"
-    }
-  ],
-  "noEngineReferences": false
+    "name": "CFramework.Runtime",
+    "rootNamespace": "CFramework",
+    "references": [
+        "VContainer",
+        "UniTask",
+        "R3.Unity",
+        "Unity.Addressables",
+        "UniTask.Addressables",
+        "Unity.ResourceManager"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "Sirenix.OdinInspector.Attributes",
+            "expression": "",
+            "define": "ODIN_INSPECTOR"
+        }
+    ],
+    "noEngineReferences": false
 }
