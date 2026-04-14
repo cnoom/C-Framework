@@ -18,7 +18,7 @@ namespace CFramework.Editor
         private const string OutputPath = "Assets/Scripts/Generated/AudioGroup.cs";
         private const string Namespace = "CFramework";
 
-        [MenuItem("Tools/CFramework/Generate AudioGroup Enum")]
+        [MenuItem("CFramework/Generate AudioGroup Enum")]
         public static void Generate()
         {
             // 查找项目中的 AudioMixer
