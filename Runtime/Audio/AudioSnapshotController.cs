@@ -1,3 +1,4 @@
+#if CFRAMEWORK_AUDIO
 using System.Collections.Generic;
 using System.Linq;
 using Cysharp.Threading.Tasks;
@@ -82,3 +83,4 @@ namespace CFramework
         public bool HasSnapshot(string name) => _snapshots.ContainsKey(name);
     }
 }
+#endif

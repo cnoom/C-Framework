@@ -1,3 +1,4 @@
+#if CFRAMEWORK_AUDIO
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -124,3 +125,4 @@ namespace CFramework
             => linear > 0.0001f ? 20f * Mathf.Log10(linear) : MinDb;
     }
 }
+#endif

@@ -17,7 +17,9 @@ namespace CFramework
         {
             builder.InstallModule<IAssetService, AssetService>();
             builder.InstallModule<IUIService, UIService>();
+#if CFRAMEWORK_AUDIO
             builder.InstallModule<IAudioService, AudioService>();
+#endif
             builder.InstallModule<ISceneService, SceneService>();
             builder.InstallModule<IConfigService, ConfigService>();
             builder.InstallModule<ISaveService, SaveService>();

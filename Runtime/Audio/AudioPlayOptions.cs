@@ -1,3 +1,4 @@
+#if CFRAMEWORK_AUDIO
 using System;
 using UnityEngine;
 
@@ -80,3 +81,4 @@ namespace CFramework
         };
     }
 }
+#endif

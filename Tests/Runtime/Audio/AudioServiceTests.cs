@@ -1,3 +1,4 @@
+#if CFRAMEWORK_AUDIO
 using NUnit.Framework;
 
 namespace CFramework.Tests
@@ -81,3 +82,4 @@ namespace CFramework.Tests
         }
     }
 }
+#endif

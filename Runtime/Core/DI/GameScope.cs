@@ -103,7 +103,9 @@ namespace CFramework
             EventBus = Container.Resolve<IEventBus>();
             ExceptionDispatcher = Container.Resolve<IExceptionDispatcher>();
             AssetService = Container.Resolve<IAssetService>();
+#if CFRAMEWORK_AUDIO
             AudioService = Container.Resolve<IAudioService>();
+#endif
             SceneService = Container.Resolve<ISceneService>();
             ConfigService = Container.Resolve<IConfigService>();
             SaveService = Container.Resolve<ISaveService>();
@@ -130,7 +132,9 @@ namespace CFramework
         public IEventBus EventBus { get; private set; }
         public IExceptionDispatcher ExceptionDispatcher { get; private set; }
         public IAssetService AssetService { get; private set; }
+#if CFRAMEWORK_AUDIO
         public IAudioService AudioService { get; private set; }
+#endif
         public ISceneService SceneService { get; private set; }
         public IConfigService ConfigService { get; private set; }
         public ISaveService SaveService { get; private set; }

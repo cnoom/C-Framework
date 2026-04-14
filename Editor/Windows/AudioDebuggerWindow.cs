@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+#if UNITY_EDITOR && CFRAMEWORK_AUDIO
 using CFramework;
 using Cysharp.Threading.Tasks;
 using UnityEditor;

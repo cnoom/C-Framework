@@ -1,3 +1,4 @@
+#if CFRAMEWORK_AUDIO
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -199,3 +200,4 @@ namespace CFramework
         }
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if CFRAMEWORK_AUDIO
 using System.Threading;
 using UnityEngine;
 
@@ -69,3 +70,4 @@ namespace CFramework
         }
     }
 }
+#endif

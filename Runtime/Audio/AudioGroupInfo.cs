@@ -1,3 +1,4 @@
+#if CFRAMEWORK_AUDIO
 namespace CFramework
 {
     /// <summary>
@@ -24,3 +25,4 @@ namespace CFramework
         public bool IsMuted;
     }
 }
+#endif

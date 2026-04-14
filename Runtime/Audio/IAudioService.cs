@@ -1,3 +1,4 @@
+#if CFRAMEWORK_AUDIO
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -10,6 +11,7 @@ namespace CFramework
     /// <summary>
     ///     音频服务接口 —— 数据驱动，基于 AudioMixer 动态解析
     ///     <para>分组寻址通过编辑器生成的 AudioGroup 枚举，编译期安全</para>
+    ///     <para>需要定义 CFRAMEWORK_AUDIO 符号才能编译（由 AudioGroupGenerator 自动定义）</para>
     /// </summary>
     public interface IAudioService : IDisposable
     {
@@ -142,3 +144,4 @@ namespace CFramework
         #endregion
     }
 }
+#endif
