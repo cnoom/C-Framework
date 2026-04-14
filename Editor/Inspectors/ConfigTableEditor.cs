@@ -25,7 +25,7 @@ namespace CFramework.Editor.Inspectors
     ///     <para>为 ConfigTableBase 提供增强的 Inspector 显示</para>
     /// </summary>
     [CustomEditor(typeof(ConfigTableBase), true)]
-    public class ConfigTableEditor : Editor
+    public class ConfigTableEditor : UnityEditor.Editor
     {
         private GUIContent _dataListLabel;
 

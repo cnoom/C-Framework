@@ -57,7 +57,7 @@ namespace CFramework.Editor.Windows.Config
         private string _searchFilter = "";
 
         // 选中配置的编辑器
-        private Editor _configEditor;
+        private UnityEditor.Editor _configEditor;
         private SerializedObject _serializedConfig;
         private ReorderableList _reorderableList;
         private ConfigTableBase _selectedConfig;
@@ -362,7 +362,7 @@ namespace CFramework.Editor.Windows.Config
             else
             {
                 // 备用方案：使用内置 Inspector
-                _configEditor = Editor.CreateEditor(_selectedConfig);
+                _configEditor = UnityEditor.Editor.CreateEditor(_selectedConfig);
             }
 
             Repaint();

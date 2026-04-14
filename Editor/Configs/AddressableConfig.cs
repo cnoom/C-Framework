@@ -39,7 +39,7 @@ namespace CFramework.Editor.Configs
         [PropertyOrder(100)]
         [FoldoutGroup("统计信息")]
         [ShowInInspector]
-        [DisplayAsString(TextAlignment.Left, Overflow = false)]
+        [DisplayAsString(Sirenix.OdinInspector.TextAlignment.Left, Overflow = false)]
         [HideLabel]
         private string Statistics
         {
@@ -238,7 +238,7 @@ namespace CFramework.Editor.Configs
 
             [FoldoutGroup("可寻址命名规则")]
             [LabelText("自定义前缀")]
-            [ShowIf(nameof(prefixType), PrefixType.Custom)]
+            [ShowIf("@prefixType == PrefixType.Custom")]
             [Tooltip("自定义前缀文本")]
             public string customPrefix = "";
 
