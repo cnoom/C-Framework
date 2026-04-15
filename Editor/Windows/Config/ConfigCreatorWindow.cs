@@ -195,7 +195,7 @@ namespace CFramework.Editor.Windows.Config
         [PropertyOrder(100)]
         [FoldoutGroup("代码预览")]
         [LabelText("生成的配置表类")]
-        [DisplayAsString(global::Sirenix.OdinInspector.TextAlignment.Left, Overflow = false)]
+        [DisplayAsString(UnityEngine.TextAlignment.Left, Overflow = false)]
         [HideLabel]
         [ShowInInspector]
         private string PreviewCode => GenerateConfigClassCode();
@@ -203,7 +203,7 @@ namespace CFramework.Editor.Windows.Config
         [PropertyOrder(101)]
         [FoldoutGroup("代码预览")]
         [LabelText("生成的数据类")]
-        [DisplayAsString(global::Sirenix.OdinInspector.TextAlignment.Left, Overflow = false)]
+        [DisplayAsString(UnityEngine.TextAlignment.Left, Overflow = false)]
         [HideLabel]
         [ShowInInspector]
         private string PreviewDataCode => GenerateDataClassCode();
