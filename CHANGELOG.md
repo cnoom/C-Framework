@@ -1,6 +1,20 @@
-# 更新日志
+## 更新日志
 
 框架所有重要变更均记录于此。
+
+## [1.6.0] - 2026-04-15
+
+### 变更
+
+- **音频系统重构：指定 AudioMixer + 移除代码生成**
+  - 移除 `AudioGroupGenerator` 代码生成器，`AudioGroup` 枚举改为框架内置静态文件
+  - 移除 `Runtime/Audio/Generated/` 目录，`AudioGroup.cs` 移至 `Runtime/Audio/`
+  - 移除 `FrameworkSettingsEditor` 中的音频系统激活状态检测和生成按钮
+  - `IAudioService.InitializeAsync()` 改为无参数，使用 FrameworkSettings 中指定的 AudioMixer 自动初始化
+  - `AudioService` 实现 `IStartable.Start()` 自动初始化，无需外部手动调用
+  - 保留 `InitializeAsync(AudioMixer, AudioMixerSnapshot[])` 重载供测试和高级场景使用
+  - 移除 `FrameworkSettings.AudioMixerAddress` 字段，统一使用 `AudioMixerRef` 直接引用
+  - 更新 `GroupSlotConfig` 默认值匹配框架内置 AudioMixer 分组（Master_Music、Master_Effect）
 
 ## [1.5.0] - 2026-04-13
 

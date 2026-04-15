@@ -3,27 +3,26 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
-using UnityEngine.Audio;
 
 namespace CFramework
 {
     /// <summary>
     ///     音频服务接口 —— 数据驱动，基于 AudioMixer 动态解析
-    ///     <para>分组寻址通过编辑器生成的 AudioGroup 枚举，编译期安全</para>
-    ///     <para>需要定义 CFRAMEWORK_AUDIO 符号才能编译（由 AudioGroupGenerator 自动定义）</para>
+    ///     <para>分组寻址通过 AudioGroup 枚举，编译期安全</para>
+    ///     <para>需要定义 CFRAMEWORK_AUDIO 编译符号才能参与编译</para>
     /// </summary>
     public interface IAudioService : IDisposable
     {
         #region 初始化
 
         /// <summary>
-        ///     根据 AudioMixer 初始化音频系统
+        ///     初始化音频系统
+        ///     <para>使用 FrameworkSettings 中指定的 AudioMixer 自动初始化</para>
         ///     <para>解析 Group 层级 → 生成 GameObject → 挂载 AudioSource → 绑定 MixerGroup</para>
         ///     <para>解析 Snapshot 列表 → 构建快照缓存</para>
         ///     <para>解析 Exposed Parameters → 构建音量控制映射</para>
         /// </summary>
-        UniTask InitializeAsync(AudioMixer mixer, AudioMixerSnapshot[] snapshots = null);
+        UniTask InitializeAsync();
 
         #endregion
 

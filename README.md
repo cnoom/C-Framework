@@ -305,8 +305,9 @@ Core 模块是框架的基础，提供以下能力：
 
 ### Audio 模块
 
+- 指定 AudioMixer：通过 FrameworkSettings 指定 AudioMixer，框架自动解析分组和初始化
 - 双音轨 BGM：无缝切换背景音乐，支持交叉淡入淡出
-- 分组音量控制：BGM、SFX、Voice、Ambient 四个独立分组
+- 分组音量控制：基于 AudioMixer Group 层级自动生成分组，独立音量控制
 - 空间音效：支持在指定位置播放 3D 音效
 
 ### Scene 模块
@@ -366,10 +367,10 @@ Core 模块是框架的基础，提供以下能力：
 | MemoryBudgetMB | int | 512 | 资源内存预算上限（MB） |
 | MaxLoadPerFrame | int | 5 | 每帧最大资源加载数量 |
 | MaxNavigationStack | int | 10 | UI 导航栈最大深度 |
-| DefaultBGMVolume | float | 0.8 | 默认 BGM 音量 |
-| DefaultSFXVolume | float | 1.0 | 默认音效音量 |
-| DefaultVoiceVolume | float | 1.0 | 默认语音音量 |
-| DefaultAmbientVolume | float | 0.5 | 默认环境音量 |
+| AudioMixerRef | AudioMixer | null | 音频混合器引用（未设置时自动加载框架内置 AudioMixer） |
+| GroupSlotConfig | string | "Master_Music:2,Master_Effect:5" | 各分组预分配 Slot 数量 |
+| MaxSlotsPerGroup | int | 20 | 分组 Slot 自动扩容上限 |
+| VolumePrefsPrefix | string | "Audio_Volume_" | 音量持久化存储键前缀 |
 | AutoSaveInterval | int | 60 | 自动保存间隔（秒） |
 | EncryptionKey | string | "CFramework" | 存档加密密钥 |
 | LogLevel | LogLevel | Debug | 日志级别 |

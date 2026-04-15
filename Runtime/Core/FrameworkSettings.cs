@@ -21,16 +21,13 @@ namespace CFramework
         [Tooltip("UIRoot Prefab 的 Addressable Key")]
         public string UIRootAddress = "UIRoot";
 
-        [Header("Audio — 数据驱动配置")]
-        [Tooltip("AudioMixer 资源地址（Addressable Key）")]
-        public string AudioMixerAddress = "MasterMixer";
-
-        [Tooltip("AudioMixer 直接引用（优先级高于 AudioMixerAddress）")]
+        [Header("Audio")]
+        [Tooltip("音频混合器引用（框架内置或自定义）\n未设置时自动加载框架内置的 AudioMixer（Prefabs/AudioMixer.mixer）")]
         public AudioMixer AudioMixerRef;
 
-        [Tooltip("各分组预分配 Slot 数量（枚举名:数量，逗号分隔）\n如 Master_BGM:2,Master_SFX:5,Master_SFX_Combat:3")]
+        [Tooltip("各分组预分配 Slot 数量（枚举名:数量，逗号分隔）\n如 Master_Music:2,Master_Effect:5")]
         [TextArea(2, 4)]
-        public string GroupSlotConfig = "Master_BGM:2,Master_SFX:5,Master_Voice:1,Master_Ambient:1";
+        public string GroupSlotConfig = "Master_Music:2,Master_Effect:5";
 
         [Tooltip("分组 Slot 自动扩容上限")]
         public int MaxSlotsPerGroup = 20;

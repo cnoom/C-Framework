@@ -11,6 +11,7 @@ namespace CFramework
     /// <summary>
     ///     音频服务实现 —— 数据驱动，基于 AudioMixer 动态解析
     ///     <para>核心职责：协调 AudioMixerTree / AudioVolumeController / AudioPlaybackController / AudioSnapshotController</para>
+    ///     <para>使用 FrameworkSettings 中指定的 AudioMixer 自动初始化</para>
     /// </summary>
     public sealed class AudioService : IAudioService, IStartable
     {
@@ -28,6 +29,11 @@ namespace CFramework
         // 全局暂停状态
         private List<(AudioGroup group, int slotIndex)> _pausedSlots = new();
 
+        /// <summary>
+        ///     框架内置 AudioMixer 的资源路径
+        /// </summary>
+        private const string DefaultMixerPath = "CFramework/Prefabs/AudioMixer.mixer";
+
         public AudioService(IAssetService assetService, FrameworkSettings settings)
         {
             _assetService = assetService;
@@ -39,13 +45,41 @@ namespace CFramework
         public void Start()
         {
             // IStartable 由 VContainer 自动调用
-            // 初始化延迟到 InitializeAsync 被显式调用
+            // 自动从 FrameworkSettings 获取 AudioMixer 并初始化
+            if (!_initialized)
+            {
+                InitializeAsync().Forget();
+            }
         }
 
         #endregion
 
         #region 初始化
 
+        public UniTask InitializeAsync()
+        {
+            if (_initialized)
+            {
+                Debug.LogWarning("[Audio] Already initialized, disposing old resources first.");
+                DisposeInternal();
+            }
+
+            // 从 FrameworkSettings 获取 AudioMixer
+            _mixer = _settings.AudioMixerRef;
+
+            if (_mixer == null)
+            {
+                Debug.LogError("[Audio] AudioMixerRef is null in FrameworkSettings. " +
+                               $"Please assign an AudioMixer or ensure the default mixer exists at {DefaultMixerPath}.");
+                return UniTask.CompletedTask;
+            }
+
+            return InitializeInternalAsync(null);
+        }
+
+        /// <summary>
+        ///     使用指定的 AudioMixer 初始化（供测试或高级场景使用）
+        /// </summary>
         public UniTask InitializeAsync(AudioMixer mixer, AudioMixerSnapshot[] snapshots = null)
         {
             if (_initialized)
@@ -56,13 +90,27 @@ namespace CFramework
 
             _mixer = mixer;
 
+            if (_mixer == null)
+            {
+                Debug.LogError("[Audio] AudioMixer is null.");
+                return UniTask.CompletedTask;
+            }
+
+            return InitializeInternalAsync(snapshots);
+        }
+
+        /// <summary>
+        ///     内部初始化逻辑
+        /// </summary>
+        private UniTask InitializeInternalAsync(AudioMixerSnapshot[] snapshots)
+        {
             // 1. 解析 Mixer → 生成 GameObject + Slot
             _tree = new AudioMixerTree();
             var slotConfig = ParseSlotConfig(_settings.GroupSlotConfig);
-            _tree.Build(mixer, slotConfig: slotConfig, maxSlotsPerGroup: _settings.MaxSlotsPerGroup);
+            _tree.Build(_mixer, slotConfig: slotConfig, maxSlotsPerGroup: _settings.MaxSlotsPerGroup);
 
             // 2. 音量控制器
-            _volumeCtrl = new AudioVolumeController(mixer, _tree, _settings.VolumePrefsPrefix);
+            _volumeCtrl = new AudioVolumeController(_mixer, _tree, _settings.VolumePrefsPrefix);
 
             // 3. 验证 Exposed Parameters
             _volumeCtrl.ValidateExposedParameters(_tree.GetAllGroups());
@@ -74,7 +122,7 @@ namespace CFramework
             _playbackCtrl = new AudioPlaybackController(_tree, _assetService);
 
             // 6. 快照控制器
-            _snapshotCtrl = new AudioSnapshotController(mixer, snapshots);
+            _snapshotCtrl = new AudioSnapshotController(_mixer, snapshots);
 
             _initialized = true;
             Debug.Log($"[Audio] Initialized. Groups: {_tree.GetAllGroups().Count}, " +
