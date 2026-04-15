@@ -1,0 +1,187 @@
+{
+  "id": "2026-04-15-201315",
+  "generated_at": "2026-04-15T12:13:15.8305468Z",
+  "language": "zh",
+  "pages": [
+    {
+      "slug": "1-kuang-jia-zong-lan-cframework-shi-shi-yao-yu-wei-shi-yao-xuan-ze-ta",
+      "title": "框架总览：CFramework 是什么与为什么选择它",
+      "file": "1-kuang-jia-zong-lan-cframework-shi-shi-yao-yu-wei-shi-yao-xuan-ze-ta.md",
+      "section": "入门指南",
+      "level": "Beginner"
+    },
+    {
+      "slug": "2-kuai-su-shang-shou-an-zhuang-huan-jing-pei-zhi-yu-yun-xing-di-ge-you-xi-chang-jing",
+      "title": "快速上手：安装、环境配置与运行第一个游戏场景",
+      "file": "2-kuai-su-shang-shou-an-zhuang-huan-jing-pei-zhi-yu-yun-xing-di-ge-you-xi-chang-jing.md",
+      "section": "入门指南",
+      "level": "Beginner"
+    },
+    {
+      "slug": "3-frameworksettings-quan-ju-pei-zhi-xiang-jie",
+      "title": "FrameworkSettings 全局配置详解",
+      "file": "3-frameworksettings-quan-ju-pei-zhi-xiang-jie.md",
+      "section": "入门指南",
+      "level": "Beginner"
+    },
+    {
+      "slug": "4-you-xi-ru-kou-yu-sheng-ming-zhou-qi-gamescope-chuang-jian-yu-fu-wu-chu-shi-hua-liu-cheng",
+      "title": "游戏入口与生命周期：GameScope 创建与服务初始化流程",
+      "file": "4-you-xi-ru-kou-yu-sheng-ming-zhou-qi-gamescope-chuang-jian-yu-fu-wu-chu-shi-hua-liu-cheng.md",
+      "section": "入门指南",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "5-yi-lai-zhu-ru-ti-xi-gamescope-scenescope-yu-dong-tai-an-zhuang-qi-ji-zhi",
+      "title": "依赖注入体系：GameScope、SceneScope 与动态安装器机制",
+      "file": "5-yi-lai-zhu-ru-ti-xi-gamescope-scenescope-yu-dong-tai-an-zhuang-qi-ji-zhi.md",
+      "section": "深入理解",
+      "group": "核心基础设施",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "6-shi-jian-zong-xian-tong-bu-yi-bu-fa-bu-ding-yue-yu-r3-xiang-ying-shi-ji-cheng",
+      "title": "事件总线：同步/异步发布订阅与 R3 响应式集成",
+      "file": "6-shi-jian-zong-xian-tong-bu-yi-bu-fa-bu-ding-yue-yu-r3-xiang-ying-shi-ji-cheng.md",
+      "section": "深入理解",
+      "group": "核心基础设施",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "7-quan-ju-yi-chang-fen-fa-qi-tong-bu-huo-unitask-yu-r3-wei-chu-li-yi-chang",
+      "title": "全局异常分发器：统一捕获 UniTask 与 R3 未处理异常",
+      "file": "7-quan-ju-yi-chang-fen-fa-qi-tong-bu-huo-unitask-yu-r3-wei-chu-li-yi-chang.md",
+      "section": "深入理解",
+      "group": "核心基础设施",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "8-hei-ban-xi-tong-lei-xing-an-quan-de-jian-zhi-dui-shu-ju-gong-xiang-yu-xiang-ying-shi-guan-cha",
+      "title": "黑板系统：类型安全的键值对数据共享与响应式观察",
+      "file": "8-hei-ban-xi-tong-lei-xing-an-quan-de-jian-zhi-dui-shu-ju-gong-xiang-yu-xiang-ying-shi-guan-cha.md",
+      "section": "深入理解",
+      "group": "核心基础设施",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "9-ri-zhi-xi-tong-fen-ji-ri-zhi-kong-zhi-yu-unitylogger-shi-xian",
+      "title": "日志系统：分级日志控制与 UnityLogger 实现",
+      "file": "9-ri-zhi-xi-tong-fen-ji-ri-zhi-kong-zhi-yu-unitylogger-shi-xian.md",
+      "section": "深入理解",
+      "group": "核心基础设施",
+      "level": "Beginner"
+    },
+    {
+      "slug": "10-zi-yuan-guan-li-fu-wu-addressables-feng-zhuang-yin-yong-ji-shu-yu-sheng-ming-zhou-qi-bang-ding",
+      "title": "资源管理服务：Addressables 封装、引用计数与生命周期绑定",
+      "file": "10-zi-yuan-guan-li-fu-wu-addressables-feng-zhuang-yin-yong-ji-shu-yu-sheng-ming-zhou-qi-bang-ding.md",
+      "section": "深入理解",
+      "group": "功能模块",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "11-assethandle-zi-yuan-ju-bing-jia-zai-shi-li-hua-nei-cun-yu-suan-yu-fen-zheng-yu-jia-zai",
+      "title": "AssetHandle 资源句柄：加载、实例化、内存预算与分帧预加载",
+      "file": "11-assethandle-zi-yuan-ju-bing-jia-zai-shi-li-hua-nei-cun-yu-suan-yu-fen-zheng-yu-jia-zai.md",
+      "section": "深入理解",
+      "group": "功能模块",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "12-ui-mian-ban-xi-tong-iui-sheng-ming-zhou-qi-uibinder-zu-jian-zhu-ru-yu-dao-hang-zhan-guan-li",
+      "title": "UI 面板系统：IUI 生命周期、UIBinder 组件注入与导航栈管理",
+      "file": "12-ui-mian-ban-xi-tong-iui-sheng-ming-zhou-qi-uibinder-zu-jian-zhu-ru-yu-dao-hang-zhan-guan-li.md",
+      "section": "深入理解",
+      "group": "功能模块",
+      "level": "Advanced"
+    },
+    {
+      "slug": "13-ui-dai-ma-sheng-cheng-qi-cong-yu-zhi-ti-ming-ming-gui-fan-zi-dong-sheng-cheng-zu-jian-bang-ding-dai-ma",
+      "title": "UI 代码生成器：从预制体命名规范自动生成组件绑定代码",
+      "file": "13-ui-dai-ma-sheng-cheng-qi-cong-yu-zhi-ti-ming-ming-gui-fan-zi-dong-sheng-cheng-zu-jian-bang-ding-dai-ma.md",
+      "section": "深入理解",
+      "group": "功能模块",
+      "level": "Advanced"
+    },
+    {
+      "slug": "14-yin-pin-xi-tong-shuang-yin-gui-bgm-jiao-cha-dan-ru-dan-chu-yu-fen-zu-yin-liang-kong-zhi",
+      "title": "音频系统：双音轨 BGM 交叉淡入淡出与分组音量控制",
+      "file": "14-yin-pin-xi-tong-shuang-yin-gui-bgm-jiao-cha-dan-ru-dan-chu-yu-fen-zu-yin-liang-kong-zhi.md",
+      "section": "深入理解",
+      "group": "功能模块",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "15-chang-jing-guan-li-fu-wu-chang-jing-jia-zai-die-jia-chang-jing-yu-guo-du-dong-hua",
+      "title": "场景管理服务：场景加载、叠加场景与过渡动画",
+      "file": "15-chang-jing-guan-li-fu-wu-chang-jing-jia-zai-die-jia-chang-jing-yu-guo-du-dong-hua.md",
+      "section": "深入理解",
+      "group": "功能模块",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "16-pei-zhi-biao-xi-tong-scriptableobject-shu-ju-yuan-fan-xing-configtable-yu-re-zhong-zai",
+      "title": "配置表系统：ScriptableObject 数据源、泛型 ConfigTable 与热重载",
+      "file": "16-pei-zhi-biao-xi-tong-scriptableobject-shu-ju-yuan-fan-xing-configtable-yu-re-zhong-zai.md",
+      "section": "深入理解",
+      "group": "功能模块",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "17-cun-dang-xi-tong-yuan-zi-xie-ru-zang-zhuang-tai-zhui-zong-aes-jia-mi-yu-duo-cun-dang-cao-guan-li",
+      "title": "存档系统：原子写入、脏状态追踪、AES 加密与多存档槽管理",
+      "file": "17-cun-dang-xi-tong-yuan-zi-xie-ru-zang-zhuang-tai-zhui-zong-aes-jia-mi-yu-duo-cun-dang-cao-guan-li.md",
+      "section": "深入理解",
+      "group": "功能模块",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "18-you-xian-zhuang-tai-ji-biao-zhun-fsm-yu-zhan-zhuang-tai-ji-de-she-ji-yu-shi-yong",
+      "title": "有限状态机：标准 FSM 与栈状态机的设计与使用",
+      "file": "18-you-xian-zhuang-tai-ji-biao-zhun-fsm-yu-zhan-zhuang-tai-ji-de-she-ji-yu-shi-yong.md",
+      "section": "深入理解",
+      "group": "功能模块",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "19-bian-ji-qi-chuang-kou-lan-pei-zhi-chuang-jian-qi-yi-chang-cha-kan-qi-yu-diao-shi-gong-ju",
+      "title": "编辑器窗口一览：配置创建器、异常查看器与调试工具",
+      "file": "19-bian-ji-qi-chuang-kou-lan-pei-zhi-chuang-jian-qi-yi-chang-cha-kan-qi-yu-diao-shi-gong-ju.md",
+      "section": "深入理解",
+      "group": "编辑器工具链",
+      "level": "Beginner"
+    },
+    {
+      "slug": "20-addressable-chang-liang-dai-ma-sheng-cheng-qi-yu-zi-yuan-hou-chu-li-qi",
+      "title": "Addressable 常量代码生成器与资源后处理器",
+      "file": "20-addressable-chang-liang-dai-ma-sheng-cheng-qi-yu-zi-yuan-hou-chu-li-qi.md",
+      "section": "深入理解",
+      "group": "编辑器工具链",
+      "level": "Advanced"
+    },
+    {
+      "slug": "21-configtable-zi-ding-yi-inspector-yu-pei-zhi-zi-chan-bian-ji-qi",
+      "title": "ConfigTable 自定义 Inspector 与配置资产编辑器",
+      "file": "21-configtable-zi-ding-yi-inspector-yu-pei-zhi-zi-chan-bian-ji-qi.md",
+      "section": "深入理解",
+      "group": "编辑器工具链",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "22-dan-yuan-ce-shi-zhi-nan-ce-shi-fu-gai-ce-lue-yu-mock-ti-huan-mo-shi",
+      "title": "单元测试指南：测试覆盖策略与 Mock 替换模式",
+      "file": "22-dan-yuan-ce-shi-zhi-nan-ce-shi-fu-gai-ce-lue-yu-mock-ti-huan-mo-shi.md",
+      "section": "深入理解",
+      "group": "测试与扩展",
+      "level": "Intermediate"
+    },
+    {
+      "slug": "23-kuang-jia-kuo-zhan-zhi-nan-zi-ding-yi-iinstaller-iassetprovider-yu-iscenetransition",
+      "title": "框架扩展指南：自定义 IInstaller、IAssetProvider 与 ISceneTransition",
+      "file": "23-kuang-jia-kuo-zhan-zhi-nan-zi-ding-yi-iinstaller-iassetprovider-yu-iscenetransition.md",
+      "section": "深入理解",
+      "group": "测试与扩展",
+      "level": "Advanced"
+    }
+  ]
+}
