@@ -87,7 +87,7 @@ namespace CFramework.Editor.Windows.Config
         [PropertyOrder(99)]
         [ShowIf(nameof(ShowEmptyState))]
         [HideLabel]
-        [DisplayAsString(TextAlignment.Center)]
+        [DisplayAsString(global::Sirenix.OdinInspector.TextAlignment.Center)]
         private string EmptyStateMessage => existingConfigs.Count == 0
             ? "暂无配置表\n\n请点击下方「新建配置」按钮创建配置表"
             : "请在左侧选择一个配置表";
