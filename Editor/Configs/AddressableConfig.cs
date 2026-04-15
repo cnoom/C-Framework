@@ -39,7 +39,7 @@ namespace CFramework.Editor.Configs
         [PropertyOrder(100)]
         [FoldoutGroup("统计信息")]
         [ShowInInspector]
-        [DisplayAsString(TextAlignment.Left, Overflow = false)]
+        [DisplayAsString(global::Sirenix.OdinInspector.TextAlignment.Left, Overflow = false)]
         [HideLabel]
         private string Statistics
         {
