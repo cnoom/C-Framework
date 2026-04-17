@@ -25,15 +25,7 @@ namespace Sirenix.OdinInspector
         Gigantic
     }
 
-    /// <summary>
-    ///     文本对齐枚举桩
-    /// </summary>
-    public enum TextAlignment
-    {
-        Left,
-        Center,
-        Right
-    }
+
 
     [AttributeUsage(AttributeTargets.All, AllowMultiple = false)]
     public sealed class LabelTextAttribute : Attribute
