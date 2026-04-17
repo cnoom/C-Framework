@@ -27,6 +27,7 @@ namespace CFramework.Editor
 
         private AudioMixer _mixer;
         private string _outputPath = "Assets/AudioGroup.cs";
+        private bool _autoDefineSymbol = true;
         private Vector2 _scroll;
         private List<GroupInfo> _previewGroups = new();
         private bool _previewDirty = true;
@@ -56,6 +57,7 @@ namespace CFramework.Editor
                 _mixer = AssetDatabase.LoadAssetAtPath<AudioMixer>(lastMixer);
 
             _outputPath = EditorPrefs.GetString("CFramework_AudioGroup_Output", _outputPath);
+            _autoDefineSymbol = EditorPrefs.GetBool("CFramework_AudioGroup_AutoDefine", true);
         }
 
         private void OnGUI()
@@ -109,6 +111,15 @@ namespace CFramework.Editor
             EditorGUILayout.TextField("枚举名", FixedEnumName);
             EditorGUI.EndDisabledGroup();
 
+            // 宏定义开关
+            EditorGUI.BeginChangeCheck();
+            _autoDefineSymbol = EditorGUILayout.Toggle(
+                new GUIContent("自动注册 CFRAMEWORK_AUDIO 宏",
+                    "生成枚举的同时，在项目的 Scripting Define Symbols 中注册 CFRAMEWORK_AUDIO 宏定义。"),
+                _autoDefineSymbol);
+            if (EditorGUI.EndChangeCheck())
+                EditorPrefs.SetBool("CFramework_AudioGroup_AutoDefine", _autoDefineSymbol);
+
             EditorGUILayout.Space(8);
             EditorGUILayout.LabelField("预览", EditorStyles.boldLabel);
 
@@ -142,7 +153,7 @@ namespace CFramework.Editor
             GUI.enabled = _mixer != null && !string.IsNullOrWhiteSpace(_outputPath);
             if (GUILayout.Button("生成 AudioGroup.cs", GUILayout.Height(30)))
             {
-                Generate(_mixer, _outputPath);
+                Generate(_mixer, _outputPath, _autoDefineSymbol);
             }
             GUI.enabled = true;
 
@@ -204,15 +215,33 @@ namespace CFramework.Editor
             {
                 for (int i = 0; i < childrenProp.arraySize; i++)
                 {
-                    CollectChildGroups(childrenProp.GetArrayElementAtIndex(i), fullPath, groups);
-                }
+                CollectChildGroups(childrenProp.GetArrayElementAtIndex(i), fullPath, groups);
             }
+        }
+
+        /// <summary>
+        ///     在项目的 Scripting Define Symbols 中注册指定宏定义
+        /// </summary>
+        private static void DefineSymbol(string symbol)
+        {
+            var buildTarget = EditorUserBuildSettings.activeBuildTarget;
+            var group = BuildPipeline.GetBuildTargetGroup(buildTarget);
+            var defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(group);
+
+            if (defines.Contains(symbol))
+                return; // 已存在，跳过
+
+            PlayerSettings.SetScriptingDefineSymbolsForGroup(group, $"{defines};{symbol}");
+        }
         }
 
         /// <summary>
         ///     生成 AudioGroup.cs 枚举文件
         /// </summary>
-        public static void Generate(AudioMixer mixer, string outputPath)
+        /// <param name="mixer">AudioMixer 资源</param>
+        /// <param name="outputPath">输出文件路径</param>
+        /// <param name="autoDefineSymbol">是否自动在项目中注册 CFRAMEWORK_AUDIO 宏定义</param>
+        public static void Generate(AudioMixer mixer, string outputPath, bool autoDefineSymbol)
         {
             var groups = CollectGroups(mixer);
 
@@ -259,9 +288,14 @@ namespace CFramework.Editor
             File.WriteAllText(outputPath, sb.ToString(), Encoding.UTF8);
             AssetDatabase.Refresh();
 
+            // 注册宏定义
+            if (autoDefineSymbol)
+                DefineSymbol("CFRAMEWORK_AUDIO");
+
             EditorUtility.DisplayDialog(
                 "生成成功",
-                $"已生成 {groups.Count} 个枚举成员：\n{outputPath}",
+                $"已生成 {groups.Count} 个枚举成员：\n{outputPath}" +
+                (autoDefineSymbol ? "\n\n已注册 CFRAMEWORK_AUDIO 宏定义。" : ""),
                 "确定");
 
             EditorGUIUtility.PingObject(AssetDatabase.LoadAssetAtPath<TextAsset>(outputPath));
