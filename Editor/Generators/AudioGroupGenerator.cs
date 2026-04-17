@@ -33,8 +33,11 @@ namespace CFramework.Editor
 
         private struct GroupInfo
         {
+            /// <summary>Group 完整路径（用于 Description 和 Hash 计算）</summary>
             public string Path;
+            /// <summary>Animator.StringToHash(Path)</summary>
             public int Hash;
+            /// <summary>枚举成员名（仅 Group 自身名称，不含层级路径）</summary>
             public string MemberName;
         }
 
@@ -191,7 +194,8 @@ namespace CFramework.Editor
             {
                 Path = fullPath,
                 Hash = Animator.StringToHash(fullPath),
-                MemberName = fullPath.Replace("/", "_")
+                // 枚举成员名仅用 Group 自身名称，层级信息由 Description 标注
+                MemberName = name
             });
 
             // 递归子 Group
