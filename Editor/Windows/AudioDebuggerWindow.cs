@@ -39,7 +39,7 @@ namespace CFramework.Editor
             EditorGUILayout.Space(2);
 
             // 显示所有分组
-            foreach (var group in audioService.GetAllGroups())
+            foreach (var group in audioService.GetAllGroupPaths())
             {
                 var info = audioService.GetGroupInfo(group);
                 EditorGUILayout.Space(4);
