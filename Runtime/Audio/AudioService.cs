@@ -26,14 +26,6 @@ namespace CFramework
         private AudioMixer _mixer;
         private bool _initialized;
 
-        // 全局暂停状态
-        private List<(AudioGroup group, int slotIndex)> _pausedSlots = new();
-
-        /// <summary>
-        ///     框架内置 AudioMixer 的资源路径
-        /// </summary>
-        private const string DefaultMixerPath = "CFramework/Prefabs/AudioMixer.mixer";
-
         public AudioService(IAssetService assetService, FrameworkSettings settings)
         {
             _assetService = assetService;
@@ -70,7 +62,7 @@ namespace CFramework
             if (_mixer == null)
             {
                 Debug.LogError("[Audio] AudioMixerRef is null in FrameworkSettings. " +
-                               $"Please assign an AudioMixer or ensure the default mixer exists at {DefaultMixerPath}.");
+                               "Please assign an AudioMixer in FrameworkSettings.");
                 return UniTask.CompletedTask;
             }
 
