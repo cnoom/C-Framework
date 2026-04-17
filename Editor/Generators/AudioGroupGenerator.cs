@@ -154,50 +154,32 @@ namespace CFramework.Editor
         /// <summary>
         ///     从 AudioMixer 收集所有 Group 路径
         ///     <para>
-        ///         官方 API 方案（推荐）：AudioMixer 没有公开父子引用，只能通过 SerializedObject
-        ///         访问内部 m_MasterGroup / m_Children 字段递归构建 Group 树。
+        ///         官方公开 API 方案：
+        ///         1. audioMixer.outputAudioMixerGroup 获取 Master Group
+        ///         2. mixer.FindMatchingGroups(groupName + "/") 获取该 Group 的直接子 Group
+        ///         3. 递归构建完整路径
         ///     </para>
         /// </summary>
         private static List<GroupInfo> CollectGroups(AudioMixer mixer)
         {
-            var mixerObj = new SerializedObject(mixer);
-            // m_MasterGroup 是 AudioMixerController 内部的根 Group 引用
-            var masterProp = mixerObj.FindProperty("m_MasterGroup");
+            var masterGroup = mixer.outputAudioMixerGroup;
+            if (masterGroup == null)
+                return new List<GroupInfo>();
+
             var groups = new List<GroupInfo>();
-            CollectChildGroups(mixerObj, masterProp, "", groups);
+            CollectChildGroups(mixer, masterGroup, "", groups);
             return groups;
         }
 
         /// <summary>
         ///     递归收集子 Group
         /// </summary>
-        /// <param name="mixerObj">Mixer 的 SerializedObject，用于查找 Group 对象</param>
-        /// <param name="groupProp">当前 Group 的 m_MasterGroup / m_Children 引用属性</param>
-        /// <param name="parentPath">父级完整路径</param>
-        /// <param name="groups">收集结果</param>
-        private static void CollectChildGroups(
-            SerializedObject mixerObj,
-            SerializedProperty groupProp,
-            string parentPath,
-            List<GroupInfo> groups)
+        private static void CollectChildGroups(AudioMixer mixer, AudioMixerGroup group, string parentPath, List<GroupInfo> groups)
         {
-            // 跳过无效引用
-            if (groupProp == null || !groupProp.objectReferenceValue)
+            if (group == null)
                 return;
 
-            // 将引用转为 AudioMixerGroupController，再获取其 SerializedObject
-            var groupController = groupProp.objectReferenceValue as AudioMixerGroupController;
-            if (groupController == null)
-                return;
-
-            var groupObj = new SerializedObject(groupController);
-            var nameProp = groupObj.FindProperty("m_Name");
-            var name = nameProp?.stringValue ?? "";
-
-            if (string.IsNullOrEmpty(name))
-                return;
-
-            var fullPath = string.IsNullOrEmpty(parentPath) ? name : $"{parentPath}/{name}";
+            var fullPath = string.IsNullOrEmpty(parentPath) ? group.name : $"{parentPath}/{group.name}";
             groups.Add(new GroupInfo
             {
                 Path = fullPath,
@@ -205,15 +187,13 @@ namespace CFramework.Editor
                 MemberName = fullPath.Replace("/", "_")
             });
 
-            // 递归子 Group
-            var childrenProp = groupObj.FindProperty("m_Children");
-            if (childrenProp != null && childrenProp.isArray)
+            // 用 FindMatchingGroups(groupName + "/") 获取直接子 Group
+            var children = mixer.FindMatchingGroups(fullPath + "/");
+            foreach (var child in children)
             {
-                for (int i = 0; i < childrenProp.arraySize; i++)
-                {
-                    var childProp = childrenProp.GetArrayElementAtIndex(i);
-                    CollectChildGroups(mixerObj, childProp, fullPath, groups);
-                }
+                // FindMatchingGroups 返回的子数组中包含自身，跳过避免无限递归
+                if (child != group)
+                    CollectChildGroups(mixer, child, fullPath, groups);
             }
         }
 
