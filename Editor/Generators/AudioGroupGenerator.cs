@@ -83,7 +83,7 @@ namespace CFramework.Editor
             EditorGUILayout.BeginHorizontal();
             EditorGUI.BeginChangeCheck();
             _outputPath = EditorGUILayout.TextField("输出路径", _outputPath);
-            if (EditorGUILayout.Button("浏览...", GUILayout.Width(60)))
+            if (GUILayout.Button("浏览...", GUILayout.Width(60)))
             {
                 var selected = EditorUtility.SaveFilePanelInProject(
                     "选择输出路径",
