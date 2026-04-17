@@ -215,7 +215,8 @@ namespace CFramework.Editor
             {
                 for (int i = 0; i < childrenProp.arraySize; i++)
                 {
-                CollectChildGroups(childrenProp.GetArrayElementAtIndex(i), fullPath, groups);
+                    CollectChildGroups(childrenProp.GetArrayElementAtIndex(i), fullPath, groups);
+                }
             }
         }
 
@@ -232,7 +233,6 @@ namespace CFramework.Editor
                 return; // 已存在，跳过
 
             PlayerSettings.SetScriptingDefineSymbolsForGroup(group, $"{defines};{symbol}");
-        }
         }
 
         /// <summary>
