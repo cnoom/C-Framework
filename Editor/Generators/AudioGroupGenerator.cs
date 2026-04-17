@@ -36,6 +36,17 @@ namespace CFramework.Editor
             public string Path;
             public int Hash;
             public string MemberName;
+
+            public static GroupInfo From(AudioMixerGroup group)
+            {
+                var path = group.path;
+                return new GroupInfo
+                {
+                    Path = path,
+                    Hash = Animator.StringToHash(path),
+                    MemberName = path.Replace("/", "_")
+                };
+            }
         }
 
         [MenuItem("CFramework/Generate/AudioGroup Enum", priority = 100)]
@@ -156,39 +167,11 @@ namespace CFramework.Editor
         /// </summary>
         private static List<GroupInfo> CollectGroups(AudioMixer mixer)
         {
-            var groups = new List<GroupInfo>();
-            var mixerObj = new SerializedObject(mixer);
-            var childPlugins = mixerObj.FindProperty("m_ChildPlugins");
-
-            if (childPlugins != null && childPlugins.isArray)
-            {
-                for (int i = 0; i < childPlugins.arraySize; i++)
-                    CollectChildGroups(childPlugins.GetArrayElementAtIndex(i), "", groups);
-            }
-
+            var rawGroups = mixer.FindMatchingGroups("");
+            var groups = new List<GroupInfo>(rawGroups.Length);
+            foreach (var g in rawGroups)
+                groups.Add(GroupInfo.From(g));
             return groups;
-        }
-
-        private static void CollectChildGroups(SerializedProperty prop, string parentPath, List<GroupInfo> groups)
-        {
-            var nameProp = prop.FindPropertyRelative("Name");
-            var name = nameProp?.stringValue ?? "";
-            if (string.IsNullOrEmpty(name)) return;
-
-            var fullPath = string.IsNullOrEmpty(parentPath) ? name : $"{parentPath}/{name}";
-            groups.Add(new GroupInfo
-            {
-                Path = fullPath,
-                Hash = Animator.StringToHash(fullPath),
-                MemberName = fullPath.Replace("/", "_")
-            });
-
-            var childrenProp = prop.FindPropertyRelative("Children");
-            if (childrenProp != null && childrenProp.isArray)
-            {
-                for (int i = 0; i < childrenProp.arraySize; i++)
-                    CollectChildGroups(childrenProp.GetArrayElementAtIndex(i), fullPath, groups);
-            }
         }
 
         /// <summary>
