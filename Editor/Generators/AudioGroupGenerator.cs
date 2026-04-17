@@ -120,6 +120,21 @@ namespace CFramework.Editor
             if (EditorGUI.EndChangeCheck())
                 EditorPrefs.SetBool("CFramework_AudioGroup_AutoDefine", _autoDefineSymbol);
 
+            // 宏定义操作按钮
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("注册宏定义", GUILayout.Width(100)))
+            {
+                DefineSymbol("CFRAMEWORK_AUDIO");
+                EditorUtility.DisplayDialog("宏定义", "CFRAMEWORK_AUDIO 宏定义已注册", "确定");
+            }
+            if (GUILayout.Button("取消注册宏定义", GUILayout.Width(110)))
+            {
+                UndefineSymbol("CFRAMEWORK_AUDIO");
+                EditorUtility.DisplayDialog("宏定义", "CFRAMEWORK_AUDIO 宏定义已取消注册", "确定");
+            }
+            GUILayout.FlexibleSpace();
+            EditorGUILayout.EndHorizontal();
+
             EditorGUILayout.Space(8);
             EditorGUILayout.LabelField("预览", EditorStyles.boldLabel);
 
@@ -221,18 +236,37 @@ namespace CFramework.Editor
         }
 
         /// <summary>
-        ///     在项目的 Scripting Define Symbols 中注册指定宏定义
+        ///     取消注册指定宏定义
         /// </summary>
-        private static void DefineSymbol(string symbol)
+        private static void UndefineSymbol(string symbol)
         {
             var buildTarget = EditorUserBuildSettings.activeBuildTarget;
             var group = BuildPipeline.GetBuildTargetGroup(buildTarget);
             var defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(group);
 
-            if (defines.Contains(symbol))
-                return; // 已存在，跳过
+            if (!defines.Contains(symbol))
+                return; // 不存在，跳过
 
-            PlayerSettings.SetScriptingDefineSymbolsForGroup(group, $"{defines};{symbol}");
+            var parts = defines.Split(';');
+            var newDefines = new List<string>();
+            foreach (var part in parts)
+            {
+                if (part.Trim() != symbol)
+                    newDefines.Add(part.Trim());
+            }
+
+            PlayerSettings.SetScriptingDefineSymbolsForGroup(group, string.Join(";", newDefines));
+        }
+
+        /// <summary>
+        ///     检查指定宏定义是否已注册
+        /// </summary>
+        private static bool HasSymbol(string symbol)
+        {
+            var buildTarget = EditorUserBuildSettings.activeBuildTarget;
+            var group = BuildPipeline.GetBuildTargetGroup(buildTarget);
+            var defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(group);
+            return defines.Contains(symbol);
         }
 
         /// <summary>
