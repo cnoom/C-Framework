@@ -1,6 +1,5 @@
 #if CFRAMEWORK_AUDIO
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.Audio;
 using Object = UnityEngine.Object;
@@ -10,82 +9,71 @@ namespace CFramework
     /// <summary>
     ///     AudioMixer 解析器 + 运行时结构生成器
     ///     <para>解析 AudioMixer 的 Group 层级 → 动态生成 GameObject 结构 + AudioSource Slot</para>
-    ///     <para>通过 AudioGroup 枚举（路径哈希值）O(1) 寻址</para>
+    ///     <para>内部通过路径哈希值 O(1) 寻址，外部通过字符串路径操作</para>
     /// </summary>
     public sealed class AudioMixerTree
     {
-        private readonly Dictionary<int, AudioGroupNode> _nodes = new(); // key = 枚举哈希值
-        private readonly Dictionary<int, string> _pathLookup = new();    // 枚举值 → 路径字符串
+        private readonly Dictionary<int, AudioGroupNode> _nodes = new();  // hash → node
+        private readonly Dictionary<string, int> _pathToHash = new();     // path → hash
         private GameObject _root;
 
-        /// <summary>根 GameObject</summary>
         public GameObject Root => _root;
 
-        /// <summary>
-        ///     解析 AudioMixer 并生成运行时结构
-        /// </summary>
-        /// <param name="mixer">目标 AudioMixer</param>
-        /// <param name="parent">可选父节点（为 null 则 DontDestroyOnLoad）</param>
-        /// <param name="slotConfig">各分组预分配 Slot 数量，key=枚举名</param>
-        /// <param name="maxSlotsPerGroup">每组最大 Slot 数</param>
         public void Build(AudioMixer mixer, Transform parent = null,
             Dictionary<string, int> slotConfig = null, int maxSlotsPerGroup = 20)
         {
-            // 清理旧结构
             Dispose();
 
             _root = new GameObject("[Audio]");
             if (parent != null)
-            {
                 _root.transform.SetParent(parent);
-            }
             else
-            {
                 Object.DontDestroyOnLoad(_root);
-            }
 
-            // 递归解析 Mixer Group 层级
-            // 注意：FindMatchingGroups 返回匹配路径的所有分组（含后代），首元素为精确匹配
             var rootGroups = mixer.FindMatchingGroups("Master");
             if (rootGroups.Length > 0)
                 BuildRecursive(mixer, rootGroups[0], "Master", _root.transform, slotConfig, maxSlotsPerGroup);
         }
 
-        /// <summary>
-        ///     通过枚举获取节点
-        /// </summary>
-        public AudioGroupNode GetNode(AudioGroup group)
-            => _nodes.TryGetValue((int)group, out var node) ? node : null;
+        /// <summary>通过路径字符串获取节点（大小写敏感）</summary>
+        public AudioGroupNode GetNode(string path)
+            => _nodes.TryGetValue(PathHash(path), out var node) ? node : null;
 
-        /// <summary>
-        ///     通过枚举获取路径字符串（内部使用）
-        /// </summary>
-        public string GetPath(AudioGroup group)
-            => _pathLookup.TryGetValue((int)group, out var path) ? path : null;
+        /// <summary>通过哈希值获取节点</summary>
+        public AudioGroupNode GetNode(int hash)
+            => _nodes.TryGetValue(hash, out var node) ? node : null;
 
-        /// <summary>
-        ///     获取所有已注册的枚举值
-        /// </summary>
-        public IReadOnlyList<AudioGroup> GetAllGroups()
-            => _nodes.Keys.Select(h => (AudioGroup)h).ToList();
+        /// <summary>获取所有已注册的 Group 路径</summary>
+        public IReadOnlyList<string> GetAllPaths()
+        {
+            var paths = new List<string>(_pathToHash.Count);
+            foreach (var p in _pathToHash.Keys)
+                paths.Add(p);
+            return paths;
+        }
 
-        /// <summary>
-        ///     是否存在指定分组
-        /// </summary>
-        public bool HasGroup(AudioGroup group)
-            => _nodes.ContainsKey((int)group);
+        /// <summary>获取所有已注册的路径哈希值</summary>
+        public IReadOnlyList<int> GetAllHashes()
+        {
+            var hashes = new List<int>(_nodes.Count);
+            foreach (var h in _nodes.Keys)
+                hashes.Add(h);
+            return hashes;
+        }
 
-        /// <summary>
-        ///     销毁所有运行时结构
-        /// </summary>
+        /// <summary>获取所有路径→哈希的映射（供 AudioVolumeController 注册用）</summary>
+        public IReadOnlyDictionary<string, int> GetAllPathToHash()
+            => _pathToHash;
+
+        /// <summary>是否存在指定路径的 Group</summary>
+        public bool HasPath(string path) => _pathToHash.ContainsKey(path);
+
         public void Dispose()
         {
             foreach (var node in _nodes.Values)
                 node.Dispose();
-
             _nodes.Clear();
-            _pathLookup.Clear();
-
+            _pathToHash.Clear();
             if (_root != null)
             {
                 Object.Destroy(_root);
@@ -93,35 +81,28 @@ namespace CFramework
             }
         }
 
-        /// <summary>
-        ///     递归构建 Mixer Group 层级结构
-        ///     <para>使用 FindMatchingGroups 替代运行时不可用的 AudioMixerGroup.children 属性</para>
-        /// </summary>
         private void BuildRecursive(AudioMixer mixer, AudioMixerGroup group, string path,
             Transform parent, Dictionary<string, int> slotConfig, int maxSlotsPerGroup)
         {
+            var hash = PathHash(path);
             var node = new AudioGroupNode(group, path, parent, maxSlotsPerGroup);
-            _nodes[PathHash(path)] = node;
-            _pathLookup[PathHash(path)] = path;
+            _nodes[hash] = node;
+            _pathToHash[path] = hash;
 
-            // 根据配置预分配 Slot
-            var enumName = path.Replace('/', '_');
-            var slotCount = slotConfig != null && slotConfig.TryGetValue(enumName, out var count)
-                ? count
-                : 0;
+            // 根据路径预分配 Slot（路径 "/" 替换为 "_" 匹配配置格式）
+            var configKey = path.Replace("/", "_");
+            var slotCount = slotConfig != null && slotConfig.TryGetValue(configKey, out var count)
+                ? count : 0;
             if (slotCount > 0)
                 node.PreAllocateSlots(slotCount);
 
-            // 通过 FindMatchingGroups 发现直接子分组
-            // FindMatchingGroups(path) 返回 path 处的分组及其所有后代
+            // 递归子分组
             var allUnder = mixer.FindMatchingGroups(path);
             var discovered = new HashSet<string>();
             for (int i = 1; i < allUnder.Length; i++)
             {
                 var childName = allUnder[i].name;
                 if (discovered.Contains(childName)) continue;
-
-                // 验证是否为直接子分组：尝试匹配 path/childName
                 var childPath = path + "/" + childName;
                 var childGroups = mixer.FindMatchingGroups(childPath);
                 if (childGroups.Length > 0)
@@ -132,11 +113,7 @@ namespace CFramework
             }
         }
 
-        /// <summary>
-        ///     路径字符串 → 哈希值（与编辑器代码生成器的算法一致：Animator.StringToHash）
-        /// </summary>
-        private static int PathHash(string path)
-            => Animator.StringToHash(path);
+        private static int PathHash(string path) => Animator.StringToHash(path);
     }
 }
 #endif

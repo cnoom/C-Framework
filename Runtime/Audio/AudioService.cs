@@ -12,6 +12,7 @@ namespace CFramework
     ///     音频服务实现 —— 数据驱动，基于 AudioMixer 动态解析
     ///     <para>核心职责：协调 AudioMixerTree / AudioVolumeController / AudioPlaybackController / AudioSnapshotController</para>
     ///     <para>使用 FrameworkSettings 中指定的 AudioMixer 自动初始化</para>
+    ///     <para>分组寻址通过字符串路径（如 "Master/BGM"），与用户生成的 AudioGroup 枚举完全解耦</para>
     /// </summary>
     public sealed class AudioService : IAudioService, IStartable
     {
@@ -25,6 +26,7 @@ namespace CFramework
 
         private AudioMixer _mixer;
         private bool _initialized;
+        private List<(string path, int slotIndex)> _pausedSlots = new();
 
         public AudioService(IAssetService assetService, FrameworkSettings settings)
         {
@@ -36,12 +38,8 @@ namespace CFramework
 
         public void Start()
         {
-            // IStartable 由 VContainer 自动调用
-            // 自动从 FrameworkSettings 获取 AudioMixer 并初始化
             if (!_initialized)
-            {
                 InitializeAsync().Forget();
-            }
         }
 
         #endregion
@@ -56,9 +54,7 @@ namespace CFramework
                 DisposeInternal();
             }
 
-            // 从 FrameworkSettings 获取 AudioMixer
             _mixer = _settings.AudioMixerRef;
-
             if (_mixer == null)
             {
                 Debug.LogError("[Audio] AudioMixerRef is null in FrameworkSettings. " +
@@ -69,9 +65,6 @@ namespace CFramework
             return InitializeInternalAsync(null);
         }
 
-        /// <summary>
-        ///     使用指定的 AudioMixer 初始化（供测试或高级场景使用）
-        /// </summary>
         public UniTask InitializeAsync(AudioMixer mixer, AudioMixerSnapshot[] snapshots = null)
         {
             if (_initialized)
@@ -81,7 +74,6 @@ namespace CFramework
             }
 
             _mixer = mixer;
-
             if (_mixer == null)
             {
                 Debug.LogError("[Audio] AudioMixer is null.");
@@ -91,35 +83,25 @@ namespace CFramework
             return InitializeInternalAsync(snapshots);
         }
 
-        /// <summary>
-        ///     内部初始化逻辑
-        /// </summary>
         private UniTask InitializeInternalAsync(AudioMixerSnapshot[] snapshots)
         {
-            // 1. 解析 Mixer → 生成 GameObject + Slot
             _tree = new AudioMixerTree();
             var slotConfig = ParseSlotConfig(_settings.GroupSlotConfig);
             _tree.Build(_mixer, slotConfig: slotConfig, maxSlotsPerGroup: _settings.MaxSlotsPerGroup);
 
-            // 2. 音量控制器
             _volumeCtrl = new AudioVolumeController(_mixer, _tree, _settings.VolumePrefsPrefix);
+            // 注册所有路径→哈希映射（用于 Exposed Parameter 名称推导和 PlayerPrefs key 生成）
+            foreach (var (path, hash) in _tree.GetAllPathToHash())
+                _volumeCtrl.RegisterPath(hash, path);
+            _volumeCtrl.ValidateExposedParameters(_tree.GetAllHashes());
+            _volumeCtrl.LoadPersistentVolumes(_tree.GetAllHashes());
 
-            // 3. 验证 Exposed Parameters
-            _volumeCtrl.ValidateExposedParameters(_tree.GetAllGroups());
-
-            // 4. 加载持久化音量
-            _volumeCtrl.LoadPersistentVolumes(_tree.GetAllGroups());
-
-            // 5. 播放控制器
             _playbackCtrl = new AudioPlaybackController(_tree, _assetService);
-
-            // 6. 快照控制器
             _snapshotCtrl = new AudioSnapshotController(_mixer, snapshots);
 
             _initialized = true;
-            Debug.Log($"[Audio] Initialized. Groups: {_tree.GetAllGroups().Count}, " +
+            Debug.Log($"[Audio] Initialized. Groups: {_tree.GetAllPaths().Count}, " +
                       $"Snapshots: {_snapshotCtrl.SnapshotNames.Count}");
-
             return UniTask.CompletedTask;
         }
 
@@ -127,28 +109,29 @@ namespace CFramework
 
         #region 音量控制
 
-        public void SetGroupVolume(AudioGroup group, float volume)
+        public void SetGroupVolume(string groupPath, float volume)
         {
             ThrowIfNotInitialized();
-            _volumeCtrl.SetVolume(group, volume);
+            var hash = PathHash(groupPath);
+            _volumeCtrl.SetVolume(hash, volume);
         }
 
-        public float GetGroupVolume(AudioGroup group)
+        public float GetGroupVolume(string groupPath)
         {
             ThrowIfNotInitialized();
-            return _volumeCtrl.GetVolume(group);
+            return _volumeCtrl.GetVolume(PathHash(groupPath));
         }
 
-        public void MuteGroup(AudioGroup group, bool mute)
+        public void MuteGroup(string groupPath, bool mute)
         {
             ThrowIfNotInitialized();
-            _volumeCtrl.Mute(group, mute);
+            _volumeCtrl.Mute(PathHash(groupPath), mute);
         }
 
-        public bool IsGroupMuted(AudioGroup group)
+        public bool IsGroupMuted(string groupPath)
         {
             ThrowIfNotInitialized();
-            return _volumeCtrl.IsMuted(group);
+            return _volumeCtrl.IsMuted(PathHash(groupPath));
         }
 
         #endregion
@@ -180,34 +163,34 @@ namespace CFramework
 
         #region 播放控制
 
-        public UniTask<AudioSourceSlot> PlayAsync(AudioGroup group, string clipKey,
+        public UniTask<AudioSourceSlot> PlayAsync(string groupPath, string clipKey,
             AudioPlayOptions options = default, CancellationToken ct = default)
         {
             ThrowIfNotInitialized();
-            return _playbackCtrl.PlayAsync(group, clipKey, options, ct);
+            return _playbackCtrl.PlayAsync(groupPath, clipKey, options, ct);
         }
 
-        public void Stop(AudioGroup group, int slotIndex = -1, float fadeOut = 0f)
+        public void Stop(string groupPath, int slotIndex = -1, float fadeOut = 0f)
         {
             ThrowIfNotInitialized();
             if (slotIndex < 0)
-                _playbackCtrl.StopLast(group, fadeOut);
+                _playbackCtrl.StopLast(groupPath, fadeOut);
             else
-                _playbackCtrl.Stop(group, slotIndex, fadeOut);
+                _playbackCtrl.Stop(groupPath, slotIndex, fadeOut);
         }
 
-        public void StopAll(AudioGroup group, float fadeOut = 0f)
+        public void StopAll(string groupPath, float fadeOut = 0f)
         {
             ThrowIfNotInitialized();
-            _playbackCtrl.StopAll(group, fadeOut);
+            _playbackCtrl.StopAll(groupPath, fadeOut);
         }
 
-        public UniTask CrossFadeAsync(AudioGroup group, string newClipKey,
+        public UniTask CrossFadeAsync(string groupPath, string newClipKey,
             float duration = 1f, AudioPlayOptions options = default,
             CancellationToken ct = default)
         {
             ThrowIfNotInitialized();
-            return _playbackCtrl.CrossFadeAsync(group, newClipKey, duration, options, ct);
+            return _playbackCtrl.CrossFadeAsync(groupPath, newClipKey, duration, options, ct);
         }
 
         #endregion
@@ -231,33 +214,33 @@ namespace CFramework
 
         #region 查询
 
-        public IReadOnlyList<AudioGroup> GetAllGroups()
+        public IReadOnlyList<string> GetAllGroupPaths()
         {
             ThrowIfNotInitialized();
-            return _tree.GetAllGroups();
+            return _tree.GetAllPaths();
         }
 
-        public bool HasGroup(AudioGroup group)
+        public bool HasGroup(string groupPath)
         {
             ThrowIfNotInitialized();
-            return _tree.HasGroup(group);
+            return _tree.HasPath(groupPath);
         }
 
-        public AudioGroupInfo GetGroupInfo(AudioGroup group)
+        public AudioGroupInfo GetGroupInfo(string groupPath)
         {
             ThrowIfNotInitialized();
-            var node = _tree.GetNode(group);
+            var hash = PathHash(groupPath);
+            var node = _tree.GetNode(hash);
             if (node == null)
                 return default;
 
             return new AudioGroupInfo
             {
-                Group = group,
-                Path = node.Path,
+                Path = groupPath,
                 TotalSlots = node.TotalSlotCount,
                 ActiveSlots = node.ActiveSlotCount,
-                Volume = _volumeCtrl.GetVolume(group),
-                IsMuted = _volumeCtrl.IsMuted(group)
+                Volume = _volumeCtrl.GetVolume(hash),
+                IsMuted = _volumeCtrl.IsMuted(hash)
             };
         }
 
@@ -277,10 +260,8 @@ namespace CFramework
 
         public void Dispose()
         {
-            // 保存音量设置
             if (_initialized && _volumeCtrl != null)
                 _volumeCtrl.SavePersistentVolumes();
-
             DisposeInternal();
         }
 
@@ -307,22 +288,19 @@ namespace CFramework
                     "[Audio] AudioService has not been initialized. Call InitializeAsync() first.");
         }
 
-        /// <summary>
-        ///     解析 Slot 配置字符串
-        ///     <para>格式："Master_BGM:2,Master_SFX:5,Master_SFX_Combat:3"</para>
-        /// </summary>
+        /// <summary>路径字符串 → 哈希值（与编辑器代码生成器一致：Animator.StringToHash）</summary>
+        private static int PathHash(string path) => Animator.StringToHash(path);
+
         private static Dictionary<string, int> ParseSlotConfig(string config)
         {
             var result = new Dictionary<string, int>();
             if (string.IsNullOrEmpty(config)) return result;
-
             foreach (var entry in config.Split(','))
             {
                 var parts = entry.Trim().Split(':');
                 if (parts.Length == 2 && int.TryParse(parts[1], out var count))
                     result[parts[0].Trim()] = count;
             }
-
             return result;
         }
 

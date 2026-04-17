@@ -67,7 +67,7 @@ namespace CFramework.Editor
 
             EditorGUILayout.HelpBox(
                 "读取 AudioMixer 中的所有 Group 路径，自动计算 Animator.StringToHash 并生成 C# 枚举。\n\n" +
-                "生成结果固定为 CFramework.AudioGroup，与框架音频系统强绑定。\n" +
+                "生成的 AudioGroup 枚举附带扩展方法 ToPath()，可直接传给音频系统接口。\n" +
                 "每次修改 Mixer 路径后需重新生成。",
                 MessageType.Info);
 
@@ -257,6 +257,7 @@ namespace CFramework.Editor
             sb.AppendFormat(FixedFileHeader, $"生成时间：{timestamp}", mixerPath);
             sb.AppendLine();
             sb.AppendLine("#if CFRAMEWORK_AUDIO");
+            sb.AppendLine("using System.Collections.Generic;");
             sb.AppendLine("using System.ComponentModel;");
             sb.AppendLine();
             sb.AppendLine($"namespace {FixedNamespace}");
@@ -276,6 +277,36 @@ namespace CFramework.Editor
                 sb.AppendLine($"        {g.MemberName} = {g.Hash}{(i < groups.Count - 1 ? "," : "")}");
             }
 
+            sb.AppendLine("    }");
+            sb.AppendLine();
+            sb.AppendLine("    /// <summary>");
+            sb.AppendLine("    ///     路径查找表（Group 哈希 → 路径字符串）");
+            sb.AppendLine("    /// </summary>");
+            sb.AppendLine("    internal static class AudioGroupPaths");
+            sb.AppendLine("    {");
+            sb.AppendLine("        private static readonly Dictionary<int, string> _map = new();");
+            sb.AppendLine("        private static bool _initialized;");
+            sb.AppendLine();
+            sb.AppendLine("        /// <summary>根据哈希值查找路径（O(1)）</summary>");
+            sb.AppendLine("        internal static string GetPath(int hash)");
+            sb.AppendLine("        {");
+            sb.AppendLine("            if (!_initialized)");
+            sb.AppendLine("            {");
+            sb.AppendLine("                _initialized = true;");
+            foreach (var g in groups)
+                sb.AppendLine($"                _map[{g.Hash}] = \"{g.Path}\";");
+            sb.AppendLine("            }");
+            sb.AppendLine("            return _map.TryGetValue(hash, out var path) ? path : null;");
+            sb.AppendLine("        }");
+            sb.AppendLine("    }");
+            sb.AppendLine();
+            sb.AppendLine("    /// <summary>");
+            sb.AppendLine("    ///     AudioGroup 扩展方法 —— 将枚举值转为路径字符串，供 CFramework 音频系统使用");
+            sb.AppendLine("    /// </summary>");
+            sb.AppendLine("    public static class AudioGroupExtensions");
+            sb.AppendLine("    {");
+            sb.AppendLine("        /// <summary>枚举值 → Group 路径字符串（用于 IAudioService）</summary>");
+            sb.AppendLine("        public static string ToPath(this AudioGroup group) => AudioGroupPaths.GetPath((int)group);");
             sb.AppendLine("    }");
             sb.AppendLine("}");
             sb.AppendLine("#endif");

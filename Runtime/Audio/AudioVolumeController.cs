@@ -1,6 +1,5 @@
 #if CFRAMEWORK_AUDIO
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.Audio;
 
@@ -14,10 +13,10 @@ namespace CFramework
     {
         private readonly AudioMixer _mixer;
         private readonly AudioMixerTree _tree;
-        private readonly Dictionary<int, float> _volumeCache = new();  // 枚举哈希 → 线性值
-        private readonly Dictionary<int, bool> _muteCache = new();     // 枚举哈希 → 是否静音
+        private readonly Dictionary<int, float> _volumeCache = new(); // hash → linear volume
+        private readonly Dictionary<int, bool> _muteCache = new();    // hash → muted
+        private readonly Dictionary<int, string> _hashToPath = new(); // hash → path（用于持久化 key）
         private readonly string _prefsPrefix;
-
         private const float MinDb = -80f;
 
         public AudioVolumeController(AudioMixer mixer, AudioMixerTree tree, string prefsPrefix = "Audio_Volume_")
@@ -27,73 +26,56 @@ namespace CFramework
             _prefsPrefix = prefsPrefix;
         }
 
-        /// <summary>
-        ///     设置分组音量（传入 0~1 线性值，内部转 dB）
-        /// </summary>
-        public void SetVolume(AudioGroup group, float linearVolume)
+        public void SetVolume(int hash, float linearVolume)
         {
             linearVolume = Mathf.Clamp01(linearVolume);
-            _volumeCache[(int)group] = linearVolume;
+            _volumeCache[hash] = linearVolume;
 
-            var paramName = ToExposedParamName(group);
-            var dbValue = _muteCache.GetValueOrDefault((int)group, false)
-                ? MinDb
-                : LinearToDb(linearVolume);
+            var paramName = ParamName(hash);
+            var dbValue = _muteCache.GetValueOrDefault(hash, false) ? MinDb : LinearToDb(linearVolume);
             _mixer.SetFloat(paramName, dbValue);
         }
 
-        /// <summary>
-        ///     获取分组音量（返回 0~1 线性值）
-        /// </summary>
-        public float GetVolume(AudioGroup group)
-            => _volumeCache.GetValueOrDefault((int)group, 1f);
+        public float GetVolume(int hash)
+            => _volumeCache.GetValueOrDefault(hash, 1f);
 
-        /// <summary>
-        ///     静音/取消静音
-        /// </summary>
-        public void Mute(AudioGroup group, bool mute)
+        public void Mute(int hash, bool mute)
         {
-            _muteCache[(int)group] = mute;
-            // 重新应用音量（静音时设为 MinDb，取消静音时恢复缓存值）
-            SetVolume(group, _volumeCache.GetValueOrDefault((int)group, 1f));
+            _muteCache[hash] = mute;
+            SetVolume(hash, _volumeCache.GetValueOrDefault(hash, 1f));
         }
 
-        /// <summary>
-        ///     是否已静音
-        /// </summary>
-        public bool IsMuted(AudioGroup group)
-            => _muteCache.GetValueOrDefault((int)group, false);
+        public bool IsMuted(int hash)
+            => _muteCache.GetValueOrDefault(hash, false);
 
         /// <summary>
         ///     验证所有分组的 Exposed Parameter 是否已配置
-        ///     <para>未配置的分组音量控制将不生效，输出警告日志</para>
         /// </summary>
-        public void ValidateExposedParameters(IEnumerable<AudioGroup> groups)
+        public void ValidateExposedParameters(IReadOnlyList<int> hashes)
         {
-            foreach (var group in groups)
+            foreach (var hash in hashes)
             {
-                var paramName = ToExposedParamName(group);
+                var path = _hashToPath.TryGetValue(hash, out var p) ? p : null;
+                if (path == null) continue;
+
+                var paramName = ExposedParamName(path);
                 if (!_mixer.GetFloat(paramName, out _))
-                {
                     Debug.LogWarning($"[Audio] Exposed Parameter '{paramName}' not found. " +
-                                     $"Group '{group}' volume control will not work.");
-                }
+                                     $"Group '{path}' volume control will not work.");
             }
         }
 
         /// <summary>
         ///     从 PlayerPrefs 加载持久化的音量设置
         /// </summary>
-        public void LoadPersistentVolumes(IEnumerable<AudioGroup> groups)
+        public void LoadPersistentVolumes(IReadOnlyList<int> hashes)
         {
-            foreach (var group in groups)
+            foreach (var hash in hashes)
             {
-                var key = $"{_prefsPrefix}{group}";
+                if (!_hashToPath.TryGetValue(hash, out var path)) continue;
+                var key = $"{_prefsPrefix}{path}";
                 if (PlayerPrefs.HasKey(key))
-                {
-                    var savedVolume = PlayerPrefs.GetFloat(key);
-                    SetVolume(group, savedVolume);
-                }
+                    SetVolume(hash, PlayerPrefs.GetFloat(key));
             }
         }
 
@@ -102,25 +84,31 @@ namespace CFramework
         /// </summary>
         public void SavePersistentVolumes()
         {
-            foreach (var (groupHash, volume) in _volumeCache)
+            foreach (var (hash, volume) in _volumeCache)
             {
-                var group = (AudioGroup)groupHash;
-                var key = $"{_prefsPrefix}{group}";
-                PlayerPrefs.SetFloat(key, volume);
+                if (!_hashToPath.TryGetValue(hash, out var path)) continue;
+                PlayerPrefs.SetFloat($"{_prefsPrefix}{path}", volume);
             }
             PlayerPrefs.Save();
         }
 
-        /// <summary>
-        ///     枚举 → Exposed Parameter 名称
-        ///     <para>AudioGroup.Master_BGM → "Master_BGM_Volume"</para>
-        /// </summary>
-        private string ToExposedParamName(AudioGroup group)
-            => group.ToString() + "_Volume";
+        /// <summary>注册路径→哈希映射（用于持久化 key 生成）</summary>
+        public void RegisterPath(int hash, string path)
+        {
+            _hashToPath[hash] = path;
+        }
 
         /// <summary>
-        ///     线性值 → dB 值
+        ///     路径 → Exposed Parameter 名称
+        ///     <para>"Master/BGM" → "Master_BGM_Volume"（路径中的 "/" 替换为 "_"）</para>
         /// </summary>
+        private static string ExposedParamName(string path)
+            => path.Replace("/", "_") + "_Volume";
+
+        /// <summary>哈希 → Exposed Parameter 名称（通过路径查找）</summary>
+        private string ParamName(int hash)
+            => _hashToPath.TryGetValue(hash, out var path) ? ExposedParamName(path) : hash.ToString();
+
         private static float LinearToDb(float linear)
             => linear > 0.0001f ? 20f * Mathf.Log10(linear) : MinDb;
     }

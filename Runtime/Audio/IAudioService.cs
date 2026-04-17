@@ -1,5 +1,4 @@
 #if CFRAMEWORK_AUDIO
-using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -8,7 +7,7 @@ namespace CFramework
 {
     /// <summary>
     ///     音频服务接口 —— 数据驱动，基于 AudioMixer 动态解析
-    ///     <para>分组寻址通过 AudioGroup 枚举，编译期安全</para>
+    ///     <para>分组寻址通过 Group 路径字符串（如 "Master/BGM"），与用户生成的 AudioGroup 枚举类型解耦</para>
     ///     <para>需要定义 CFRAMEWORK_AUDIO 编译符号才能参与编译</para>
     /// </summary>
     public interface IAudioService : IDisposable
@@ -31,22 +30,22 @@ namespace CFramework
         /// <summary>
         ///     设置分组音量（0~1 线性值，内部转 dB 操作 Mixer）
         /// </summary>
-        void SetGroupVolume(AudioGroup group, float volume);
+        void SetGroupVolume(string groupPath, float volume);
 
         /// <summary>
         ///     获取分组音量（0~1 线性值）
         /// </summary>
-        float GetGroupVolume(AudioGroup group);
+        float GetGroupVolume(string groupPath);
 
         /// <summary>
         ///     静音/取消静音
         /// </summary>
-        void MuteGroup(AudioGroup group, bool mute);
+        void MuteGroup(string groupPath, bool mute);
 
         /// <summary>
         ///     是否已静音
         /// </summary>
-        bool IsGroupMuted(AudioGroup group);
+        bool IsGroupMuted(string groupPath);
 
         #endregion
 
@@ -65,7 +64,7 @@ namespace CFramework
         /// <summary>
         ///     获取所有可用快照名称
         /// </summary>
-        System.Collections.Generic.IReadOnlyList<string> GetSnapshotNames();
+        IReadOnlyList<string> GetSnapshotNames();
 
         #endregion
 
@@ -73,28 +72,28 @@ namespace CFramework
 
         /// <summary>
         ///     在指定分组播放音频
-        ///     <para>group: AudioGroup.Master_BGM, AudioGroup.Master_SFX 等（编译期安全）</para>
+        ///     <para>groupPath: Mixer Group 路径，如 "Master/BGM"</para>
         ///     <para>clipKey: Addressable 资源 Key</para>
         ///     <para>options: 播放选项（音量/循环/渐入/3D等）</para>
         /// </summary>
-        UniTask<AudioSourceSlot> PlayAsync(AudioGroup group, string clipKey,
+        UniTask<AudioSourceSlot> PlayAsync(string groupPath, string clipKey,
             AudioPlayOptions options = default, CancellationToken ct = default);
 
         /// <summary>
         ///     停止指定 Slot
         ///     <para>slotIndex: 要停止的 Slot 索引，-1=停止最后一个活跃 Slot</para>
         /// </summary>
-        void Stop(AudioGroup group, int slotIndex = -1, float fadeOut = 0f);
+        void Stop(string groupPath, int slotIndex = -1, float fadeOut = 0f);
 
         /// <summary>
         ///     停止分组内所有播放
         /// </summary>
-        void StopAll(AudioGroup group, float fadeOut = 0f);
+        void StopAll(string groupPath, float fadeOut = 0f);
 
         /// <summary>
         ///     交叉淡入淡出（同组内，淡出新音频 + 淡出旧循环音频）
         /// </summary>
-        UniTask CrossFadeAsync(AudioGroup group, string newClipKey,
+        UniTask CrossFadeAsync(string groupPath, string newClipKey,
             float duration = 1f, AudioPlayOptions options = default,
             CancellationToken ct = default);
 
@@ -117,19 +116,19 @@ namespace CFramework
         #region 查询
 
         /// <summary>
-        ///     获取所有分组枚举值
+        ///     获取所有已注册的 Group 路径
         /// </summary>
-        System.Collections.Generic.IReadOnlyList<AudioGroup> GetAllGroups();
+        IReadOnlyList<string> GetAllGroupPaths();
 
         /// <summary>
         ///     是否存在指定分组
         /// </summary>
-        bool HasGroup(AudioGroup group);
+        bool HasGroup(string groupPath);
 
         /// <summary>
         ///     获取指定分组的 Slot 信息（用于调试/显示）
         /// </summary>
-        AudioGroupInfo GetGroupInfo(AudioGroup group);
+        AudioGroupInfo GetGroupInfo(string groupPath);
 
         #endregion
 

@@ -6,9 +6,6 @@ namespace CFramework
     /// </summary>
     public struct AudioGroupInfo
     {
-        /// <summary>分组枚举</summary>
-        public AudioGroup Group;
-
         /// <summary>Mixer Group 路径</summary>
         public string Path;
 
