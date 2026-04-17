@@ -236,6 +236,21 @@ namespace CFramework.Editor
         }
 
         /// <summary>
+        ///     在项目的 Scripting Define Symbols 中注册指定宏定义
+        /// </summary>
+        private static void DefineSymbol(string symbol)
+        {
+            var buildTarget = EditorUserBuildSettings.activeBuildTarget;
+            var group = BuildPipeline.GetBuildTargetGroup(buildTarget);
+            var defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(group);
+
+            if (defines.Contains(symbol))
+                return; // 已存在，跳过
+
+            PlayerSettings.SetScriptingDefineSymbolsForGroup(group, $"{defines};{symbol}");
+        }
+
+        /// <summary>
         ///     取消注册指定宏定义
         /// </summary>
         private static void UndefineSymbol(string symbol)
