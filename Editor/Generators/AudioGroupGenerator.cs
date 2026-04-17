@@ -25,7 +25,7 @@ namespace CFramework.Editor
                                                "/// AudioMixer：{1}\n";
 
         private AudioMixer _mixer;
-        private string _outputPath = "Assets/Plugins/CFramework/Runtime/Audio/AudioGroup.cs";
+        private string _outputPath = "Assets/AudioGroup.cs";
         private Vector2 _scroll;
         private List<GroupInfo> _previewGroups = new();
         private bool _previewDirty = true;
