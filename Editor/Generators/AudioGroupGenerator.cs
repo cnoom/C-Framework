@@ -36,17 +36,6 @@ namespace CFramework.Editor
             public string Path;
             public int Hash;
             public string MemberName;
-
-            public static GroupInfo From(AudioMixerGroup group)
-            {
-                var path = group.path;
-                return new GroupInfo
-                {
-                    Path = path,
-                    Hash = Animator.StringToHash(path),
-                    MemberName = path.Replace("/", "_")
-                };
-            }
         }
 
         [MenuItem("CFramework/Generate/AudioGroup Enum", priority = 100)]
@@ -164,14 +153,46 @@ namespace CFramework.Editor
 
         /// <summary>
         ///     从 AudioMixer 收集所有 Group 路径
+        ///     <para>通过 SerializedObject + m_MasterGroup / m_Children 递归遍历 Mixer Group 树</para>
         /// </summary>
         private static List<GroupInfo> CollectGroups(AudioMixer mixer)
         {
-            var rawGroups = mixer.FindMatchingGroups("");
-            var groups = new List<GroupInfo>(rawGroups.Length);
-            foreach (var g in rawGroups)
-                groups.Add(GroupInfo.From(g));
+            var groups = new List<GroupInfo>();
+            var mixerObj = new SerializedObject(mixer);
+            var masterGroup = mixerObj.FindProperty("m_MasterGroup");
+            if (masterGroup != null)
+                CollectChildGroups(masterGroup, "", groups);
             return groups;
+        }
+
+        private static void CollectChildGroups(SerializedProperty groupProp, string parentPath, List<GroupInfo> groups)
+        {
+            // 跳过无效引用（fileID: 0 表示空引用）
+            if (groupProp.type != "PPtr<AudioMixerGroupController>" || !groupProp.objectReferenceValue)
+                return;
+
+            // 获取 Group 对象的 SerializedObject
+            var groupObj = new SerializedObject(groupProp.objectReferenceValue);
+            var nameProp = groupObj.FindProperty("m_Name");
+            var name = nameProp?.stringValue ?? "";
+
+            if (string.IsNullOrEmpty(name)) return;
+
+            var fullPath = string.IsNullOrEmpty(parentPath) ? name : $"{parentPath}/{name}";
+            groups.Add(new GroupInfo
+            {
+                Path = fullPath,
+                Hash = Animator.StringToHash(fullPath),
+                MemberName = fullPath.Replace("/", "_")
+            });
+
+            // 递归遍历子 Group
+            var childrenProp = groupObj.FindProperty("m_Children");
+            if (childrenProp != null && childrenProp.isArray)
+            {
+                for (int i = 0; i < childrenProp.arraySize; i++)
+                    CollectChildGroups(childrenProp.GetArrayElementAtIndex(i), fullPath, groups);
+            }
         }
 
         /// <summary>
