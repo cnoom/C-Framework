@@ -225,7 +225,7 @@ namespace CFramework.Editor
             {
                 var g = groups[i];
                 sb.AppendLine($"        [Description(\"{g.Path}\")]");
-                sb.AppendLine($"        {g.MemberName} = {g.Hash}}{(i < groups.Count - 1 ? "," : "")}");
+                sb.AppendLine($"        {g.MemberName} = {g.Hash}{(i < groups.Count - 1 ? "," : "")}");
             }
 
             sb.AppendLine("    }");
