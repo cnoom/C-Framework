@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -5,15 +6,24 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UIElements;
 
 namespace CFramework.Editor.Windows.Tools
 {
+    /// <summary>
+    ///     丢失引用查找器（UIToolkit 实现）
+    /// </summary>
     public class MissingReferenceFinder : EditorWindow
     {
         private List<ResultItem> results = new List<ResultItem>();
-        private Vector2 scrollPos;
+
+        private Toggle _detectFieldToggle;
+        private Button _scanButton;
+        private Label _countLabel;
+        private ScrollView _resultScroll;
+
         private bool scanInProgress = false;
-        private bool detectFieldMissing = true; // 是否检测字段引用丢失
+        private bool detectFieldMissing = true;
         private Dictionary<MissingType, bool> foldoutStates = new Dictionary<MissingType, bool>
         {
             { MissingType.MissingScript, true },
@@ -23,62 +33,131 @@ namespace CFramework.Editor.Windows.Tools
         [MenuItem("CFramework/查找丢失引用物体")]
         public static void ShowWindow()
         {
-            GetWindow<MissingReferenceFinder>("丢失引用查找器");
+            var window = GetWindow<MissingReferenceFinder>("丢失引用查找器");
+            window.minSize = new Vector2(450, 400);
         }
 
-        private void OnGUI()
+        private void CreateGUI()
         {
-            GUILayout.Label("扫描丢失引用", EditorStyles.boldLabel);
-            detectFieldMissing = EditorGUILayout.Toggle("检测字段引用丢失 (可能误报)", detectFieldMissing);
-            if (GUILayout.Button("开始扫描", GUILayout.Height(30)))
+            var root = rootVisualElement;
+
+            // 标题
+            var titleLabel = new Label("扫描丢失引用");
+            titleLabel.style.fontSize = 14;
+            titleLabel.style.color = new Color(0.82f, 0.82f, 0.82f);
+            titleLabel.style.marginBottom = 8;
+            root.Add(titleLabel);
+
+            // 检测选项
+            _detectFieldToggle = new Toggle("检测字段引用丢失 (可能误报)");
+            _detectFieldToggle.value = detectFieldMissing;
+            _detectFieldToggle.style.marginBottom = 8;
+            _detectFieldToggle.RegisterValueChangedCallback(evt =>
             {
-                if (!scanInProgress)
-                    ScanAllAssets();
-            }
+                detectFieldMissing = evt.newValue;
+            });
+            root.Add(_detectFieldToggle);
 
-            EditorGUILayout.Space();
-            GUILayout.Label($"共找到 {results.Count} 个存在丢失引用的物体", EditorStyles.boldLabel);
+            // 扫描按钮
+            _scanButton = new Button(ScanAllAssets);
+            _scanButton.text = "开始扫描";
+            _scanButton.style.height = 32;
+            _scanButton.style.fontSize = 13;
+            _scanButton.style.marginBottom = 8;
+            root.Add(_scanButton);
 
-            // 按缺失类型分组显示
-            scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
+            // 结果计数
+            _countLabel = new Label("共找到 0 个存在丢失引用的物体");
+            _countLabel.style.fontSize = 12;
+            _countLabel.style.color = new Color(0.7f, 0.7f, 0.7f);
+            _countLabel.style.marginBottom = 6;
+            root.Add(_countLabel);
+
+            // 结果滚动列表
+            _resultScroll = new ScrollView();
+            _resultScroll.style.flexGrow = 1;
+            _resultScroll.style.borderTopWidth = 1;
+            _resultScroll.style.borderBottomWidth = 1;
+            _resultScroll.style.borderLeftWidth = 1;
+            _resultScroll.style.borderRightWidth = 1;
+            _resultScroll.style.borderTopColor = new Color(0.22f, 0.22f, 0.22f, 0.9f);
+            _resultScroll.style.borderBottomColor = new Color(0.22f, 0.22f, 0.22f, 0.9f);
+            _resultScroll.style.borderLeftColor = new Color(0.22f, 0.22f, 0.22f, 0.9f);
+            _resultScroll.style.borderRightColor = new Color(0.22f, 0.22f, 0.22f, 0.9f);
+            _resultScroll.style.backgroundColor = new Color(0.13f, 0.13f, 0.13f, 0.5f);
+            _resultScroll.style.paddingTop = 6;
+            _resultScroll.style.paddingBottom = 6;
+            _resultScroll.style.paddingLeft = 6;
+            _resultScroll.style.paddingRight = 6;
+            root.Add(_resultScroll);
+
+            RefreshResults();
+        }
+
+        private void RefreshResults()
+        {
+            _countLabel.text = $"共找到 {results.Count} 个存在丢失引用的物体";
+            _resultScroll.Clear();
+
             foreach (MissingType missingType in System.Enum.GetValues(typeof(MissingType)))
             {
                 var group = results.Where(r => r.missingType == missingType).ToList();
                 if (group.Count == 0) continue;
 
-                // 获取类型的中文显示名
-                string typeName = GetMissingTypeName(missingType);
                 if (!foldoutStates.ContainsKey(missingType))
                     foldoutStates[missingType] = true;
 
-                foldoutStates[missingType] = EditorGUILayout.Foldout(foldoutStates[missingType], $"{typeName} ({group.Count})", true, EditorStyles.boldLabel);
-                if (!foldoutStates[missingType]) continue;
-
-                EditorGUI.indentLevel++;
-                for (int i = 0; i < group.Count; i++)
+                var foldout = new Foldout();
+                foldout.text = $"{GetMissingTypeName(missingType)} ({group.Count})";
+                foldout.value = foldoutStates[missingType];
+                foldout.style.marginBottom = 4;
+                foldout.RegisterValueChangedCallback(evt =>
                 {
-                    var item = group[i];
-                    EditorGUILayout.BeginHorizontal();
-                    EditorGUILayout.LabelField(item.displayName, GUILayout.MinWidth(300));
-                    if (GUILayout.Button("选中", GUILayout.Width(60)))
-                    {
-                        SelectObject(item);
-                    }
-                    EditorGUILayout.EndHorizontal();
+                    foldoutStates[missingType] = evt.newValue;
+                });
+
+                foreach (var item in group)
+                {
+                    var itemRow = new VisualElement();
+                    itemRow.style.flexDirection = FlexDirection.Row;
+                    itemRow.style.alignItems = Align.Center;
+                    itemRow.style.paddingTop = 2;
+                    itemRow.style.paddingBottom = 2;
+                    itemRow.style.paddingLeft = 8;
+                    itemRow.style.paddingRight = 8;
+                    itemRow.style.backgroundColor = new Color(0.16f, 0.16f, 0.16f, 0.4f);
+                    itemRow.style.marginBottom = 2;
+
+                    var itemNameLabel = new Label(item.displayName);
+                    itemNameLabel.style.fontSize = 11;
+                    itemNameLabel.style.flexGrow = 1;
+                    itemNameLabel.style.minWidth = 200;
+                    itemNameLabel.style.unityTextAlign = TextAnchor.UpperLeft;
+                    itemRow.Add(itemNameLabel);
+
+                    var selectBtn = new Button(() => SelectObject(item));
+                    selectBtn.text = "选中";
+                    selectBtn.style.minWidth = 50;
+                    selectBtn.style.fontSize = 10;
+                    selectBtn.style.marginLeft = 8;
+                    itemRow.Add(selectBtn);
+
+                    foldout.Add(itemRow);
                 }
-                EditorGUI.indentLevel--;
-                EditorGUILayout.Space();
+
+                _resultScroll.Add(foldout);
             }
-            EditorGUILayout.EndScrollView();
         }
 
         private void ScanAllAssets()
         {
+            if (scanInProgress) return;
+
             scanInProgress = true;
             results.Clear();
+            _scanButton.SetEnabled(false);
             try
             {
-                // 查找所有场景和预制体
                 string[] sceneGuids = AssetDatabase.FindAssets("t:Scene");
                 string[] prefabGuids = AssetDatabase.FindAssets("t:Prefab");
                 List<string> allAssets = new List<string>();
@@ -91,33 +170,27 @@ namespace CFramework.Editor.Windows.Tools
                 {
                     current++;
                     if (EditorUtility.DisplayCancelableProgressBar("扫描丢失引用", $"正在处理: {Path.GetFileName(assetPath)} ({current}/{total})", (float)current / total))
-                    {
                         break;
-                    }
 
                     if (assetPath.EndsWith(".unity"))
                     {
-                        // 跳过只读场景（如被版本控制锁定的场景）
                         if (IsReadOnlyScene(assetPath)) continue;
                         ScanScene(assetPath);
                     }
                     else if (assetPath.EndsWith(".prefab"))
-                    {
                         ScanPrefab(assetPath);
-                    }
                 }
             }
             finally
             {
                 EditorUtility.ClearProgressBar();
                 scanInProgress = false;
+                _scanButton.SetEnabled(true);
                 Repaint();
+                RefreshResults();
             }
         }
 
-        /// <summary>
-        /// 判断场景文件是否为只读（被版本控制锁定或文件属性为只读）
-        /// </summary>
         private bool IsReadOnlyScene(string assetPath)
         {
             string fullPath = Path.GetFullPath(assetPath);
@@ -131,23 +204,18 @@ namespace CFramework.Editor.Windows.Tools
             bool wasActive = false;
             try
             {
-                // 以只读模式临时打开场景 (Additive模式避免关闭当前场景)
                 scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
                 if (!scene.IsValid()) return;
                 wasActive = true;
 
                 GameObject[] rootObjects = scene.GetRootGameObjects();
                 foreach (var root in rootObjects)
-                {
                     ScanGameObject(root, root.name, scenePath, ResultType.Scene);
-                }
             }
             finally
             {
                 if (wasActive && scene.IsValid())
-                {
                     EditorSceneManager.CloseScene(scene, true);
-                }
             }
         }
 
@@ -158,7 +226,6 @@ namespace CFramework.Editor.Windows.Tools
             {
                 prefabRoot = PrefabUtility.LoadPrefabContents(prefabPath);
                 if (prefabRoot == null) return;
-
                 ScanGameObject(prefabRoot, prefabRoot.name, prefabPath, ResultType.Prefab);
             }
             finally
@@ -187,61 +254,39 @@ namespace CFramework.Editor.Windows.Tools
             }
 
             foreach (Transform child in go.transform)
-            {
                 ScanGameObject(child.gameObject, currentPath + "/" + child.name, assetPath, type);
-            }
         }
 
-        /// <summary>
-        /// 获取 GameObject 上所有缺失类型
-        /// </summary>
         private List<MissingType> GetMissingTypes(GameObject go)
         {
             var missingTypes = new List<MissingType>();
             var components = go.GetComponents<Component>();
 
-            // 检测 Missing Script
             bool hasMissingScript = false;
             foreach (var comp in components)
             {
-                if (comp == null)
-                {
-                    hasMissingScript = true;
-                    break;
-                }
+                if (comp == null) { hasMissingScript = true; break; }
             }
-            if (hasMissingScript)
-                missingTypes.Add(MissingType.MissingScript);
+            if (hasMissingScript) missingTypes.Add(MissingType.MissingScript);
 
-            // 检测字段引用丢失（可选）
             if (detectFieldMissing)
             {
                 foreach (var comp in components)
                 {
                     if (comp == null) continue;
-                    if (HasMissingFieldInComponent(comp))
-                    {
-                        missingTypes.Add(MissingType.MissingFieldReference);
-                        break;
-                    }
+                    if (HasMissingFieldInComponent(comp)) { missingTypes.Add(MissingType.MissingFieldReference); break; }
                 }
             }
             return missingTypes;
         }
 
-        /// <summary>
-        /// 获取缺失类型的中文显示名称
-        /// </summary>
         private string GetMissingTypeName(MissingType missingType)
         {
             switch (missingType)
             {
-                case MissingType.MissingScript:
-                    return "脚本缺失 (Missing Script)";
-                case MissingType.MissingFieldReference:
-                    return "字段引用丢失 (Missing Reference)";
-                default:
-                    return missingType.ToString();
+                case MissingType.MissingScript: return "脚本缺失 (Missing Script)";
+                case MissingType.MissingFieldReference: return "字段引用丢失 (Missing Reference)";
+                default: return missingType.ToString();
             }
         }
 
@@ -251,68 +296,41 @@ namespace CFramework.Editor.Windows.Tools
             var prop = so.GetIterator();
             while (prop.NextVisible(true))
             {
-                if (prop.propertyType == SerializedPropertyType.ObjectReference)
-                {
-                    // 如果引用为null但instanceID不为0，说明曾经引用过资源但已丢失
-                    if (prop.objectReferenceValue == null && prop.objectReferenceInstanceIDValue != 0)
-                    {
-                        // 避免误报某些内置默认null字段（如Animator的avatar），但多数情况是需要关注的
-                        // 简单排除特定属性名可减少误报，但为了完整性不做过滤
-                        return true;
-                    }
-                }
+                if (prop.propertyType == SerializedPropertyType.ObjectReference
+                    && prop.objectReferenceValue == null && prop.objectReferenceInstanceIDValue != 0)
+                    return true;
             }
             return false;
         }
 
         private void SelectObject(ResultItem item)
         {
-            if (item.type == ResultType.Scene)
-            {
-                OpenSceneAndSelect(item.assetPath, item.objectPath);
-            }
-            else if (item.type == ResultType.Prefab)
-            {
-                OpenPrefabAndSelect(item.assetPath, item.objectPath);
-            }
+            if (item.type == ResultType.Scene) OpenSceneAndSelect(item.assetPath, item.objectPath);
+            else if (item.type == ResultType.Prefab) OpenPrefabAndSelect(item.assetPath, item.objectPath);
         }
 
         private void OpenSceneAndSelect(string scenePath, string objectPath)
         {
-            // 检查场景是否已打开
             Scene scene = SceneManager.GetSceneByPath(scenePath);
             if (!scene.isLoaded)
             {
-                // 保存当前场景（用户可选择取消）
-                if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
-                    return;
-
+                if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
                 scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
             }
-
-            // 根据路径查找物体
             GameObject target = FindGameObjectByPath(objectPath);
             if (target != null)
             {
                 Selection.activeGameObject = target;
                 EditorGUIUtility.PingObject(target);
-                // 在Scene视图中聚焦
-                if (SceneView.lastActiveSceneView != null)
-                    SceneView.lastActiveSceneView.FrameSelected();
+                if (SceneView.lastActiveSceneView != null) SceneView.lastActiveSceneView.FrameSelected();
             }
-            else
-            {
-                Debug.LogWarning($"无法找到物体: {objectPath}，可能路径已变化");
-            }
+            else Debug.LogWarning($"无法找到物体: {objectPath}，可能路径已变化");
         }
 
         private void OpenPrefabAndSelect(string prefabPath, string objectPath)
         {
-            // 打开预制体编辑模式
             PrefabStage stage = PrefabStageUtility.OpenPrefab(prefabPath);
             if (stage == null) return;
-
-            // 在预制体根下查找物体
             GameObject root = stage.prefabContentsRoot;
             GameObject target = FindGameObjectByPathFromRoot(root, objectPath);
             if (target != null)
@@ -320,22 +338,17 @@ namespace CFramework.Editor.Windows.Tools
                 Selection.activeGameObject = target;
                 EditorGUIUtility.PingObject(target);
             }
-            else
-            {
-                Debug.LogWarning($"无法在预制体中找到物体: {objectPath}");
-            }
+            else Debug.LogWarning($"无法在预制体中找到物体: {objectPath}");
         }
 
         private GameObject FindGameObjectByPath(string path)
         {
-            // 在当前所有场景中查找（通常只有一个场景打开）
             for (int i = 0; i < SceneManager.sceneCount; i++)
             {
                 Scene scene = SceneManager.GetSceneAt(i);
-                GameObject[] roots = scene.GetRootGameObjects();
-                foreach (var root in roots)
+                foreach (var root in scene.GetRootGameObjects())
                 {
-                    GameObject result = FindGameObjectByPathFromRoot(root, path);
+                    var result = FindGameObjectByPathFromRoot(root, path);
                     if (result != null) return result;
                 }
             }
@@ -358,25 +371,16 @@ namespace CFramework.Editor.Windows.Tools
             return current.gameObject;
         }
 
-        private enum ResultType
-        {
-            Scene,
-            Prefab
-        }
-
-        private enum MissingType
-        {
-            MissingScript,         // 脚本缺失
-            MissingFieldReference  // 字段引用丢失
-        }
+        private enum ResultType { Scene, Prefab }
+        private enum MissingType { MissingScript, MissingFieldReference }
 
         private class ResultItem
         {
             public ResultType type;
-            public MissingType missingType; // 缺失类型
-            public string assetPath;    // 场景或预制体路径
-            public string objectPath;   // 物体在层次中的完整路径（从根开始）
-            public string displayName;  // 显示用字符串
+            public MissingType missingType;
+            public string assetPath;
+            public string objectPath;
+            public string displayName;
         }
     }
 }

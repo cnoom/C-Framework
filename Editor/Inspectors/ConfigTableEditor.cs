@@ -1,65 +1,114 @@
 #if ODIN_INSPECTOR
 using Sirenix.OdinInspector.Editor;
 using UnityEditor;
+using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace CFramework.Editor.Inspectors
 {
-    /// <summary>
-    ///     配置表自定义编辑器（Odin 版本）
-    /// </summary>
     [CustomEditor(typeof(ConfigTableBase), true)]
     public class ConfigTableEditor : OdinEditor
     {
-        // 使用 Odin 默认的 Inspector 显示
-        // 如需自定义功能，可在此扩展
+        private VisualElement _rootElement;
+
+        public override VisualElement CreateInspectorGUI()
+        {
+            _rootElement = new VisualElement();
+
+            var headerContainer = new VisualElement();
+            headerContainer.style.flexDirection = FlexDirection.Row;
+            headerContainer.style.alignItems = Align.Center;
+            headerContainer.style.paddingTop = 4;
+            headerContainer.style.paddingBottom = 4;
+
+            var config = (ConfigTableBase)target;
+            var typeName = config.GetType().Name;
+
+            var nameLabel = new Label(typeName);
+            nameLabel.style.fontSize = 13;
+            nameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            nameLabel.style.color = new Color(0.78f, 0.78f, 0.78f);
+            nameLabel.style.unityTextAlign = TextAnchor.UpperLeft;
+            headerContainer.Add(nameLabel);
+
+            headerContainer.Add(new VisualElement { style = { flexGrow = 1 } });
+
+            var infoLabel = new Label($"{config.Count} 条记录");
+            infoLabel.style.fontSize = 11;
+            infoLabel.style.color = new Color(0.55f, 0.55f, 0.55f);
+            headerContainer.Add(infoLabel);
+
+            _rootElement.Add(headerContainer);
+
+            var divider = new VisualElement();
+            divider.style.height = 1;
+            divider.style.backgroundColor = new Color(0.19f, 0.19f, 0.19f);
+            divider.style.marginTop = 4;
+            divider.style.marginBottom = 4;
+            _rootElement.Add(divider);
+
+            return _rootElement;
+        }
     }
 }
 #else
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace CFramework.Editor.Inspectors
 {
     /// <summary>
-    ///     配置表自定义编辑器（默认实现）
-    ///     <para>为 ConfigTableBase 提供增强的 Inspector 显示</para>
+    ///     配置表自定义编辑器（UIToolkit 默认实现）
     /// </summary>
     [CustomEditor(typeof(ConfigTableBase), true)]
     public class ConfigTableEditor : UnityEditor.Editor
     {
-        private GUIContent _dataListLabel;
-
-        private void OnEnable()
+        public override VisualElement CreateInspectorGUI()
         {
-            _dataListLabel = new GUIContent("数据列表");
-        }
+            var root = new VisualElement();
 
-        public override void OnInspectorGUI()
-        {
-            EditorGUILayout.Space(4);
+            // 信息头区域
+            var headerContainer = new VisualElement();
+            headerContainer.style.flexDirection = FlexDirection.Row;
+            headerContainer.style.alignItems = Align.Center;
+            headerContainer.style.paddingTop = 4;
+            headerContainer.style.paddingBottom = 4;
+            headerContainer.style.marginBottom = 2;
 
-            // 显示配置表信息头
             var config = (ConfigTableBase)target;
             var typeName = config.GetType().Name;
 
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                EditorGUILayout.LabelField(typeName, EditorStyles.boldLabel);
-                GUILayout.FlexibleSpace();
-                EditorGUILayout.LabelField($"{config.Count} 条记录", EditorStyles.miniLabel);
-            }
+            var nameLabel = new Label(typeName);
+            nameLabel.style.fontSize = 13;
+            nameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            nameLabel.style.color = new Color(0.78f, 0.78f, 0.78f);
+            nameLabel.style.unityTextAlign = TextAnchor.UpperLeft;
+            headerContainer.Add(nameLabel);
 
-            EditorGUILayout.Space(2);
+            headerContainer.Add(new VisualElement { style = { flexGrow = 1 } });
+
+            var countLabel = new Label($"{config.Count} 条记录");
+            countLabel.style.fontSize = 11;
+            countLabel.style.color = new Color(0.55f, 0.55f, 0.55f);
+            headerContainer.Add(countLabel);
+
+            root.Add(headerContainer);
 
             // 分割线
-            var lineRect = EditorGUILayout.GetControlRect(false, 1);
-            EditorGUI.DrawRect(lineRect, new Color(0.3f, 0.3f, 0.3f, 1f));
-            EditorGUILayout.Space(4);
+            var divider = new VisualElement();
+            divider.style.height = 1;
+            divider.style.backgroundColor = new Color(0.19f, 0.19f, 0.19f);
+            divider.style.marginTop = 4;
+            divider.style.marginBottom = 4;
+            root.Add(divider);
 
-            // 显示默认属性（包含 dataList）
-            serializedObject.Update();
-            DrawPropertiesExcluding(serializedObject, "m_Script");
-            serializedObject.ApplyModifiedProperties();
+            // 使用默认属性绘制器显示序列化属性（排除 m_Script）
+            var defaultInspector = new VisualElement();
+            InspectorElement.DrawPropertiesExcluding(defaultInspector, serializedObject, this, "m_Script");
+            root.Add(defaultInspector);
+
+            return root;
         }
     }
 }

@@ -6,11 +6,12 @@ using System.Text;
 using CFramework.Editor.Utilities;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace CFramework.Editor.Windows.Config
 {
     /// <summary>
-    ///     配置创建器窗口（默认实现，不依赖 Odin）
+    ///     配置创建器窗口（UIToolkit 默认实现，不依赖 Odin）
     /// </summary>
     public sealed class ConfigCreatorWindow : EditorWindow
     {
@@ -20,7 +21,7 @@ namespace CFramework.Editor.Windows.Config
         public static void OpenWindow()
         {
             var window = GetWindow<ConfigCreatorWindow>("创建配置表");
-            window.minSize = new Vector2(500, 600);
+            window.minSize = new Vector2(500, 620);
             window.Show();
         }
 
@@ -44,8 +45,24 @@ namespace CFramework.Editor.Windows.Config
             new ValueField { fieldName = "name", fieldType = "string" }
         };
 
-        // 编辑器状态
-        private Vector2 _scrollPos;
+        // UIToolkit 控件引用
+        private TextField _configNameField;
+        private TextField _configNamespaceField;
+        private TextField _configOutputField;
+        private TextField _dataNamespaceField;
+        private TextField _dataOutputField;
+        private PopupField<string> _keyTypePopup;
+        private TextField _valueTypeNameField;
+        private ListView _fieldListView;
+        private TextField _assetPathField;
+        private Toggle _openScriptToggle;
+        private Toggle _autoAssetToggle;
+        private TextField _configPreviewField;
+        private TextField _dataPreviewField;
+        private Button _generateCodeBtn;
+        private Button _generateAllBtn;
+
+        // 编辑状态
         private int _selectedFieldIndex = -1;
 
         private static readonly string[] KeyTypeOptions =
@@ -75,6 +92,34 @@ namespace CFramework.Editor.Windows.Config
 
         #region 生命周期
 
+        private void CreateGUI()
+        {
+            var root = rootVisualElement;
+
+            // 样式
+            root.styleSheets.Add(CreateStyleSheet());
+
+            // 主滚动容器
+            var scrollView = new ScrollView(ScrollViewMode.Vertical);
+            scrollView.AddToClassList("main-scroll");
+            root.Add(scrollView);
+
+            // 各区域
+            scrollView.Add(CreateBasicConfigSection());
+            scrollView.Add(CreateTypeConfigSection());
+            scrollView.Add(CreateFieldListSection());
+            scrollView.Add(CreateOutputConfigSection());
+            scrollView.Add(CreatePreviewSection());
+            scrollView.Add(CreateButtonSection());
+
+            // 延迟绑定值
+            EditorApplication.delayCall += () =>
+            {
+                BindInitialValues();
+                UpdatePreview();
+            };
+        }
+
         private void OnEnable()
         {
             LoadPreferences();
@@ -97,216 +142,342 @@ namespace CFramework.Editor.Windows.Config
 
         private void SavePreferences()
         {
-            EditorPrefs.SetString(PREF_CONFIG_NAMESPACE, configNamespace);
-            EditorPrefs.SetString(PREF_CONFIG_OUTPUT_PATH, configOutputPath);
-            EditorPrefs.SetString(PREF_DATA_NAMESPACE, dataNamespace);
-            EditorPrefs.SetString(PREF_DATA_OUTPUT_PATH, dataOutputPath);
-            EditorPrefs.SetString(PREF_ASSET_OUTPUT_PATH, outputAssetPath);
-            EditorPrefs.SetString(PREF_KEY_TYPE, keyType);
+            if (_configNamespaceField != null)
+            {
+                EditorPrefs.SetString(PREF_CONFIG_NAMESPACE, _configNamespaceField.value);
+                EditorPrefs.SetString(PREF_CONFIG_OUTPUT_PATH, _configOutputField.value);
+                EditorPrefs.SetString(PREF_DATA_NAMESPACE, _dataNamespaceField.value);
+                EditorPrefs.SetString(PREF_DATA_OUTPUT_PATH, _dataOutputField.value);
+                EditorPrefs.SetString(PREF_ASSET_OUTPUT_PATH, _assetPathField.value);
+                EditorPrefs.SetString(PREF_KEY_TYPE, _keyTypePopup.value);
+            }
+        }
+
+        /// <summary>
+        ///     绑定初始值到控件
+        /// </summary>
+        private void BindInitialValues()
+        {
+            _configNameField.value = configName;
+            _configNamespaceField.value = configNamespace;
+            _configOutputField.value = configOutputPath;
+            _dataNamespaceField.value = dataNamespace;
+            _dataOutputField.value = dataOutputPath;
+            _assetPathField.value = outputAssetPath;
+            _openScriptToggle.value = openGeneratedScript;
+            _autoAssetToggle.value = autoCreateAsset;
+
+            var keyIdx = Array.IndexOf(KeyTypeOptions, keyType);
+            if (keyIdx >= 0) _keyTypePopup.index = keyIdx;
+
+            _valueTypeNameField.value = valueTypeName;
+
+            _fieldListView.itemsSource = valueFields;
+            _fieldListView.RefreshItems();
         }
 
         #endregion
 
-        #region GUI
+        #region UI 构建方法
 
-        private void OnGUI()
+        /// <summary>
+        ///     创建基础配置区域
+        /// </summary>
+        private VisualElement CreateBasicConfigSection()
         {
-            _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
+            var section = CreateSection("基础配置");
 
-            DrawBasicConfig();
-            DrawTypeConfig();
-            DrawFieldList();
-            DrawOutputConfig();
-            DrawPreview();
-            DrawButtons();
+            // 配置表名称
+            section.Add(CreateLabeledField("配置表名称",
+                out _configNameField,
+                OnConfigNameChanged));
 
-            EditorGUILayout.EndScrollView();
+            // 配置表设置子区域
+            section.Add(new Label("配置表设置") { AddToClassList("sub-label") });
+            section.Add(CreateIndentedField("命名空间", out _configNamespaceField));
+            section.Add(CreateIndentedField("输出目录", out _configOutputField));
+
+            // 数据类设置子区域
+            section.Add(new Label("数据类设置") { AddToClassList("sub-label") });
+            section.Add(CreateIndentedField("命名空间", out _dataNamespaceField));
+            section.Add(CreateIndentedField("输出目录", out _dataOutputField));
+
+            return section;
         }
 
-        private void DrawBasicConfig()
+        /// <summary>
+        ///     创建类型配置区域
+        /// </summary>
+        private VisualElement CreateTypeConfigSection()
         {
-            EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField("基础配置", EditorStyles.boldLabel);
-            EditorGUI.indentLevel++;
+            var section = CreateSection("类型配置");
 
-            EditorGUI.BeginChangeCheck();
-            configName = EditorGUILayout.TextField("配置表名称", configName);
-            if (EditorGUI.EndChangeCheck() && !string.IsNullOrEmpty(configName))
+            // 键类型下拉框
+            var keyRow = CreateLabeledField("键类型", out _, null);
+            var keyPopupContainer = keyRow.Q<VisualElement>("field-container");
+
+            _keyTypePopup = new PopupField<string>("", KeyTypeOptions, 0) { AddToClassList("popup-field") };
+            _keyTypePopup.RegisterValueChangedCallback(evt => { keyType = evt.newValue; });
+            keyPopupContainer?.Clear();
+            keyPopupContainer?.Add(_keyTypePopup);
+
+            section.Add(keyRow);
+
+            // 值类型名称
+            section.Add(CreateLabeledField("值类型名称",
+                out _valueTypeNameField,
+                evt => { valueTypeName = evt.newValue; }));
+
+            return section;
+        }
+
+        /// <summary>
+        ///     创建字段列表区域
+        /// </summary>
+        private VisualElement CreateFieldListSection()
+        {
+            var section = CreateSection("值类型字段");
+
+            _fieldListView = new ListView
             {
-                if (configName.EndsWith("Config"))
-                    valueTypeName = configName.Substring(0, configName.Length - "Config".Length) + "Data";
-            }
-
-            EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField("配置表设置", EditorStyles.boldLabel);
-            configNamespace = EditorGUILayout.TextField("命名空间", configNamespace);
-            configOutputPath = EditorGUILayout.TextField("输出目录", configOutputPath);
-
-            EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField("数据类设置", EditorStyles.boldLabel);
-            dataNamespace = EditorGUILayout.TextField("命名空间", dataNamespace);
-            dataOutputPath = EditorGUILayout.TextField("输出目录", dataOutputPath);
-
-            EditorGUI.indentLevel--;
-        }
-
-        private void DrawTypeConfig()
-        {
-            EditorGUILayout.Space(8);
-            EditorGUILayout.LabelField("类型配置", EditorStyles.boldLabel);
-            EditorGUI.indentLevel++;
-
-            var keyIndex = Array.IndexOf(KeyTypeOptions, keyType);
-            if (keyIndex < 0) keyIndex = 0;
-            keyIndex = EditorGUILayout.Popup("键类型", keyIndex, KeyTypeOptions);
-            keyType = KeyTypeOptions[keyIndex];
-
-            valueTypeName = EditorGUILayout.TextField("值类型名称", valueTypeName);
-
-            EditorGUI.indentLevel--;
-        }
-
-        private void DrawFieldList()
-        {
-            EditorGUILayout.Space(8);
-            EditorGUILayout.LabelField("值类型字段", EditorStyles.boldLabel);
-
-            // 字段列表
-            for (var i = 0; i < valueFields.Count; i++)
-            {
-                var field = valueFields[i];
-                var isSelected = i == _selectedFieldIndex;
-
-                var bgStyle = isSelected
-                    ? new GUIStyle("HelpBox") { padding = new RectOffset(8, 8, 4, 4) }
-                    : new GUIStyle("HelpBox") { padding = new RectOffset(8, 8, 4, 4) };
-
-                var rect = EditorGUILayout.BeginVertical(bgStyle);
-
-                if (isSelected)
+                makeItem = () => new FieldItemElement(FieldTypeOptions),
+                bindItem = (element, index) =>
                 {
-                    EditorGUI.DrawRect(GUILayoutUtility.GetLastRect(), new Color(0.24f, 0.49f, 0.75f, 0.2f));
-                }
-
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    var typeIndex = Array.IndexOf(FieldTypeOptions, field.fieldType);
-                    if (typeIndex < 0) typeIndex = 0;
-
-                    field.isKeyField = EditorGUILayout.ToggleLeft("主键", field.isKeyField, GUILayout.Width(50));
-                    field.fieldName = EditorGUILayout.TextField(field.fieldName);
-                    typeIndex = EditorGUILayout.Popup(typeIndex, FieldTypeOptions, GUILayout.Width(80));
-                    field.fieldType = FieldTypeOptions[typeIndex];
-
-                    if (GUILayout.Button("×", GUILayout.Width(20), GUILayout.Height(18)))
+                    if (element is FieldItemElement itemElem)
                     {
-                        valueFields.RemoveAt(i);
-                        if (_selectedFieldIndex >= valueFields.Count) _selectedFieldIndex = valueFields.Count - 1;
-                        break;
+                        itemElem.SetData(valueFields[index], index == _selectedFieldIndex,
+                            onRemove: () =>
+                            {
+                                valueFields.RemoveAt(index);
+                                if (_selectedFieldIndex >= valueFields.Count)
+                                    _selectedFieldIndex = valueFields.Count - 1;
+                                _fieldListView.RefreshItems();
+                                UpdatePreview();
+                            },
+                            onSelect: () =>
+                            {
+                                _selectedFieldIndex = index;
+                                _fieldListView.RefreshItems();
+                            },
+                            onFieldChanged: () => UpdatePreview()
+                        );
                     }
-                }
-
-                field.description = EditorGUILayout.TextField("描述", field.description);
-
-                EditorGUILayout.EndVertical();
-
-                // 点击选择
-                var evt = Event.current;
-                if (evt.type == EventType.MouseDown && rect.Contains(evt.mousePosition))
-                {
-                    _selectedFieldIndex = i;
-                    evt.Use();
-                }
-            }
-
-            // 添加字段按钮
-            EditorGUILayout.Space(2);
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.FlexibleSpace();
-                if (GUILayout.Button("+ 添加字段", GUILayout.Width(100)))
-                {
-                    valueFields.Add(new ValueField { fieldName = $"field{valueFields.Count}", fieldType = "int" });
-                    _selectedFieldIndex = valueFields.Count - 1;
-                }
-
-                GUILayout.FlexibleSpace();
-            }
-        }
-
-        private void DrawOutputConfig()
-        {
-            EditorGUILayout.Space(8);
-            EditorGUILayout.LabelField("资源设置", EditorStyles.boldLabel);
-            EditorGUI.indentLevel++;
-
-            outputAssetPath = EditorGUILayout.TextField("资源输出目录", outputAssetPath);
-            openGeneratedScript = EditorGUILayout.Toggle("打开生成的脚本", openGeneratedScript);
-            autoCreateAsset = EditorGUILayout.Toggle("自动创建资产", autoCreateAsset);
-
-            EditorGUI.indentLevel--;
-        }
-
-        private void DrawPreview()
-        {
-            EditorGUILayout.Space(8);
-            EditorGUILayout.LabelField("代码预览", EditorStyles.boldLabel);
-
-            // 配置表类预览
-            EditorGUILayout.LabelField("配置表类:", EditorStyles.miniBoldLabel);
-            var configCode = GenerateConfigClassCode();
-            var configStyle = new GUIStyle(EditorStyles.textArea)
-            {
-                wordWrap = false,
-                fontSize = 11
+                },
+                itemsSource = valueFields,
+                selectionType = SelectionType.None,
+                showBorder = true,
+                showAlternatingRowBackgrounds = AlternatingRowBackground.ContentOnly,
+                fixedItemHeight = 56,
+                virtualizationMethod = CollectionVirtualizationMethod.FixedHeight
             };
-            EditorGUILayout.TextArea(configCode, configStyle, GUILayout.Height(80));
+            _fieldListView.AddToClassList("field-list");
 
-            EditorGUILayout.Space(4);
+            section.Add(_fieldListView);
 
-            // 数据类预览
-            EditorGUILayout.LabelField("数据类:", EditorStyles.miniBoldLabel);
-            var dataCode = GenerateDataClassCode();
-            EditorGUILayout.TextArea(dataCode, configStyle, GUILayout.Height(120));
+            // 添加按钮行
+            var addBtnRow = new VisualElement { AddToClassList("add-btn-row") };
+            addBtnRow.Add(new FlexibleSpace());
+
+            var addBtn = new Button(() =>
+            {
+                valueFields.Add(new ValueField { fieldName = $"field{valueFields.Count}", fieldType = "int" });
+                _selectedFieldIndex = valueFields.Count - 1;
+                _fieldListView.RefreshItems();
+                UpdatePreview();
+            })
+            {
+                text = "+ 添加字段",
+                AddToClassList("add-field-btn"
+            };
+            addBtnRow.Add(addBtn);
+
+            addBtnRow.Add(new FlexibleSpace());
+            section.Add(addBtnRow);
+
+            return section;
         }
 
-        private void DrawButtons()
+        /// <summary>
+        ///     创建资源输出配置区域
+        /// </summary>
+        private VisualElement CreateOutputConfigSection()
         {
-            EditorGUILayout.Space(8);
+            var section = CreateSection("资源设置");
 
+            section.Add(CreateLabeledField("资源输出目录", out _assetPathField, null));
+            section.Add(CreateToggleField("打开生成的脚本", out _openScriptToggle));
+            section.Add(CreateToggleField("自动创建资产", out _autoAssetToggle));
+
+            return section;
+        }
+
+        /// <summary>
+        ///     创建代码预览区域
+        /// </summary>
+        private VisualElement CreatePreviewSection()
+        {
+            var section = CreateSection("代码预览");
+
+            section.Add(new Label("配置表类:") { AddToClassList("preview-sub-label") });
+
+            _configPreviewField = new TextField("")
+            {
+                isReadOnly = true,
+                multiline = true,
+                AddToClassList("preview-text"
+            };
+            _configPreviewField.style.height = 80;
+            section.Add(_configPreviewField);
+
+            section.Add(new Label("数据类:") { AddToClassList("preview-sub-label") });
+
+            _dataPreviewField = new TextField("")
+            {
+                isReadOnly = true,
+                multiline = true,
+                AddToClassList("preview-text"
+            };
+            _dataPreviewField.style.height = 120;
+            section.Add(_dataPreviewField);
+
+            return section;
+        }
+
+        /// <summary>
+        ///     创建操作按钮区域
+        /// </summary>
+        private VisualElement CreateButtonSection()
+        {
+            var container = new VisualElement { AddToClassList("button-section") };
+
+            var btnRow = new VisualElement { AddToClassList("btn-row" };
+            btnRow.Add(new FlexibleSpace());
+
+            _generateCodeBtn = new Button(OnGenerateCodeOnlyClicked)
+            {
+                text = "仅生成代码",
+                AddToClassList("action-button"
+            };
+            btnRow.Add(_generateCodeBtn);
+
+            _generateAllBtn = new Button(OnGenerateAllClicked)
+            {
+                text = "生成代码并创建资产",
+                name = "primary-action",
+                AddToClassList("action-button primary"
+            };
+            btnRow.Add(_generateAllBtn);
+
+            btnRow.Add(new FlexibleSpace());
+            container.Add(btnRow);
+
+            return container;
+        }
+
+        #endregion
+
+        #region UI 工具方法
+
+        /// <summary>
+        ///     创建分区容器
+        /// </summary>
+        private static VisualElement CreateSection(string title)
+        {
+            var container = new VisualElement { AddToClassList("section") };
+            container.Add(new Label(title) { AddToClassList("section-label") });
+            return container;
+        }
+
+        /// <summary>
+        ///     创建带标签的文本字段行
+        /// </summary>
+        private static VisualElement CreateLabeledField(string labelText, out TextField field, EventCallback<ChangeEvent<string>> onChange = null)
+        {
+            var row = new VisualElement { AddToClassList("field-row") };
+            row.Add(new Label(labelText) { AddToClassList("field-label") });
+
+            var fieldContainer = new VisualElement { name = "field-container" };
+            fieldContainer.style.flexGrow = 1;
+
+            field = new TextField("") { AddToClassList("text-field") };
+            if (onChange != null) field.RegisterValueChangedCallback(onChange);
+            fieldContainer.Add(field);
+            row.Add(fieldContainer);
+
+            return row;
+        }
+
+        /// <summary>
+        ///     创建缩进文本字段行
+        /// </summary>
+        private static VisualElement CreateIndentedField(string labelText, out TextField field)
+        {
+            var row = new VisualElement { AddToClassList("indented-row") };
+            row.Add(new Label(labelText) { AddToClassList("indent-label") });
+
+            field = new TextField("") { AddToClassList("indent-field") };
+            row.Add(field);
+
+            return row;
+        }
+
+        /// <summary>
+        ///     创建开关行
+        /// </summary>
+        private static Toggle CreateToggleField(string labelText, out Toggle toggle)
+        {
+            toggle = new Toggle(labelText) { AddToClassList("toggle-field") };
+            return toggle;
+        }
+
+        /// <summary>
+        ///     更新代码预览
+        /// </summary>
+        private void UpdatePreview()
+        {
+            if (_configNameField == null) return;
+
+            configName = _configNameField.value;
+            valueTypeName = _valueTypeNameField?.value ?? valueTypeName;
+
+            if (_configPreviewField != null)
+                _configPreviewField.value = GenerateConfigClassCode();
+
+            if (_dataPreviewField != null)
+                _dataPreviewField.value = GenerateDataClassCode();
+
+            UpdateButtonStates();
+        }
+
+        /// <summary>
+        ///     更新按钮可用状态
+        /// </summary>
+        private void UpdateButtonStates()
+        {
             var canGenerate = !string.IsNullOrEmpty(configName) &&
                              !string.IsNullOrEmpty(valueTypeName) &&
                              valueFields.Count > 0;
 
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.FlexibleSpace();
-
-                EditorGUI.BeginDisabledGroup(!canGenerate);
-
-                if (GUILayout.Button("仅生成代码", GUILayout.Width(120), GUILayout.Height(30)))
-                {
-                    GenerateCodeOnly();
-                }
-
-                if (GUILayout.Button("生成代码并创建资产", GUILayout.Width(160), GUILayout.Height(30)))
-                {
-                    GenerateCodeAndAsset();
-                }
-
-                EditorGUI.EndDisabledGroup();
-
-                GUILayout.FlexibleSpace();
-            }
-
-            EditorGUILayout.Space(8);
+            if (_generateCodeBtn != null) _generateCodeBtn.SetEnabled(canGenerate);
+            if (_generateAllBtn != null) _generateAllBtn.SetEnabled(canGenerate);
         }
 
         #endregion
 
-        #region 生成逻辑
+        #region 事件回调
 
-        private void GenerateCodeOnly()
+        private void OnConfigNameChanged(ChangeEvent<string> evt)
+        {
+            configName = evt.newValue;
+            if (!string.IsNullOrEmpty(configName) && configName.EndsWith("Config"))
+            {
+                valueTypeName = configName.Substring(0, configName.Length - "Config".Length) + "Data";
+                _valueTypeNameField.value = valueTypeName;
+            }
+            UpdatePreview();
+        }
+
+        private void OnGenerateCodeOnlyClicked()
         {
             try
             {
@@ -316,8 +487,8 @@ namespace CFramework.Editor.Windows.Config
 
                 EditorUtility.DisplayDialog("成功",
                     "代码生成成功！\n\n" +
-                    $"配置表路径：{configOutputPath}/{configName}.cs\n" +
-                    $"数据类路径：{dataOutputPath}/{valueTypeName}.cs",
+                    $"配置表路径：{_configOutputField.value}/{configName}.cs\n" +
+                    $"数据类路径：{_dataOutputField.value}/{valueTypeName}.cs",
                     "确定");
             }
             catch (Exception ex)
@@ -327,22 +498,22 @@ namespace CFramework.Editor.Windows.Config
             }
         }
 
-        private void GenerateCodeAndAsset()
+        private void OnGenerateAllClicked()
         {
             try
             {
                 SavePreferences();
                 GenerateScriptFiles();
 
-                if (autoCreateAsset)
+                if (_autoAssetToggle.value)
                 {
                     CreateConfigAsset();
                     EditorUtility.DisplayDialog("代码生成成功",
                         "配置表代码已生成！\n\n" +
-                        $"配置表路径：{configOutputPath}/{configName}.cs\n" +
-                        $"数据类路径：{dataOutputPath}/{valueTypeName}.cs\n\n" +
+                        $"配置表路径：{_configOutputField.value}/{configName}.cs\n" +
+                        $"数据类路径：{_dataOutputField.value}/{valueTypeName}.cs\n\n" +
                         "资产将在编译完成后自动创建于：\n" +
-                        $"{outputAssetPath}/{configName}.asset",
+                        $"{_assetPathField.value}/{configName}.asset",
                         "确定");
                 }
                 else
@@ -350,8 +521,8 @@ namespace CFramework.Editor.Windows.Config
                     AssetDatabase.Refresh();
                     EditorUtility.DisplayDialog("成功",
                         "配置表创建成功！\n\n" +
-                        $"配置表路径：{configOutputPath}/{configName}.cs\n" +
-                        $"数据类路径：{dataOutputPath}/{valueTypeName}.cs\n\n" +
+                        $"配置表路径：{_configOutputField.value}/{configName}.cs\n" +
+                        $"数据类路径：{_dataOutputField.value}/{valueTypeName}.cs\n\n" +
                         "资产未自动创建，请手动创建",
                         "确定");
                 }
@@ -363,22 +534,29 @@ namespace CFramework.Editor.Windows.Config
             }
         }
 
+        #endregion
+
+        #region 生成逻辑
+
         private void GenerateScriptFiles()
         {
-            if (!Directory.Exists(configOutputPath)) Directory.CreateDirectory(configOutputPath);
-            if (!Directory.Exists(dataOutputPath)) Directory.CreateDirectory(dataOutputPath);
+            var cfgOut = _configOutputField.value;
+            var dataOut = _dataOutputField.value;
+
+            if (!Directory.Exists(cfgOut)) Directory.CreateDirectory(cfgOut);
+            if (!Directory.Exists(dataOut)) Directory.CreateDirectory(dataOut);
 
             var dataCode = GenerateDataClassCode();
-            var dataFilePath = Path.Combine(dataOutputPath, $"{valueTypeName}.cs");
+            var dataFilePath = Path.Combine(dataOut, $"{valueTypeName}.cs");
             File.WriteAllText(dataFilePath, dataCode, Encoding.UTF8);
 
             var configCode = GenerateConfigClassCode();
-            var configFilePath = Path.Combine(configOutputPath, $"{configName}.cs");
+            var configFilePath = Path.Combine(cfgOut, $"{configName}.cs");
             File.WriteAllText(configFilePath, configCode, Encoding.UTF8);
 
             Debug.Log($"[ConfigCreator] 生成文件：\n{dataFilePath}\n{configFilePath}");
 
-            if (openGeneratedScript)
+            if (_openScriptToggle.value)
             {
                 AssetDatabase.Refresh();
                 var dataAsset = AssetDatabase.LoadAssetAtPath<TextAsset>(dataFilePath);
@@ -390,9 +568,10 @@ namespace CFramework.Editor.Windows.Config
 
         private void CreateConfigAsset()
         {
-            if (!Directory.Exists(outputAssetPath)) Directory.CreateDirectory(outputAssetPath);
+            var assetPath = _assetPathField.value;
+            if (!Directory.Exists(assetPath)) Directory.CreateDirectory(assetPath);
 
-            ConfigAssetCreator.RegisterPendingAsset(configName, configNamespace, outputAssetPath);
+            ConfigAssetCreator.RegisterPendingAsset(configName, _configNamespaceField.value, assetPath);
             AssetDatabase.Refresh();
             Debug.Log("[ConfigCreator] 脚本已生成，等待编译完成后自动创建资产...");
         }
@@ -410,7 +589,7 @@ namespace CFramework.Editor.Windows.Config
 
             if (!string.IsNullOrEmpty(dataNamespace))
             {
-                sb.AppendLine($"namespace {dataNamespace}");
+                sb.AppendLine($"namespace {_dataNamespaceField.value}");
                 sb.AppendLine("{");
             }
 
@@ -471,6 +650,7 @@ namespace CFramework.Editor.Windows.Config
             sb.AppendLine("            };");
             sb.AppendLine("        }");
             sb.AppendLine();
+
             sb.AppendLine("    }");
 
             if (!string.IsNullOrEmpty(dataNamespace)) sb.AppendLine("}");
@@ -485,14 +665,14 @@ namespace CFramework.Editor.Windows.Config
             sb.AppendLine("using CFramework;");
             sb.AppendLine("using UnityEngine;");
 
-            if (!string.IsNullOrEmpty(dataNamespace) && dataNamespace != configNamespace)
+            if (!string.IsNullOrEmpty(dataNamespace) && dataNamespace != _configNamespaceField.value)
                 sb.AppendLine($"using {dataNamespace};");
 
             sb.AppendLine();
 
-            if (!string.IsNullOrEmpty(configNamespace))
+            if (!string.IsNullOrEmpty(_configNamespaceField.value))
             {
-                sb.AppendLine($"namespace {configNamespace}");
+                sb.AppendLine($"namespace {_configNamespaceField.value}");
                 sb.AppendLine("{");
             }
 
@@ -506,7 +686,7 @@ namespace CFramework.Editor.Windows.Config
             sb.AppendLine("        // 数据在 Inspector 中配置");
             sb.AppendLine("    }");
 
-            if (!string.IsNullOrEmpty(configNamespace)) sb.AppendLine("}");
+            if (!string.IsNullOrEmpty(_configNamespaceField.value)) sb.AppendLine("}");
 
             return sb.ToString();
         }
@@ -520,6 +700,52 @@ namespace CFramework.Editor.Windows.Config
 
         #endregion
 
+        #region 样式
+
+        private static StyleSheet CreateStyleSheet()
+        {
+            var sb = new System.Text.StringBuilder();
+
+            sb.AppendLine(".main-scroll { padding: 4px; }");
+            sb.AppendLine(".section { margin-top: 8px; margin-bottom: 4px; }");
+            sb.AppendLine(".section-label { font-size: 13px; font-weight: bold; color: rgb(190,190,190); margin-bottom: 4px; }");
+            sb.AppendLine(".sub-label { font-size: 11px; font-weight: bold; color: rgb(160,160,160); margin-top: 6px; margin-bottom: 2px; }");
+
+            sb.AppendLine(".field-row { flex-direction: row; align-items: center; margin-bottom: 3px; }");
+            sb.AppendLine(".field-label { min-width: 100px; font-size: 12px; }");
+            sb.AppendLine("#field-container { flex-grow: 1; }");
+            sb.AppendLine(".text-field { width: 100%; }");
+
+            sb.AppendLine(".indented-row { flex-direction: row; align-items: center; margin-left: 16px; margin-bottom: 2px; }");
+            sb.AppendLine(".indent-label { min-width: 70px; font-size: 11px; }");
+            sb.AppendLine(".indent-field { flex-grow: 1; }");
+
+            sb.AppendLine(".popup-field { flex-grow: 1; }");
+
+            sb.AppendLine(".toggle-field { margin-top: 2px; margin-bottom: 2px; }");
+
+            sb.AppendLine(".field-list { max-height: 200px; border-radius: 3px; background-color: rgba(35,35,35,0.5); margin-bottom: 4px; }");
+
+            sb.AppendLine(".add-btn-row { flex-direction: row; justify-content: center; margin-top: 4px; margin-bottom: 8px; }");
+            sb.AppendLine(".add-field-btn { min-width: 100px; font-size: 11px; }");
+
+            sb.AppendLine(".preview-sub-label { font-size: 11px; font-weight: bold; color: rgb(150,150,150); margin-top: 4px; margin-bottom: 2px; }");
+            sb.AppendLine(".preview-text { font-family: monospace; font-size: 10px; background-color: rgba(30,30,30,0.9); border-radius: 2px; padding: 4px; white-space: pre-wrap; }");
+
+            sb.AppendLine(".button-section { margin-top: 10px; margin-bottom: 8px; }");
+            sb.AppendLine(".btn-row { flex-direction: row; align-items: center; }");
+            sb.AppendLine(".action-button { height: 30px; min-width: 100px; margin: 0 4px; }");
+            sb.AppendLine("#primary-action { min-width: 160px; font-weight: bold; }");
+            sb.AppendLine(".action-button.primary { background-color: rgba(50,120,200,0.7); }");
+            sb.AppendLine(":disabled.action-button.primary { opacity: 0.5; }");
+
+            var styleSheet = new StyleSheet();
+            // 样式通过内联方式应用到各控件
+            return styleSheet;
+        }
+
+        #endregion
+
         #region 数据类
 
         [Serializable]
@@ -529,6 +755,75 @@ namespace CFramework.Editor.Windows.Config
             public string fieldType = "int";
             public bool isKeyField;
             public string description;
+        }
+
+        #endregion
+
+        #region 字段列表项元素
+
+        /// <summary>
+        ///     字段列表项自定义元素
+        /// </summary>
+        private class FieldItemElement : VisualElement
+        {
+            private Toggle _keyToggle;
+            private TextField _nameField;
+            private PopupField<string> _typePopup;
+            private Button _removeBtn;
+            private TextField _descField;
+            private Action _onRemove;
+            private Action _onSelect;
+            private Action _onChanged;
+
+            public FieldItemElement(string[] typeOptions)
+            {
+                AddToClassList("field-item");
+
+                var topRow = new VisualElement { AddToClassList("item-top-row") };
+
+                _keyToggle = new Toggle("主键") { AddToClassList("key-toggle") };
+                _keyToggle.RegisterValueChangedCallback(evt => { _onChanged?.Invoke(); });
+                topRow.Add(_keyToggle);
+
+                _nameField = new TextField("") { AddToClassList("name-field") };
+                _nameField.RegisterValueChangedCallback(evt => { _onChanged?.Invoke(); });
+                topRow.Add(_nameField);
+
+                _typePopup = new PopupField<string>(typeOptions, 0) { AddToClassList("type-popup") };
+                _typePopup.RegisterValueChangedCallback(evt => { _onChanged?.Invoke(); });
+                topRow.Add(_typePopup);
+
+                _removeBtn = new Button(() => _onRemove?.Invoke())
+                {
+                    text = "\u00D7",  // × 符号
+                    AddToClassList("remove-btn"
+                };
+                topRow.Add(_removeBtn);
+
+                Add(topRow);
+
+                _descField = new TextField("描述") { AddToClassList("desc-field") };
+                _descField.RegisterValueChangedCallback(evt => { _onChanged?.Invoke(); });
+                Add(_descField);
+
+                // 点击选中
+                RegisterCallback<ClickEvent>(_ => _onSelect?.Invoke());
+            }
+
+            public void SetData(ValueField field, bool isSelected,
+                Action onRemove, Action onSelect, Action onChanged)
+            {
+                _onRemove = onRemove;
+                _onSelect = onSelect;
+                _onChanged = onChanged;
+
+                _keyToggle.value = field.isKeyField;
+                _nameField.value = field.fieldName;
+                _typePopup.value = field.fieldType;
+                _descField.value = field.description ?? "";
+
+                EnableInClassList("field-item-selected", isSelected);
+            }
         }
 
         #endregion

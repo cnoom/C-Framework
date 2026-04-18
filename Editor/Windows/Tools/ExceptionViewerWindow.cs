@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace CFramework.Editor.Windows.Tools
 {
@@ -11,7 +13,10 @@ namespace CFramework.Editor.Windows.Tools
     public sealed class ExceptionViewerWindow : EditorWindow
     {
         private readonly List<ExceptionInfo> _exceptions = new();
-        private Vector2 _scrollPosition;
+
+        // UI 元素引用
+        private ScrollView _scrollView;
+        private Label _countLabel;
 
         private void OnEnable()
         {
@@ -27,28 +32,44 @@ namespace CFramework.Editor.Windows.Tools
             }
         }
 
-        private void OnGUI()
+        private void CreateGUI()
         {
-            EditorGUILayout.Space(10);
+            var root = rootVisualElement;
 
             // 工具栏
-            using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
+            var toolbar = new Toolbar();
+            toolbar.style.flexDirection = FlexDirection.Row;
+
+            var clearButton = new ToolbarButton(() =>
             {
-                if (GUILayout.Button("Clear", EditorStyles.toolbarButton)) _exceptions.Clear();
+                _exceptions.Clear();
+                RefreshExceptionList();
+            })
+            {
+                text = "Clear"
+            };
+            toolbar.Add(clearButton);
 
-                GUILayout.FlexibleSpace();
+            toolbar.Add(new VisualElement { style = { flexGrow = 1 } });
 
-                EditorGUILayout.LabelField($"Count: {_exceptions.Count}");
-            }
+            _countLabel = new Label($"Count: {_exceptions.Count}");
+            _countLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+            _countLabel.style.marginLeft = 5;
+            toolbar.Add(_countLabel);
 
-            EditorGUILayout.Space(5);
+            root.Add(toolbar);
 
-            // 异常列表
-            _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
+            // 间距
+            var spacer = new VisualElement();
+            spacer.style.height = 5;
+            root.Add(spacer);
 
-            for (var i = _exceptions.Count - 1; i >= 0; i--) DrawExceptionItem(_exceptions[i]);
+            // 异常滚动列表
+            _scrollView = new ScrollView(ScrollViewMode.Vertical);
+            _scrollView.style.flexGrow = 1;
+            root.Add(_scrollView);
 
-            EditorGUILayout.EndScrollView();
+            RefreshExceptionList();
         }
 
         [MenuItem("CFramework/Exception Viewer")]
@@ -66,20 +87,68 @@ namespace CFramework.Editor.Windows.Tools
                 StackTrace = ex.StackTrace
             });
 
+            RefreshExceptionList();
             Repaint();
         }
 
-        private void DrawExceptionItem(ExceptionInfo info)
+        /// <summary>
+        ///     刷新异常列表显示
+        /// </summary>
+        private void RefreshExceptionList()
         {
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            if (_scrollView == null) return;
 
-            EditorGUILayout.LabelField($"[{info.Time:HH:mm:ss}] {info.Message}", EditorStyles.boldLabel);
+            _scrollView.Clear();
 
-            if (GUILayout.Button("Copy Stack Trace", EditorStyles.linkLabel))
+            // 倒序显示，最新的在最上面
+            for (var i = _exceptions.Count - 1; i >= 0; i--)
+            {
+                var info = _exceptions[i];
+                _scrollView.Add(CreateExceptionItem(info));
+            }
+
+            // 更新计数标签
+            if (_countLabel != null)
+            {
+                _countLabel.text = $"Count: {_exceptions.Count}";
+            }
+        }
+
+        /// <summary>
+        ///     创建单个异常项的 UI 元素
+        /// </summary>
+        private VisualElement CreateExceptionItem(ExceptionInfo info)
+        {
+            var container = new Box();
+            container.style.marginBottom = 2;
+            container.style.paddingTop = 5;
+            container.style.paddingBottom = 5;
+            container.style.paddingLeft = 8;
+            container.style.paddingRight = 8;
+            container.style.unityBackgroundImageTintColor = new Color(0.4f, 0.4f, 0.4f, 0.3f);
+            container.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f, 0.5f);
+
+            // 异常标题（时间 + 消息）
+            var titleLabel = new Label($"[{info.Time:HH:mm:ss}] {info.Message}");
+            titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            titleLabel.style.whiteSpace = WhiteSpace.Normal;
+            container.Add(titleLabel);
+
+            // 复制堆栈跟踪按钮
+            var copyButton = new Button(() =>
+            {
                 EditorGUIUtility.systemCopyBuffer = info.StackTrace;
+            })
+            {
+                text = "Copy Stack Trace"
+            };
+            copyButton.style.alignSelf = Align.FlexEnd;
+            copyButton.style.marginTop = 4;
+            copyButton.style.unityBackgroundImageTintColor = Color.clear;
+            copyButton.style.color = new Color(0.4f, 0.7f, 1f);
+            container.Add(copyButton);
 
-            EditorGUILayout.EndVertical();
-            EditorGUILayout.Space(2);
+            return container;
         }
 
         private struct ExceptionInfo

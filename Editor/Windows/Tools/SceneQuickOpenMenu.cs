@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -5,20 +6,17 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UIElements;
 
 namespace CFramework.Editor.Windows.Tools
 {
     /// <summary>
-    ///     场景快捷跳转菜单
-    ///     在菜单栏 Scene/ 下提供场景快速切换和定位当前场景文件夹功能
+    ///     场景快捷跳转菜单（UIToolkit 实现）
     /// </summary>
     public static class SceneQuickOpenMenu
     {
         private const string MenuRoot = "Scene/";
 
-        /// <summary>
-        ///     定位当前场景所在文件夹（菜单栏顶级按钮）
-        /// </summary>
         [MenuItem(MenuRoot + "Locate Current Scene Folder")]
         public static void LocateCurrentSceneFolder()
         {
@@ -28,323 +26,250 @@ namespace CFramework.Editor.Windows.Tools
                 Debug.LogWarning("[SceneQuickOpen] 当前场景未保存，无法定位文件夹");
                 return;
             }
-
             var folder = Path.GetDirectoryName(activeScene.path);
             if (string.IsNullOrEmpty(folder)) return;
-
             var obj = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(folder);
-            if (obj != null)
-            {
-                Selection.activeObject = obj;
-                EditorGUIUtility.PingObject(obj);
-            }
+            if (obj != null) { Selection.activeObject = obj; EditorGUIUtility.PingObject(obj); }
         }
 
-        /// <summary>
-        ///     打开场景选择窗口
-        /// </summary>
         [MenuItem(MenuRoot + "Switch to Scene...")]
-        public static void ShowSceneSwitchWindow()
-        {
-            SceneQuickOpenWindow.Open();
-        }
+        public static void ShowSceneSwitchWindow() => SceneQuickOpenWindow.Open();
 
-        /// <summary>
-        ///     打开指定场景，若当前场景未保存则询问
-        /// </summary>
         internal static void OpenScene(string scenePath)
         {
             var activeScene = SceneManager.GetActiveScene();
-
             if (activeScene.isDirty)
             {
-                var result = EditorUtility.DisplayDialogComplex(
-                    "场景未保存",
+                var result = EditorUtility.DisplayDialogComplex("场景未保存",
                     $"当前场景 \"{activeScene.name}\" 有未保存的修改。\n是否保存后再打开新场景？",
-                    "保存并打开",
-                    "不保存直接打开",
-                    "取消");
-
+                    "保存并打开", "不保存直接打开", "取消");
                 switch (result)
-                {
-                    case 0:
-                        EditorSceneManager.SaveScene(activeScene);
-                        break;
-                    case 1:
-                        break;
-                    case 2:
-                        return;
-                }
+                { case 0: EditorSceneManager.SaveScene(activeScene); break; case 1: break; case 2: return; }
             }
-
             EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
         }
 
-        /// <summary>
-        ///     获取 Assets 下所有场景路径
-        /// </summary>
-        internal static List<string> GetAllScenePaths()
-        {
-            return AssetDatabase.FindAssets("t:Scene", new[] { "Assets" })
-                .Select(AssetDatabase.GUIDToAssetPath)
-                .Where(path => path.EndsWith(".unity"))
-                .OrderBy(path => path)
-                .ToList();
-        }
+        internal static List<string> GetAllScenePaths() =>
+            AssetDatabase.FindAssets("t:Scene", new[] { "Assets" })
+                .Select(AssetDatabase.GUIDToAssetPath).Where(path => path.EndsWith(".unity")).OrderBy(path => path).ToList();
     }
 
     /// <summary>
-    ///     场景快捷选择窗口
-    ///     带搜索功能的场景列表，点击即可切换场景
+    ///     场景快捷选择窗口（UIToolkit 实现）
     /// </summary>
     public sealed class SceneQuickOpenWindow : EditorWindow
     {
-        private const float ItemHeight = 26f;
-
         private List<string> _scenePaths;
         private List<string> _filteredScenes;
-        private string _searchText;
-        private Vector2 _scrollPosition;
-        private int _hoveredIndex = -1;
-        private GUIStyle _itemStyle;
-        private GUIStyle _hoverStyle;
-        private GUIStyle _activeStyle;
-        private GUIStyle _pathStyle;
-        private bool _stylesInitialized;
+
+        // UIToolkit 控件
+        private TextField _searchField;
+        private Button _refreshButton;
+        private Label _currentSceneLabel;
+        private ListView _sceneListView;
+        private Label _footerLabel;
 
         internal static void Open()
         {
             var window = GetWindow<SceneQuickOpenWindow>("Scene Quick Open");
+            window.minSize = new Vector2(320, 400);
             window.Show();
             window.Focus();
         }
 
-        private void OnEnable()
+        private void CreateGUI()
         {
-            _searchText = string.Empty;
-            _scenePaths = SceneQuickOpenMenu.GetAllScenePaths();
-            _filteredScenes = new List<string>(_scenePaths);
-            _hoveredIndex = -1;
-        }
+            var root = rootVisualElement;
 
-        private void OnGUI()
-        {
-            InitStyles();
+            // 搜索栏容器
+            var searchRow = new VisualElement();
+            searchRow.style.flexDirection = FlexDirection.Row;
+            searchRow.style.alignItems = Align.Center;
+            searchRow.style.paddingTop = 6;
+            searchRow.style.paddingBottom = 6;
+            searchRow.style.paddingLeft = 8;
+            searchRow.style.paddingRight = 8;
+            searchRow.style.marginBottom = 6;
+            searchRow.style.backgroundColor = new Color(0.2f, 0.2f, 0.22f, 0.9f);
 
-            // 在搜索框获得焦点前拦截快捷键
-            var e = Event.current;
-            if (e.type == EventType.KeyDown)
+            _searchField = new TextField();
+            _searchField.style.flexGrow = 1;
+            _searchField.style.marginRight = 4;
+            _searchField.RegisterValueChangedCallback(evt => FilterScenes(evt.newValue));
+            searchRow.Add(_searchField);
+
+            _refreshButton = new Button(() =>
             {
-                if (e.keyCode == KeyCode.Escape)
-                {
-                    Close();
-                    e.Use();
-                    return;
-                }
+                _scenePaths = SceneQuickOpenMenu.GetAllScenePaths();
+                FilterScenes(_searchField.value);
+            })
+            { text = "\u21bb" };
+            _refreshButton.style.width = 24;
+            _refreshButton.style.height = 24;
+            _refreshButton.style.fontSize = 14;
+            _refreshButton.style.unityTextAlign = TextAnchor.MiddleCenter;
+            searchRow.Add(_refreshButton);
 
-                // Enter 打开第一个匹配的场景
-                if (e.keyCode == KeyCode.Return && _filteredScenes.Count > 0)
-                {
-                    Close();
-                    SceneQuickOpenMenu.OpenScene(_filteredScenes[0]);
-                    e.Use();
-                    return;
-                }
-            }
+            root.Add(searchRow);
 
-            // 顶部区域：搜索栏 + 刷新按钮
-            EditorGUILayout.Space(6);
-            using (new EditorGUILayout.HorizontalScope("HelpBox", GUILayout.Height(28)))
-            {
-                EditorGUILayout.Space(4);
-
-                // 搜索图标
-                GUILayout.Label(EditorGUIUtility.IconContent("d_Search Icon"), GUILayout.Width(20),
-                    GUILayout.Height(20));
-
-                GUI.SetNextControlName("SearchField");
-                var newText = EditorGUILayout.TextField(_searchText, GUI.skin.textField);
-                if (newText != _searchText)
-                {
-                    _searchText = newText;
-                    FilterScenes();
-                }
-
-                if (GUILayout.Button("↻", GUI.skin.button, GUILayout.Width(24), GUILayout.Height(22)))
-                {
-                    _scenePaths = SceneQuickOpenMenu.GetAllScenePaths();
-                    FilterScenes();
-                }
-            }
-
-            EditorGUI.FocusTextInControl("SearchField");
-
-            // 当前场景信息栏
+            // 当前场景信息
             var activeScene = SceneManager.GetActiveScene();
-            using (new EditorGUILayout.HorizontalScope("HelpBox", GUILayout.Height(22)))
-            {
-                EditorGUILayout.Space(4);
-                GUILayout.Label($"当前场景: {activeScene.name}", EditorStyles.miniBoldLabel);
-                GUILayout.FlexibleSpace();
-            }
-
-            // 分割线
-            EditorGUILayout.Space(2);
+            _currentSceneLabel = new Label($"当前场景: {activeScene.name}");
+            _currentSceneLabel.style.fontSize = 11;
+            _currentSceneLabel.style.color = new Color(0.63f, 0.71f, 0.63f);
+            _currentSceneLabel.style.paddingTop = 4;
+            _currentSceneLabel.style.paddingBottom = 4;
+            _currentSceneLabel.style.paddingLeft = 10;
+            _currentSceneLabel.style.marginBottom = 4;
+            _currentSceneLabel.style.backgroundColor = new Color(0.18f, 0.22f, 0.18f, 0.5f);
+            _currentSceneLabel.style.unityTextAlign = TextAnchor.UpperLeft;
+            root.Add(_currentSceneLabel);
 
             // 场景列表
-            _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
-
-            for (var i = 0; i < _filteredScenes.Count; i++)
+            _sceneListView = new ListView
             {
-                DrawSceneItem(_filteredScenes[i], i, activeScene);
-            }
-
-            if (_filteredScenes.Count == 0)
-            {
-                EditorGUILayout.Space(30);
-                GUILayout.Label("未找到匹配的场景", EditorStyles.centeredGreyMiniLabel);
-            }
-
-            EditorGUILayout.EndScrollView();
-
-            // 底部提示栏
-            EditorGUILayout.Space(2);
-            using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
-            {
-                GUILayout.Label($"共 {_filteredScenes.Count} 个场景", EditorStyles.miniLabel);
-                GUILayout.FlexibleSpace();
-                GUILayout.Label("点击切换 | ESC 关闭", EditorStyles.miniLabel);
-            }
-        }
-
-        private void DrawSceneItem(string scenePath, int index, Scene activeScene)
-        {
-            var sceneName = Path.GetFileNameWithoutExtension(scenePath);
-            var isActive = activeScene.path == scenePath;
-            var isHovered = _hoveredIndex == index;
-
-            // 获取列表项区域，宽度撑满整行
-            var itemRect = GUILayoutUtility.GetRect(
-                new GUIContent(sceneName),
-                EditorStyles.label,
-                GUILayout.Height(ItemHeight),
-                GUILayout.ExpandWidth(true));
-
-            // 将宽度扩展到窗口可视区域宽度
-            itemRect.width = position.width - 2f;
-
-            var e = Event.current;
-
-            // 鼠标悬停检测
-            if (itemRect.Contains(e.mousePosition))
-            {
-                if (_hoveredIndex != index)
+                makeItem = () => new SceneItemElement(),
+                bindItem = (element, index) =>
                 {
-                    _hoveredIndex = index;
-                    Repaint();
-                }
-            }
-            else if (_hoveredIndex == index)
-            {
-                _hoveredIndex = -1;
-            }
+                    if (element is SceneItemElement itemElement)
+                    {
+                        var scenePath = _filteredScenes[index];
+                        var isActive = SceneManager.GetActiveScene().path == scenePath;
+                        itemElement.SetData(scenePath, isActive,
+                            s => { Close(); SceneQuickOpenMenu.OpenScene(s); });
+                    }
+                },
+                selectionType = SelectionType.None,
+                showBorder = false,
+                fixedItemHeight = 28
+            };
+            _sceneListView.style.flexGrow = 1;
+            _sceneListView.style.paddingLeft = 4;
+            _sceneListView.style.paddingRight = 4;
+            root.Add(_sceneListView);
 
-            // 背景绘制
-            if (isActive)
-            {
-                EditorGUI.DrawRect(itemRect, new Color(0.2f, 0.5f, 0.2f, 0.2f));
-            }
-            else if (isHovered)
-            {
-                EditorGUI.DrawRect(itemRect, new Color(0.3f, 0.6f, 1f, 0.15f));
-            }
+            // 底部提示
+            _footerLabel = new Label("点击切换 | ESC 关闭");
+            _footerLabel.style.fontSize = 10;
+            _footerLabel.style.color = new Color(0.47f, 0.47f, 0.47f);
+            _footerLabel.style.paddingTop = 4;
+            _footerLabel.style.paddingBottom = 4;
+            _footerLabel.style.paddingLeft = 10;
+            root.Add(_footerLabel);
 
-            // 左侧图标
-            var iconRect = new Rect(itemRect.x + 6, itemRect.y + (itemRect.height - 16) * 0.5f, 16, 16);
-            var icon = isActive
-                ? EditorGUIUtility.IconContent("d_SceneAsset Icon").image
-                : EditorGUIUtility.IconContent("SceneAsset Icon").image;
-            GUI.DrawTexture(iconRect, icon);
-
-            // 场景名称
-            var nameRect = new Rect(iconRect.xMax + 6, itemRect.y, itemRect.width * 0.55f, itemRect.height);
-            var label = isActive ? $"● {sceneName}" : sceneName;
-            var style = isActive ? _activeStyle : isHovered ? _hoverStyle : _itemStyle;
-            GUI.Label(nameRect, label, style);
-
-            // 右侧路径
-            var dirName = Path.GetDirectoryName(scenePath)?.Replace("Assets/", "");
-            if (!string.IsNullOrEmpty(dirName))
-            {
-                var pathContent = new GUIContent(dirName);
-                var pathSize = _pathStyle.CalcSize(pathContent);
-                var pathRect = new Rect(itemRect.xMax - pathSize.x - 10,
-                    itemRect.y + (itemRect.height - pathSize.y) * 0.5f,
-                    pathSize.x, pathSize.y);
-                GUI.Label(pathRect, dirName, _pathStyle);
-            }
-
-            // 整行点击事件（左键按下时判定）
-            if (e.type == EventType.MouseDown
-                && e.button == 0
-                && itemRect.Contains(e.mousePosition))
-            {
-                Close();
-                SceneQuickOpenMenu.OpenScene(scenePath);
-                e.Use();
-            }
+            // 注册键盘事件
+            root.RegisterCallback<KeyDownEvent>(OnKeyDown);
         }
 
-        private void FilterScenes()
+        private void OnEnable()
         {
-            _hoveredIndex = -1;
+            _scenePaths = SceneQuickOpenMenu.GetAllScenePaths();
+            _filteredScenes = new List<string>(_scenePaths);
 
-            if (string.IsNullOrWhiteSpace(_searchText))
+            EditorApplication.delayCall += () =>
             {
-                _filteredScenes = new List<string>(_scenePaths);
-            }
+                if (_sceneListView != null)
+                {
+                    _sceneListView.itemsSource = _filteredScenes;
+                    _sceneListView.RefreshItems();
+                    UpdateFooterCount();
+                }
+            };
+        }
+
+        private void OnKeyDown(KeyDownEvent evt)
+        {
+            if (evt.keyCode == KeyCode.Escape) { Close(); evt.StopPropagation(); }
+            else if (evt.keyCode == KeyCode.Return && _filteredScenes.Count > 0)
+            { Close(); SceneQuickOpenMenu.OpenScene(_filteredScenes[0]); evt.StopPropagation(); }
+        }
+
+        private void FilterScenes(string searchText)
+        {
+            if (string.IsNullOrWhiteSpace(searchText)) _filteredScenes = new List<string>(_scenePaths);
             else
             {
-                var keyword = _searchText.ToLowerInvariant();
-                _filteredScenes = _scenePaths
-                    .Where(path =>
-                    {
-                        var name = Path.GetFileNameWithoutExtension(path);
-                        return name.ToLowerInvariant().Contains(keyword)
-                               || path.ToLowerInvariant().Contains(keyword);
-                    })
-                    .ToList();
+                var keyword = searchText.ToLowerInvariant();
+                _filteredScenes = _scenePaths.Where(p =>
+                {
+                    var name = Path.GetFileNameWithoutExtension(p);
+                    return name.ToLowerInvariant().Contains(keyword) || p.ToLowerInvariant().Contains(keyword);
+                }).ToList();
+            }
+            _sceneListView.itemsSource = _filteredScenes;
+            _sceneListView.RefreshItems();
+            UpdateFooterCount();
+        }
+
+        private void UpdateFooterCount() => _footerLabel.text = $"共 {_filteredScenes.Count} 个场景  |  点击切换 | ESC 关闭";
+
+        #region 场景列表项元素
+
+        private class SceneItemElement : VisualElement
+        {
+            private readonly VisualElement _iconContainer;
+            private readonly Label _nameLabel;
+            private readonly Label _pathLabel;
+            private string _boundScenePath;
+            private Action<string> _onSelected;
+
+            public SceneItemElement()
+            {
+                style.flexDirection = FlexDirection.Row;
+                style.alignItems = Align.Center;
+                style.paddingLeft = 8;
+                style.paddingRight = 8;
+
+                _iconContainer = new VisualElement();
+                _iconContainer.style.width = 16;
+                _iconContainer.style.height = 16;
+                _iconContainer.style.marginRight = 6;
+                Add(_iconContainer);
+
+                _nameLabel = new Label();
+                _nameLabel.style.fontSize = 12;
+                _nameLabel.style.flexGrow = 1;
+                _nameLabel.style.unityTextAlign = TextAnchor.UpperLeft;
+                Add(_nameLabel);
+
+                _pathLabel = new Label();
+                _pathLabel.style.fontSize = 10;
+                _pathLabel.style.color = new Color(0.43f, 0.43f, 0.43f);
+                _pathLabel.style.marginLeft = 8;
+                Add(_pathLabel);
+
+                RegisterCallback<ClickEvent>(_ => _onSelected?.Invoke(_boundScenePath));
+            }
+
+            public void SetData(string scenePath, bool isActive, Action<string> onSelected)
+            {
+                _boundScenePath = scenePath;
+                _onSelected = onSelected;
+
+                var sceneName = Path.GetFileNameWithoutExtension(scenePath);
+                _nameLabel.text = isActive ? $"\u25CF {sceneName}" : sceneName;  // ●
+
+                if (isActive)
+                {
+                    _nameLabel.style.color = new Color(0.31f, 0.85f, 0.31f);
+                    style.backgroundColor = new Color(0.1f, 0.25f, 0.1f, 0.15f);
+                }
+                else
+                {
+                    _nameLabel.style.color = new Color(0.86f, 0.86f, 0.86f);
+                    style.backgroundColor = new StyleColor(Color.clear);
+                }
+
+                var dirName = Path.GetDirectoryName(scenePath)?.Replace("Assets/", "");
+                _pathLabel.text = dirName ?? "";
+                _pathLabel.style.display = !string.IsNullOrEmpty(dirName) ? DisplayStyle.Flex : DisplayStyle.None;
+
+                _iconContainer.style.backgroundColor = isActive
+                    ? new StyleColor(new Color(0.25f, 0.55f, 0.25f))
+                    : new StyleColor(new Color(0.35f, 0.35f, 0.4f));
             }
         }
 
-        private void InitStyles()
-        {
-            if (_stylesInitialized) return;
-            _stylesInitialized = true;
-
-            _itemStyle = new GUIStyle(EditorStyles.label)
-            {
-                alignment = TextAnchor.MiddleLeft,
-                fontSize = 12,
-                richText = true
-            };
-
-            _hoverStyle = new GUIStyle(_itemStyle)
-            {
-                normal = { textColor = new Color(0.3f, 0.7f, 1f) }
-            };
-
-            _activeStyle = new GUIStyle(_itemStyle)
-            {
-                fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.2f, 0.85f, 0.4f) }
-            };
-
-            _pathStyle = new GUIStyle(EditorStyles.miniLabel)
-            {
-                alignment = TextAnchor.MiddleRight,
-                normal = { textColor = new Color(0.6f, 0.6f, 0.6f) }
-            };
-        }
+        #endregion
     }
 }

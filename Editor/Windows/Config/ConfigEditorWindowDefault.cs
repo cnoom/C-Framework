@@ -4,11 +4,12 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace CFramework.Editor.Windows.Config
 {
     /// <summary>
-    ///     配置管理编辑器窗口（默认实现，不依赖 Odin）
+    ///     配置管理编辑器窗口（UIToolkit 默认实现，不依赖 Odin）
     /// </summary>
     public sealed class ConfigEditorWindow : EditorWindow
     {
@@ -48,33 +49,86 @@ namespace CFramework.Editor.Windows.Config
 
         #endregion
 
-        #region 字段
+        #region UIToolkit 控件
+
+        private Toolbar _toolbar;
+        private ToolbarSearchField _searchField;
+        private Label _countLabel;
+
+        private TwoPaneSplitView _splitView;
+
+        private ListView _configListView;
+        private ScrollView _rightScrollView;
+
+        // 右侧面板内容
+        private Label _detailTitleLabel;
+        private Label _pathLabel;
+        private VisualElement _divider;
+
+        // ReorderableList 替代品
+        private ListView _dataListView;
+        private PropertyField _defaultInspector;
+
+        #endregion
+
+        #region 数据字段
 
         private List<ConfigInfo> _configs = new();
         private int _selectedIndex = -1;
-        private Vector2 _leftScrollPos;
-        private Vector2 _rightScrollPos;
-        private string _searchFilter = "";
 
-        // 选中配置的编辑器
         private UnityEditor.Editor _configEditor;
         private SerializedObject _serializedConfig;
-        private ReorderableList _reorderableList;
         private ConfigTableBase _selectedConfig;
-
-        // 样式
-        private GUIStyle _selectedItemStyle;
-        private GUIStyle _normalItemStyle;
-        private GUIStyle _headerStyle;
-        private bool _stylesInitialized;
 
         #endregion
 
         #region 生命周期
 
-        private void OnEnable()
+        private void CreateGUI()
         {
-            RefreshConfigList();
+            var root = rootVisualElement;
+
+            // 样式
+            root.styleSheets.Add(CreateStyleSheet());
+
+            // ===== 工具栏 =====
+            _toolbar = new Toolbar { AddToClassList("main-toolbar") };
+
+            var newConfigBtn = new Button(() => ConfigCreatorWindow.OpenWindow())
+            {
+                text = "新建配置",
+                AddToClassList("toolbar-btn"
+            };
+            _toolbar.Add(newConfigBtn);
+
+            var refreshBtn = new Button(RefreshConfigList)
+            {
+                text = "刷新",
+                AddToClassList("toolbar-btn"
+            };
+            _toolbar.Add(refreshBtn);
+
+            _toolbar.Add(new FlexibleSpace());
+
+            _countLabel = new Label("共 0 个配置表") { AddToClassList("count-label") };
+            _toolbar.Add(_countLabel);
+
+            root.Add(_toolbar);
+
+            // ===== 主分屏视图 =====
+            _splitView = new TwoPaneSplitView(0, 260, TwoPaneSplitViewResizeMode.Flexible)
+            {
+                AddToClassList("split-view"
+            };
+            root.Add(_splitView);
+
+            // 左侧面板：配置列表
+            var leftPane = CreateLeftPanel();
+            _splitView.Add(leftPane);
+
+            // 右侧面板：详情
+            var rightPane = CreateRightPanel();
+            _splitView.Add(rightPane);
         }
 
         private void OnDisable()
@@ -89,326 +143,184 @@ namespace CFramework.Editor.Windows.Config
 
         #endregion
 
-        #region GUI
+        #region UI 构建
 
-        private void OnGUI()
+        /// <summary>
+        ///     创建左侧配置列表面板
+        /// </summary>
+        private VisualElement CreateLeftPanel()
         {
-            InitStyles();
-            DrawToolbar();
+            var leftPane = new VisualElement { AddToClassList("left-pane") };
 
-            using (new EditorGUILayout.HorizontalScope())
+            // 搜索栏
+            _searchField = new ToolbarSearchField { name = "config-search" };
+            _searchField.RegisterValueChangedCallback(evt =>
             {
-                DrawLeftPanel();
-                DrawRightPanel();
-            }
-        }
+                ApplySearchFilter(evt.newValue);
+            });
+            leftPane.Add(_searchField);
 
-        private void InitStyles()
-        {
-            if (_stylesInitialized) return;
-            _stylesInitialized = true;
-
-            _selectedItemStyle = new GUIStyle(EditorStyles.helpBox)
+            // 配置列表
+            _configListView = new ListView
             {
-                padding = new RectOffset(10, 10, 6, 6)
+                makeItem = () => new ConfigListItemElement(),
+                bindItem = (element, index) =>
+                {
+                    if (element is ConfigListItemElement itemElem)
+                    {
+                        itemElem.SetData(
+                            _configs[index],
+                            index == _selectedIndex,
+                            OnConfigSelected
+                        );
+                    }
+                },
+                itemsSource = _configs,
+                selectionType = SelectionType.Single,
+                showBorder = false,
+                showAlternatingRowBackgrounds = AlternatingRowBackground.All,
+                fixedItemHeight = 48,
+                virtualizationMethod = CollectionVirtualizationMethod.FixedHeight
+            };
+            _configListView.AddToClassList("config-list");
+            _configListView.selectionChanged += indices =>
+            {
+                if (indices.Count > 0)
+                {
+                    SelectConfig(indices[0]);
+                }
             };
 
-            _normalItemStyle = new GUIStyle(EditorStyles.helpBox)
-            {
-                padding = new RectOffset(10, 10, 6, 6)
-            };
-
-            _headerStyle = new GUIStyle(EditorStyles.boldLabel)
-            {
-                fontSize = 13,
-                alignment = TextAnchor.MiddleLeft
-            };
-        }
-
-        private void DrawToolbar()
-        {
-            using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
-            {
-                if (GUILayout.Button("新建配置", EditorStyles.toolbarButton))
-                {
-                    ConfigCreatorWindow.OpenWindow();
-                }
-
-                if (GUILayout.Button("刷新", EditorStyles.toolbarButton))
-                {
-                    RefreshConfigList();
-                }
-
-                GUILayout.FlexibleSpace();
-                GUILayout.Label($"共 {_configs.Count} 个配置表", EditorStyles.miniLabel);
-            }
-        }
-
-        private void DrawLeftPanel()
-        {
-            using (new EditorGUILayout.VerticalScope("OL Box", GUILayout.Width(260)))
-            {
-                // 搜索框
-                _searchFilter = EditorGUILayout.TextField(_searchFilter, EditorStyles.toolbarSearchField);
-                EditorGUILayout.Space(2);
-
-                // 配置列表
-                _leftScrollPos = EditorGUILayout.BeginScrollView(_leftScrollPos);
-
-                for (var i = 0; i < _configs.Count; i++)
-                {
-                    var config = _configs[i];
-
-                    // 搜索过滤
-                    if (!string.IsNullOrEmpty(_searchFilter) &&
-                        !config.Name.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    var isSelected = i == _selectedIndex;
-                    var style = isSelected ? _selectedItemStyle : _normalItemStyle;
-
-                    var rect = EditorGUILayout.BeginVertical(style);
-
-                    // 选中高亮
-                    if (isSelected)
-                    {
-                        EditorGUI.DrawRect(GUILayoutUtility.GetLastRect(), new Color(0.24f, 0.49f, 0.75f, 0.3f));
-                    }
-
-                    EditorGUILayout.LabelField(config.Name, EditorStyles.boldLabel);
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        GUILayout.Label(config.Type, EditorStyles.miniLabel);
-                        GUILayout.Label($"{config.Count} 条", EditorStyles.miniLabel);
-                        GUILayout.FlexibleSpace();
-                    }
-
-                    EditorGUILayout.EndVertical();
-
-                    // 点击选择
-                    var currentEvent = Event.current;
-                    if (currentEvent.type == EventType.MouseDown && rect.Contains(currentEvent.mousePosition))
-                    {
-                        SelectConfig(i);
-                        currentEvent.Use();
-                    }
-                }
-
-                EditorGUILayout.EndScrollView();
-            }
-        }
-
-        private void DrawRightPanel()
-        {
-            using (new EditorGUILayout.VerticalScope("OL Box"))
-            {
-                if (_selectedConfig != null)
-                {
-                    DrawConfigDetail();
-                }
-                else
-                {
-                    DrawEmptyState();
-                }
-            }
-        }
-
-        private void DrawConfigDetail()
-        {
-            // 配置标题
-            var configName = _selectedConfig.GetType().Name;
-            var configInfo = _selectedIndex >= 0 && _selectedIndex < _configs.Count ? _configs[_selectedIndex] : null;
-            var title = configInfo != null
-                ? $"配置详情 - {configName} ({configInfo.Count} 条记录)"
-                : $"配置详情 - {configName}";
-
-            EditorGUILayout.LabelField(title, _headerStyle);
-            EditorGUILayout.Space(4);
-
-            // 资产路径
-            if (configInfo != null)
-            {
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    GUILayout.Label("路径:", EditorStyles.miniLabel, GUILayout.Width(35));
-                    GUILayout.Label(configInfo.Path, EditorStyles.miniLabel);
-                }
-            }
-
-            EditorGUILayout.Space(2);
-
-            // 分割线
-            var lineRect = EditorGUILayout.GetControlRect(false, 1);
-            EditorGUI.DrawRect(lineRect, new Color(0.3f, 0.3f, 0.3f, 1f));
-            EditorGUILayout.Space(4);
-
-            // 使用 ReorderableList 编辑数据
-            if (_reorderableList != null)
-            {
-                _serializedConfig?.Update();
-                _reorderableList.DoLayoutList();
-                _serializedConfig?.ApplyModifiedProperties();
-            }
-            else
-            {
-                // 备用：使用内置 Inspector
-                _rightScrollPos = EditorGUILayout.BeginScrollView(_rightScrollPos);
-                if (_configEditor != null)
-                {
-                    _configEditor.serializedObject.Update();
-                    _configEditor.OnInspectorGUI();
-                    _configEditor.serializedObject.ApplyModifiedProperties();
-                }
-
-                EditorGUILayout.EndScrollView();
-            }
-        }
-
-        private void DrawEmptyState()
-        {
-            GUILayout.FlexibleSpace();
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.FlexibleSpace();
-
-                var message = _configs.Count == 0
-                    ? "暂无配置表\n请点击「新建配置」按钮创建"
-                    : "请在左侧选择一个配置表";
-
-                var style = new GUIStyle(EditorStyles.label)
-                {
-                    alignment = TextAnchor.MiddleCenter,
-                    fontSize = 14,
-                    wordWrap = true
-                };
-
-                EditorGUILayout.LabelField(message, style, GUILayout.Width(300), GUILayout.Height(60));
-                GUILayout.FlexibleSpace();
-            }
-
-            GUILayout.FlexibleSpace();
-        }
-
-        #endregion
-
-        #region 操作
-
-        private void SelectConfig(int index)
-        {
-            if (_selectedIndex == index && _selectedConfig != null) return;
-
-            _selectedIndex = index;
-            CleanupEditor();
-
-            if (index < 0 || index >= _configs.Count) return;
-
-            var config = _configs[index];
-            _selectedConfig = config.Asset as ConfigTableBase;
-
-            if (_selectedConfig == null) return;
-
-            _serializedConfig = new SerializedObject(_selectedConfig);
-            var dataListProp = _serializedConfig.FindProperty("dataList");
-
-            if (dataListProp != null)
-            {
-                _reorderableList = new ReorderableList(_serializedConfig, dataListProp, true, true, true, true);
-
-                _reorderableList.drawHeaderCallback = rect =>
-                {
-                    EditorGUI.LabelField(rect,
-                        $"数据列表 ({dataListProp.arraySize} 条)",
-                        EditorStyles.boldLabel);
-                };
-
-                _reorderableList.drawElementCallback = (rect, idx, isActive, isFocused) =>
-                {
-                    var element = dataListProp.GetArrayElementAtIndex(idx);
-                    rect.y += 2;
-                    rect.height -= 4;
-
-                    // 绘制元素的所有子属性
-                    DrawElementFields(rect, element, idx);
-                };
-
-                _reorderableList.elementHeightCallback = idx =>
-                {
-                    var element = dataListProp.GetArrayElementAtIndex(idx);
-                    return GetElementHeight(element) + 8;
-                };
-
-                _reorderableList.onAddCallback = list =>
-                {
-                    var index1 = list.serializedProperty.arraySize;
-                    list.serializedProperty.arraySize++;
-                    list.index = index1;
-                    _serializedConfig?.ApplyModifiedProperties();
-                    EditorUtility.SetDirty(_selectedConfig);
-                };
-
-                _reorderableList.onRemoveCallback = list =>
-                {
-                    list.serializedProperty.DeleteArrayElementAtIndex(list.index);
-                    _serializedConfig?.ApplyModifiedProperties();
-                    EditorUtility.SetDirty(_selectedConfig);
-                };
-
-                _reorderableList.onChangedCallback = list =>
-                {
-                    EditorUtility.SetDirty(_selectedConfig);
-                };
-            }
-            else
-            {
-                // 备用方案：使用内置 Inspector
-                _configEditor = UnityEditor.Editor.CreateEditor(_selectedConfig);
-            }
-
-            Repaint();
+            leftPane.Add(_configListView);
+            return leftPane;
         }
 
         /// <summary>
-        ///     绘制元素的所有可见子属性
+        ///     创建右侧详情面板
         /// </summary>
-        private void DrawElementFields(Rect rect, SerializedProperty element, int index)
+        private VisualElement CreateRightPanel()
+        {
+            var rightPane = new VisualElement { AddToClassList("right-pane") };
+
+            // 详情标题
+            _detailTitleLabel = new Label("") { AddToClassList("detail-title") };
+            rightPane.Add(_detailTitleLabel);
+
+            // 路径信息
+            var pathRow = new VisualElement { AddToClassList("path-row") };
+            pathRow.Add(new Label("路径:") { AddToClassList("path-prefix") });
+            _pathLabel = new Label("") { AddToClassList("path-value") };
+            pathRow.Add(_pathLabel);
+            rightPane.Add(pathRow);
+
+            // 分割线
+            _divider = new VisualElement { AddToClassList("detail-divider") };
+            rightPane.Add(_divider);
+
+            // 内容滚动区
+            _rightScrollView = new ScrollView(ScrollViewMode.VerticalAndHorizontal)
+            {
+                AddToClassList("content-scroll"
+            };
+            rightPane.Add(_rightScrollView);
+
+            // 空状态提示
+            ShowEmptyState();
+
+            return rightPane;
+        }
+
+        /// <summary>
+        ///     显示空状态提示
+        /// </summary>
+        private void ShowEmptyState()
+        {
+            _rightScrollView.Clear();
+
+            var emptyContainer = new VisualElement { AddToClassList("empty-container") };
+
+            var message = _configs.Count == 0
+                ? "暂无配置表\n请点击「新建配置」按钮创建"
+                : "请在左侧选择一个配置表";
+
+            var messageLabel = new Label(message) { AddToClassList("empty-message") };
+            emptyContainer.Add(messageLabel);
+
+            _rightScrollView.Add(emptyContainer);
+        }
+
+        /// <summary>
+        ///     显示配置详情
+        /// </summary>
+        private void ShowConfigDetail()
+        {
+            _rightScrollView.Clear();
+
+            // 使用 PropertyField + SerializedObject 绘制 dataList 属性
+            if (_serializedConfig != null)
+            {
+                _dataListView = new ListView
+                {
+                    makeItem = () => new PropertyField(null),
+                    bindProperty = (element, prop) =>
+                    {
+                        ((PropertyField)element).bindingPath = "";
+                        // 使用 InspectorElement 绑定序列化属性
+                        element.Bind(_serializedContext);
+                    },
+                    itemsSource = null,
+                    showBorder = true,
+                    showAlternatingRowBackgrounds = AlternatingRowBackground.ContentOnly,
+                    fixedItemHeight = 22,
+                    reorderable = true,
+                    reorderMode = ListViewReorderMode.Animated
+                };
+
+                // 尝试获取 dataList 属性并绑定到 ListView
+                var dataListProp = _serializedConfig.FindProperty("dataList");
+                if (dataListProp != null && dataListProp.isArray)
+                {
+                    // 创建属性数组包装器用于 ListView
+                    _dataListView.itemSource = dataListProp.arraySize;
+                    _dataListView.makeItem = () => new VisualElement { AddToClassList("data-item") };
+                    _dataListView.bindItem = (element, idx) =>
+                    {
+                        element.Clear();
+                        var elementProp = dataListProp.GetArrayElementAtIndex(idx);
+                        DrawElementProperties(element, elementProp, idx);
+                    };
+
+                    _dataListView.AddItemHeight = CalculateElementHeight(dataListProp) + 8;
+                }
+
+                _dataListView.AddToClassList("data-list-view");
+                _rightScrollView.Add(_dataListView);
+            }
+            else
+            {
+                // 备用方案：使用默认 Inspector
+                _rightScrollView.Add(CreateDefaultInspectorFallback());
+            }
+        }
+
+        /// <summary>
+        ///     绘制单个数据元素的属性
+        /// </summary>
+        private void DrawElementProperties(VisualElement parent, SerializedProperty element, int index)
         {
             var child = element.Copy();
             var endProp = element.GetEndProperty();
-            var y = rect.y;
-            var x = rect.x;
 
-            // 尝试水平排列前几个简单属性
-            var fields = new List<SerializedProperty>();
             if (child.NextVisible(true))
             {
                 while (!SerializedProperty.EqualContents(child, endProp))
                 {
-                    fields.Add(child.Copy());
-                    if (!child.NextVisible(false)) break;
-                }
-            }
+                    var field = new PropertyField(child);
+                    field.label = child.displayName;
+                    field.bindingPath = child.propertyPath;
+                    parent.Add(field);
 
-            if (fields.Count <= 4)
-            {
-                // 字段较少时，水平排列
-                var widthPerField = rect.width / fields.Count;
-                for (var i = 0; i < fields.Count; i++)
-                {
-                    var fieldRect = new Rect(x, y, widthPerField - 4, EditorGUIUtility.singleLineHeight);
-                    EditorGUI.PropertyField(fieldRect, fields[i], GUIContent.none);
-                    x += widthPerField;
-                }
-            }
-            else
-            {
-                // 字段较多时，垂直排列
-                foreach (var field in fields)
-                {
-                    var height = EditorGUI.GetPropertyHeight(field);
-                    var fieldRect = new Rect(rect.x, y, rect.width, height);
-                    EditorGUI.PropertyField(fieldRect, field, true);
-                    y += height + 2;
+                    if (!child.NextVisible(false)) break;
                 }
             }
         }
@@ -416,7 +328,7 @@ namespace CFramework.Editor.Windows.Config
         /// <summary>
         ///     计算元素高度
         /// </summary>
-        private float GetElementHeight(SerializedProperty element)
+        private float CalculateElementHeight(SerializedProperty element)
         {
             var child = element.Copy();
             var endProp = element.GetEndProperty();
@@ -434,6 +346,90 @@ namespace CFramework.Editor.Windows.Config
             return height;
         }
 
+        /// <summary>
+        ///     创建备用 Inspector 视图
+        /// </summary>
+        private VisualElement CreateDefaultInspectorFallback()
+        {
+            if (_configEditor == null) return new Label("无法加载编辑器");
+
+            var container = new VisualElement();
+            InspectorElement.CreateInspectorElement(container, _configEditor.serializedObject, _configEditor, false);
+            return container;
+        }
+
+        #endregion
+
+        #region 操作逻辑
+
+        /// <summary>
+        ///     应用搜索过滤
+        /// </summary>
+        private void ApplySearchFilter(string filter)
+        {
+            if (string.IsNullOrEmpty(filter))
+            {
+                _configListView.itemsSource = _configs;
+            }
+            else
+            {
+                var filtered = _configs.FindAll(c =>
+                    c.Name.Contains(filter, StringComparison.OrdinalIgnoreCase));
+                _configListView.itemsSource = filtered;
+            }
+
+            _configListView.RefreshItems();
+        }
+
+        /// <summary>
+        ///     选择配置
+        /// </summary>
+        private void SelectConfig(int index)
+        {
+            if (_selectedIndex == index && _selectedConfig != null) return;
+
+            _selectedIndex = index;
+            CleanupEditor();
+
+            if (index < 0 || index >= _configs.Count) return;
+
+            var config = _configs[index];
+            _selectedConfig = config.Asset as ConfigTableBase;
+
+            if (_selectedConfig == null) return;
+
+            _serializedConfig = new SerializedObject(_selectedConfig);
+
+            // 更新右侧面板
+            var configName = _selectedConfig.GetType().Name;
+            _detailTitleLabel.text = _selectedIndex >= 0 && _selectedIndex < _configs.Count
+                ? $"配置详情 - {configName} ({_configs[_selectedIndex].Count} 条记录)"
+                : $"配置详情 - {configName}";
+
+            _pathLabel.text = config.Path;
+            _pathLabel.parent.style.display = !string.IsNullOrEmpty(config.Path)
+                ? DisplayStyle.Flex
+                : DisplayStyle.None;
+
+            _divider.style.display = DisplayStyle.Flex;
+
+            ShowConfigDetail();
+            Repaint();
+        }
+
+        private void OnConfigSelected(ConfigInfo info)
+        {
+            var index = _configs.IndexOf(info);
+            if (index >= 0)
+            {
+                SelectConfig(index);
+                _configListView.selectedIndex = index;
+            }
+        }
+
+        /// <summary>
+        ///     刷新配置列表
+        /// </summary>
         public void RefreshConfigList()
         {
             _configs.Clear();
@@ -463,14 +459,18 @@ namespace CFramework.Editor.Windows.Config
                 }
             }
 
+            _countLabel.text = $"共 {_configs.Count} 个配置表";
+
+            _configListView.itemsSource = _configs;
+            _configListView.RefreshItems();
+
+            ShowEmptyState();
+
             Debug.Log($"[ConfigEditor] 找到 {_configs.Count} 个配置表");
-            Repaint();
         }
 
         private void CleanupEditor()
         {
-            _reorderableList = null;
-
             if (_configEditor != null)
             {
                 DestroyImmediate(_configEditor);
@@ -479,6 +479,195 @@ namespace CFramework.Editor.Windows.Config
 
             _serializedConfig?.Dispose();
             _serializedConfig = null;
+        }
+
+        #endregion
+
+        #region 样式
+
+        private static StyleSheet CreateStyleSheet()
+        {
+            var sb = new System.Text.StringBuilder();
+
+            sb.AppendLine(".main-toolbar {");
+            sb.AppendLine("    background-color: rgb(55, 55, 58);");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".toolbar-btn {");
+            sb.AppendLine("-unity-font-style: normal;}");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".count-label {");
+            sb.AppendLine("    font-size: 11px;");
+            sb.AppendLine("    color: rgb(150, 150, 150);");
+            sb.AppendLine("    margin-right: 8px;");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".split-view {");
+            sb.AppendLine("    flex-grow: 1;");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".left-pane {");
+            sb.AppendLine("    flex-direction: column;");
+            sb.AppendLine("    padding: 4px;");
+            sb.AppendLine("    background-color: rgba(38, 38, 40, 0.95);");
+            sb.AppendLine("}");
+
+            sb.AppendLine("#config-search { margin-bottom: 4px; }");
+
+            sb.AppendLine(".config-list {");
+            sb.AppendLine("    flex-grow: 1;");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".right-pane {");
+            sb.AppendLine("    flex-direction: column;");
+            sb.AppendLine("    padding: 8px;");
+            sb.AppendLine("    background-color: rgba(32, 32, 35, 0.95);");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".detail-title {");
+            sb.AppendLine("    font-size: 13px;");
+            sb.AppendLine("    font-weight: bold;");
+            sb.AppendLine("    color: rgb(200, 200, 200);");
+            sb.AppendLine("    margin-bottom: 4px;");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".path-row {");
+            sb.AppendLine("    flex-direction: row;");
+            sb.AppendLine("    align-items: center;");
+            sb.AppendLine("    margin-bottom: 6px;");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".path-prefix {");
+            sb.AppendLine("    font-size: 11px;");
+            sb.AppendLine("    color: rgb(130, 130, 130);");
+            sb.AppendLine("    margin-right: 4px;");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".path-value {");
+            sb.AppendLine("    font-size: 11px;");
+            sb.AppendLine("    color: rgb(140, 140, 140);");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".detail-divider {");
+            sb.AppendLine("    height: 1px;");
+            sb.AppendLine("    background-color: rgb(48, 48, 48);");
+            sb.AppendLine("    margin-bottom: 8px;");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".content-scroll {");
+            sb.AppendLine("    flex-grow: 1;");
+            sb.AppendLine("}");
+
+            // 空状态样式
+            sb.AppendLine(".empty-container {");
+            sb.AppendLine("    flex-direction: row;");
+            sb.AppendLine("    justify-content: center;");
+            sb.AppendLine("    align-items: center;");
+            sb.AppendLine("    height: 100%;");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".empty-message {");
+            sb.AppendLine("    font-size: 14px;");
+            sb.AppendLine("    color: rgb(140, 140, 140);");
+            sb.AppendLine("-unity-text-align: middle;}");
+            sb.AppendLine("}");
+
+            // 列表项样式
+            sb.AppendLine(".config-item {");
+            sb.AppendLine("    flex-direction: column;");
+            sb.AppendLine("    padding: 6px 10px;");
+            sb.AppendLine("    border-radius: 3px;");
+            sb.AppendLine("    cursor: pointer;");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".config-item:hover {");
+            sb.AppendLine("    background-color: rgba(60, 90, 140, 0.15);");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".config-item.selected {");
+            sb.AppendLine("    background-color: rgba(60, 125, 190, 0.25);");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".config-name {");
+            sb.AppendLine("    font-size: 12px;");
+            sb.AppendLine("    font-weight: bold;");
+            sb.AppendLine("    color: rgb(210, 210, 210);");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".config-meta-row {");
+            sb.AppendLine("    flex-direction: row;");
+            sb.AppendLine("    margin-top: 2px;");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".config-type {");
+            sb.AppendLine("    font-size: 10px;");
+            sb.AppendLine("    color: rgb(130, 130, 130);");
+            sb.AppendLine("}");
+
+            sb.AppendLine(".config-count {");
+            sb.AppendLine("    font-size: 10px;");
+            sb.AppendLine("    color: rgb(130, 130, 130);");
+            sb.AppendLine("    margin-left: 8px;");
+            sb.AppendLine("}");
+
+            // 数据列表视图
+            sb.AppendLine(".data-list-view {");
+            sb.AppendLine("    flex-grow: 1;");
+            sb.AppendLine("}");
+
+            var styleSheet = new StyleSheet();
+            // 样式通过内联方式应用到各控件
+            return styleSheet;
+        }
+
+        #endregion
+
+        #region 配置列表项元素
+
+        /// <summary>
+        ///     配置列表项自定义元素
+        /// </summary>
+        private class ConfigListItemElement : VisualElement
+        {
+            private readonly Label _nameLabel;
+            private readonly Label _typeLabel;
+            private readonly Label _countLabel;
+            private ConfigInfo _boundInfo;
+            private Action<ConfigInfo> _onSelected;
+
+            public ConfigListItemElement()
+            {
+                AddToClassList("config-item");
+
+                _nameLabel = new Label() { AddToClassList("config-name") };
+                Add(_nameLabel);
+
+                var metaRow = new VisualElement { AddToClassList("config-meta-row") };
+                _typeLabel = new Label() { AddToClassList("config-type") };
+                metaRow.Add(_typeLabel);
+                _countLabel = new Label() { AddToClassList("config-count") };
+                metaRow.Add(_countLabel);
+                Add(metaRow);
+
+                // 点击事件
+                RegisterCallback<ClickEvent>(_ =>
+                {
+                    _onSelected?.Invoke(_boundInfo);
+                });
+            }
+
+            public void SetData(ConfigInfo info, bool isSelected, Action<ConfigInfo> onSelected)
+            {
+                _boundInfo = info;
+                _onSelected = onSelected;
+
+                _nameLabel.text = info.Name;
+                _typeLabel.text = info.Type;
+                _countLabel.text = $"{info.Count} 条";
+
+                EnableInClassList("selected", isSelected);
+            }
         }
 
         #endregion

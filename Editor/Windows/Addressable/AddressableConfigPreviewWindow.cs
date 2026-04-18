@@ -2,6 +2,7 @@
 using Sirenix.OdinInspector.Editor;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace CFramework.Editor.Windows.Addressable
 {
@@ -11,7 +12,6 @@ namespace CFramework.Editor.Windows.Addressable
     public sealed class AddressableConfigPreviewWindow : OdinEditorWindow
     {
         private string _previewContent = "";
-        private Vector2 _scrollPosition;
 
         public static void ShowWindow(string content)
         {
@@ -22,44 +22,65 @@ namespace CFramework.Editor.Windows.Addressable
             window.Show();
         }
 
-        protected override void OnImGUI()
+        private void CreateGUI()
         {
-            base.OnImGUI();
+            var root = rootVisualElement;
 
-            _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
+            // 滚动文本区域
+            var scrollView = new ScrollView(ScrollViewMode.Vertical);
+            scrollView.style.flexGrow = 1;
 
-            var style = new GUIStyle(EditorStyles.textField)
+            var textLabel = new Label(_previewContent);
+            textLabel.style.whiteSpace = WhiteSpace.Normal;
+            textLabel.style.fontSize = 12;
+            textLabel.style.unityTextAlign = TextAnchor.UpperLeft;
+            textLabel.style.paddingTop = 10;
+            textLabel.style.paddingBottom = 10;
+            textLabel.style.paddingLeft = 10;
+            textLabel.style.paddingRight = 10;
+            scrollView.Add(textLabel);
+
+            root.Add(scrollView);
+
+            // 间距
+            var spacer = new VisualElement();
+            spacer.style.height = 10;
+            root.Add(spacer);
+
+            // 底部按钮栏
+            var buttonBar = new VisualElement();
+            buttonBar.style.flexDirection = FlexDirection.Row;
+            buttonBar.style.justifyContent = Justify.FlexEnd;
+
+            var copyButton = new Button(() =>
             {
-                wordWrap = true,
-                richText = true,
-                fontSize = 12,
-                alignment = TextAnchor.UpperLeft,
-                padding = new RectOffset(10, 10, 10, 10)
+                EditorGUIUtility.systemCopyBuffer = _previewContent;
+                Debug.Log("[AddressableConfigPreviewWindow] 预览内容已复制到剪贴板");
+            })
+            {
+                text = "复制到剪贴板"
             };
+            copyButton.style.width = 120;
+            copyButton.style.height = 30;
+            buttonBar.Add(copyButton);
 
-            EditorGUILayout.TextArea(_previewContent, style, GUILayout.ExpandHeight(true));
-
-            EditorGUILayout.EndScrollView();
-
-            EditorGUILayout.Space(10);
-            using (new EditorGUILayout.HorizontalScope())
+            var closeButton = new Button(Close)
             {
-                GUILayout.FlexibleSpace();
+                text = "关闭"
+            };
+            closeButton.style.width = 80;
+            closeButton.style.height = 30;
+            closeButton.style.marginLeft = 5;
+            buttonBar.Add(closeButton);
 
-                if (GUILayout.Button("复制到剪贴板", GUILayout.Width(120), GUILayout.Height(30)))
-                {
-                    EditorGUIUtility.systemCopyBuffer = _previewContent;
-                    Debug.Log("[AddressableConfigPreviewWindow] 预览内容已复制到剪贴板");
-                }
-
-                if (GUILayout.Button("关闭", GUILayout.Width(80), GUILayout.Height(30))) Close();
-            }
+            root.Add(buttonBar);
         }
     }
 }
 #else
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace CFramework.Editor.Windows.Addressable
 {
@@ -69,7 +90,6 @@ namespace CFramework.Editor.Windows.Addressable
     public sealed class AddressableConfigPreviewWindow : EditorWindow
     {
         private string _previewContent = "";
-        private Vector2 _scrollPosition;
 
         public static void ShowWindow(string content)
         {
@@ -80,36 +100,58 @@ namespace CFramework.Editor.Windows.Addressable
             window.Show();
         }
 
-        private void OnGUI()
+        private void CreateGUI()
         {
-            _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
+            var root = rootVisualElement;
 
-            var style = new GUIStyle(EditorStyles.textArea)
+            // 滚动文本区域
+            var scrollView = new ScrollView(ScrollViewMode.Vertical);
+            scrollView.style.flexGrow = 1;
+
+            var textLabel = new Label(_previewContent);
+            textLabel.style.whiteSpace = WhiteSpace.Normal;
+            textLabel.style.fontSize = 12;
+            textLabel.style.unityTextAlign = TextAnchor.UpperLeft;
+            textLabel.style.paddingTop = 10;
+            textLabel.style.paddingBottom = 10;
+            textLabel.style.paddingLeft = 10;
+            textLabel.style.paddingRight = 10;
+            scrollView.Add(textLabel);
+
+            root.Add(scrollView);
+
+            // 间距
+            var spacer = new VisualElement();
+            spacer.style.height = 10;
+            root.Add(spacer);
+
+            // 底部按钮栏
+            var buttonBar = new VisualElement();
+            buttonBar.style.flexDirection = FlexDirection.Row;
+            buttonBar.style.justifyContent = Justify.FlexEnd;
+
+            var copyButton = new Button(() =>
             {
-                wordWrap = true,
-                richText = false,
-                fontSize = 12,
-                alignment = TextAnchor.UpperLeft,
-                padding = new RectOffset(10, 10, 10, 10)
+                EditorGUIUtility.systemCopyBuffer = _previewContent;
+                Debug.Log("[AddressableConfigPreviewWindow] 预览内容已复制到剪贴板");
+            })
+            {
+                text = "复制到剪贴板"
             };
+            copyButton.style.width = 120;
+            copyButton.style.height = 30;
+            buttonBar.Add(copyButton);
 
-            EditorGUILayout.TextArea(_previewContent, style, GUILayout.ExpandHeight(true));
-
-            EditorGUILayout.EndScrollView();
-
-            EditorGUILayout.Space(10);
-            using (new EditorGUILayout.HorizontalScope())
+            var closeButton = new Button(Close)
             {
-                GUILayout.FlexibleSpace();
+                text = "关闭"
+            };
+            closeButton.style.width = 80;
+            closeButton.style.height = 30;
+            closeButton.style.marginLeft = 5;
+            buttonBar.Add(closeButton);
 
-                if (GUILayout.Button("复制到剪贴板", GUILayout.Width(120), GUILayout.Height(30)))
-                {
-                    EditorGUIUtility.systemCopyBuffer = _previewContent;
-                    Debug.Log("[AddressableConfigPreviewWindow] 预览内容已复制到剪贴板");
-                }
-
-                if (GUILayout.Button("关闭", GUILayout.Width(80), GUILayout.Height(30))) Close();
-            }
+            root.Add(buttonBar);
         }
     }
 }
