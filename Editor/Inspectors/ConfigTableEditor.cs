@@ -53,6 +53,7 @@ namespace CFramework.Editor.Inspectors
 }
 #else
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -103,9 +104,19 @@ namespace CFramework.Editor.Inspectors
             divider.style.marginBottom = 4;
             root.Add(divider);
 
-            // 使用默认属性绘制器显示序列化属性（排除 m_Script）
+            // 使用 PropertyField 显示序列化属性（排除 m_Script）
             var defaultInspector = new VisualElement();
-            InspectorElement.DrawPropertiesExcluding(defaultInspector, serializedObject, this, "m_Script");
+            var prop = serializedObject.GetIterator();
+            if (prop.NextVisible(true))
+            {
+                do
+                {
+                    if (prop.propertyPath == "m_Script") continue;
+                    var field = new PropertyField(prop);
+                    field.Bind(serializedObject);
+                    defaultInspector.Add(field);
+                } while (prop.NextVisible(false));
+            }
             root.Add(defaultInspector);
 
             return root;

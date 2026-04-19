@@ -1,6 +1,7 @@
 #if UNITY_EDITOR && CFRAMEWORK_AUDIO
 using System.Collections.Generic;
 using CFramework;
+using CFramework.Editor.Utilities;
 using Cysharp.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
@@ -13,6 +14,8 @@ namespace CFramework.Editor
     /// </summary>
     public class AudioDebuggerWindow : EditorWindow
     {
+        private const string USS_FILE_NAME = "AudioDebuggerWindow.uss";
+
         [MenuItem("Tools/CFramework/Audio Debugger")]
         private static void Open()
         {
@@ -32,46 +35,40 @@ namespace CFramework.Editor
         {
             var root = rootVisualElement;
 
+            // 加载 USS 样式表
+            var styleSheet = EditorStyleSheet.Find(USS_FILE_NAME);
+            if (styleSheet != null) root.styleSheets.Add(styleSheet);
+
             // 状态提示标签
             _statusLabel = new Label { text = "" };
-            _statusLabel.style.fontSize = 13;
-            _statusLabel.style.color = new Color(0.7f, 0.7f, 0.3f);
-            _statusLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+            _statusLabel.AddToClassList("status-label");
             root.Add(_statusLabel);
 
             // 主容器
             _rootContainer = new VisualElement();
-            _rootContainer.style.flexDirection = FlexDirection.Column;
-            _rootContainer.style.flexGrow = 1;
+            _rootContainer.AddToClassList("main-container");
 
             // Audio Groups 区域
             var groupSection = new Label("Audio Groups");
-            groupSection.style.fontSize = 13;
-            groupSection.style.color = new Color(0.78f, 0.78f, 0.78f);
-            groupSection.style.marginTop = 10;
+            groupSection.AddToClassList("section-label");
             _rootContainer.Add(groupSection);
 
             _groupScrollView = new ScrollView();
-            _groupScrollView.style.flexGrow = 1;
-            _groupScrollView.style.paddingTop = 4;
-            _groupScrollView.style.paddingBottom = 4;
+            _groupScrollView.AddToClassList("group-scroll");
             _rootContainer.Add(_groupScrollView);
 
             // Snapshots 区域
             var snapshotSection = new Label("Snapshots");
-            snapshotSection.style.fontSize = 13;
-            snapshotSection.style.color = new Color(0.78f, 0.78f, 0.78f);
-            snapshotSection.style.marginTop = 10;
+            snapshotSection.AddToClassList("section-label");
             _rootContainer.Add(snapshotSection);
 
             _snapshotScrollView = new ScrollView();
-            _snapshotScrollView.style.flexGrow = 1;
+            _snapshotScrollView.AddToClassList("snapshot-scroll");
             _rootContainer.Add(_snapshotScrollView);
 
             // 保存按钮
             _saveButton = new Button(OnSaveClicked) { text = "Save Volumes" };
-            _saveButton.style.height = 30;
-            _saveButton.style.marginTop = 10;
+            _saveButton.AddToClassList("save-button");
             _rootContainer.Add(_saveButton);
 
             root.Add(_rootContainer);
@@ -119,9 +116,7 @@ namespace CFramework.Editor
             var currentSnapshot = audioService.CurrentSnapshot;
 
             var currentLabel = new Label($"  Current: {currentSnapshot}");
-            currentLabel.style.fontSize = 11;
-            currentLabel.style.color = new Color(0.63f, 0.79f, 0.63f);
-            currentLabel.style.marginLeft = 8;
+            currentLabel.AddToClassList("snapshot-current-label");
             _snapshotScrollView.Add(currentLabel);
 
             _snapshotScrollView.Add(new VisualElement { style = { height = 8 } });
@@ -130,21 +125,17 @@ namespace CFramework.Editor
             {
                 var isCurrent = name == currentSnapshot;
                 var row = new VisualElement();
-                row.style.flexDirection = FlexDirection.Row;
-                row.style.alignItems = Align.Center;
-                row.style.marginBottom = 2;
+                row.AddToClassList("snapshot-row");
 
                 var btn = new Button(() => audioService.TransitionToSnapshotAsync(name, 0.5f).Forget());
                 btn.text = name;
-                btn.style.minWidth = 120;
-                btn.style.fontSize = 11;
+                btn.AddToClassList("snapshot-btn");
                 row.Add(btn);
 
                 if (isCurrent)
                 {
                     var indicator = new Label("◀");
-                    indicator.style.color = new Color(0.39f, 0.71f, 1f);
-                    indicator.style.marginLeft = 4;
+                    indicator.AddToClassList("snapshot-indicator");
                     row.Add(indicator);
                 }
 
@@ -155,33 +146,22 @@ namespace CFramework.Editor
         private static VisualElement CreateGroupItem(string group, AudioGroupInfo info, IAudioService audioService)
         {
             var container = new VisualElement();
-            container.style.backgroundColor = new Color(0.18f, 0.18f, 0.18f, 0.7f);
-            container.style.paddingTop = 6;
-            container.style.paddingBottom = 6;
-            container.style.paddingLeft = 10;
-            container.style.paddingRight = 10;
-            container.style.marginBottom = 6;
+            container.AddToClassList("group-item");
 
             var nameLabel = new Label(group);
-            nameLabel.style.fontSize = 12;
-            nameLabel.style.color = new Color(0.86f, 0.86f, 0.86f);
+            nameLabel.AddToClassList("group-name");
             container.Add(nameLabel);
 
             var pathLabel = new Label($"  Path: {info.Path}");
-            pathLabel.style.fontSize = 11;
-            pathLabel.style.color = new Color(0.59f, 0.59f, 0.59f);
-            pathLabel.style.marginLeft = 12;
+            pathLabel.AddToClassList("group-detail");
             container.Add(pathLabel);
 
             var slotLabel = new Label($"  Slots: {info.ActiveSlots}/{info.TotalSlots} active");
-            slotLabel.style.fontSize = 11;
-            slotLabel.style.color = new Color(0.59f, 0.59f, 0.59f);
-            slotLabel.style.marginLeft = 12;
+            slotLabel.AddToClassList("group-detail");
             container.Add(slotLabel);
 
             var sliderRow = new VisualElement();
-            sliderRow.style.marginLeft = 16;
-            sliderRow.style.marginTop = 4;
+            sliderRow.AddToClassList("slider-row");
 
             var volSlider = new Slider(0f, 1f)
             {
@@ -200,8 +180,7 @@ namespace CFramework.Editor
             {
                 value = info.IsMuted
             };
-            muteToggle.style.marginLeft = 16;
-            muteToggle.style.marginTop = 2;
+            muteToggle.AddToClassList("mute-toggle");
             muteToggle.RegisterValueChangedCallback(evt =>
             {
                 audioService.MuteGroup(group, evt.newValue);
@@ -223,7 +202,6 @@ namespace CFramework.Editor
         {
             var gameScope = UnityEngine.Object.FindObjectOfType<GameScope>();
             if (gameScope == null) return null;
-            // 尝试从 GameScope 获取 IAudioService
             var components = gameScope.GetComponents<Component>();
             foreach (var comp in components)
             {

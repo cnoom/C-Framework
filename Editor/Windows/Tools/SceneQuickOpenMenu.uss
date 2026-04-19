@@ -1,0 +1,74 @@
+/* SceneQuickOpenMenu 样式表 */
+
+.search-row {
+    flex-direction: row;
+    align-items: center;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    padding-left: 8px;
+    padding-right: 8px;
+    margin-bottom: 6px;
+    background-color: rgba(51, 51, 56, 0.9);
+}
+
+.search-field {
+    flex-grow: 1;
+    margin-right: 4px;
+}
+
+.refresh-button {
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
+    -unity-text-align: middle-center;
+}
+
+.current-scene-label {
+    font-size: 11px;
+    color: rgb(161, 181, 161);
+    padding-top: 4px;
+    padding-bottom: 4px;
+    padding-left: 10px;
+    margin-bottom: 4px;
+    background-color: rgba(46, 56, 46, 0.5);
+    -unity-text-align: upper-left;
+}
+
+.scene-list {
+    flex-grow: 1;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+.footer-label {
+    font-size: 10px;
+    color: rgb(120, 120, 120);
+    padding-top: 4px;
+    padding-bottom: 4px;
+    padding-left: 10px;
+}
+
+.scene-item {
+    flex-direction: row;
+    align-items: center;
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+.scene-item-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+}
+
+.scene-item-name {
+    font-size: 12px;
+    flex-grow: 1;
+    -unity-text-align: upper-left;
+}
+
+.scene-item-path {
+    font-size: 10px;
+    color: rgb(110, 110, 110);
+    margin-left: 8px;
+}

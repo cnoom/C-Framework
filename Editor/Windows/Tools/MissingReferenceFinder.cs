@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using CFramework.Editor.Utilities;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -15,6 +16,8 @@ namespace CFramework.Editor.Windows.Tools
     /// </summary>
     public class MissingReferenceFinder : EditorWindow
     {
+        private const string USS_FILE_NAME = "MissingReferenceFinder.uss";
+
         private List<ResultItem> results = new List<ResultItem>();
 
         private Toggle _detectFieldToggle;
@@ -41,17 +44,19 @@ namespace CFramework.Editor.Windows.Tools
         {
             var root = rootVisualElement;
 
+            // 加载 USS 样式表
+            var styleSheet = EditorStyleSheet.Find(USS_FILE_NAME);
+            if (styleSheet != null) root.styleSheets.Add(styleSheet);
+
             // 标题
             var titleLabel = new Label("扫描丢失引用");
-            titleLabel.style.fontSize = 14;
-            titleLabel.style.color = new Color(0.82f, 0.82f, 0.82f);
-            titleLabel.style.marginBottom = 8;
+            titleLabel.AddToClassList("title-label");
             root.Add(titleLabel);
 
             // 检测选项
             _detectFieldToggle = new Toggle("检测字段引用丢失 (可能误报)");
             _detectFieldToggle.value = detectFieldMissing;
-            _detectFieldToggle.style.marginBottom = 8;
+            _detectFieldToggle.AddToClassList("detect-toggle");
             _detectFieldToggle.RegisterValueChangedCallback(evt =>
             {
                 detectFieldMissing = evt.newValue;
@@ -61,34 +66,17 @@ namespace CFramework.Editor.Windows.Tools
             // 扫描按钮
             _scanButton = new Button(ScanAllAssets);
             _scanButton.text = "开始扫描";
-            _scanButton.style.height = 32;
-            _scanButton.style.fontSize = 13;
-            _scanButton.style.marginBottom = 8;
+            _scanButton.AddToClassList("scan-button");
             root.Add(_scanButton);
 
             // 结果计数
             _countLabel = new Label("共找到 0 个存在丢失引用的物体");
-            _countLabel.style.fontSize = 12;
-            _countLabel.style.color = new Color(0.7f, 0.7f, 0.7f);
-            _countLabel.style.marginBottom = 6;
+            _countLabel.AddToClassList("count-label");
             root.Add(_countLabel);
 
             // 结果滚动列表
             _resultScroll = new ScrollView();
-            _resultScroll.style.flexGrow = 1;
-            _resultScroll.style.borderTopWidth = 1;
-            _resultScroll.style.borderBottomWidth = 1;
-            _resultScroll.style.borderLeftWidth = 1;
-            _resultScroll.style.borderRightWidth = 1;
-            _resultScroll.style.borderTopColor = new Color(0.22f, 0.22f, 0.22f, 0.9f);
-            _resultScroll.style.borderBottomColor = new Color(0.22f, 0.22f, 0.22f, 0.9f);
-            _resultScroll.style.borderLeftColor = new Color(0.22f, 0.22f, 0.22f, 0.9f);
-            _resultScroll.style.borderRightColor = new Color(0.22f, 0.22f, 0.22f, 0.9f);
-            _resultScroll.style.backgroundColor = new Color(0.13f, 0.13f, 0.13f, 0.5f);
-            _resultScroll.style.paddingTop = 6;
-            _resultScroll.style.paddingBottom = 6;
-            _resultScroll.style.paddingLeft = 6;
-            _resultScroll.style.paddingRight = 6;
+            _resultScroll.AddToClassList("result-scroll");
             root.Add(_resultScroll);
 
             RefreshResults();
@@ -110,7 +98,7 @@ namespace CFramework.Editor.Windows.Tools
                 var foldout = new Foldout();
                 foldout.text = $"{GetMissingTypeName(missingType)} ({group.Count})";
                 foldout.value = foldoutStates[missingType];
-                foldout.style.marginBottom = 4;
+                foldout.AddToClassList("result-foldout");
                 foldout.RegisterValueChangedCallback(evt =>
                 {
                     foldoutStates[missingType] = evt.newValue;
@@ -119,27 +107,15 @@ namespace CFramework.Editor.Windows.Tools
                 foreach (var item in group)
                 {
                     var itemRow = new VisualElement();
-                    itemRow.style.flexDirection = FlexDirection.Row;
-                    itemRow.style.alignItems = Align.Center;
-                    itemRow.style.paddingTop = 2;
-                    itemRow.style.paddingBottom = 2;
-                    itemRow.style.paddingLeft = 8;
-                    itemRow.style.paddingRight = 8;
-                    itemRow.style.backgroundColor = new Color(0.16f, 0.16f, 0.16f, 0.4f);
-                    itemRow.style.marginBottom = 2;
+                    itemRow.AddToClassList("result-item-row");
 
                     var itemNameLabel = new Label(item.displayName);
-                    itemNameLabel.style.fontSize = 11;
-                    itemNameLabel.style.flexGrow = 1;
-                    itemNameLabel.style.minWidth = 200;
-                    itemNameLabel.style.unityTextAlign = TextAnchor.UpperLeft;
+                    itemNameLabel.AddToClassList("result-item-name");
                     itemRow.Add(itemNameLabel);
 
                     var selectBtn = new Button(() => SelectObject(item));
                     selectBtn.text = "选中";
-                    selectBtn.style.minWidth = 50;
-                    selectBtn.style.fontSize = 10;
-                    selectBtn.style.marginLeft = 8;
+                    selectBtn.AddToClassList("result-select-btn");
                     itemRow.Add(selectBtn);
 
                     foldout.Add(itemRow);

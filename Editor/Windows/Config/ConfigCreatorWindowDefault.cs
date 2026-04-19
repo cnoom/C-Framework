@@ -96,8 +96,9 @@ namespace CFramework.Editor.Windows.Config
         {
             var root = rootVisualElement;
 
-            // 样式
-            root.styleSheets.Add(CreateStyleSheet());
+            // 加载 USS 样式表
+            var styleSheet = EditorStyleSheet.Find("ConfigCreatorWindow.uss");
+            if (styleSheet != null) root.styleSheets.Add(styleSheet);
 
             // 主滚动容器
             var scrollView = new ScrollView(ScrollViewMode.Vertical);
@@ -193,12 +194,16 @@ namespace CFramework.Editor.Windows.Config
                 OnConfigNameChanged));
 
             // 配置表设置子区域
-            section.Add(new Label("配置表设置") { AddToClassList("sub-label") });
+            var subLabel1 = new Label("配置表设置");
+            subLabel1.AddToClassList("sub-label");
+            section.Add(subLabel1);
             section.Add(CreateIndentedField("命名空间", out _configNamespaceField));
             section.Add(CreateIndentedField("输出目录", out _configOutputField));
 
             // 数据类设置子区域
-            section.Add(new Label("数据类设置") { AddToClassList("sub-label") });
+            var subLabel2 = new Label("数据类设置");
+            subLabel2.AddToClassList("sub-label");
+            section.Add(subLabel2);
             section.Add(CreateIndentedField("命名空间", out _dataNamespaceField));
             section.Add(CreateIndentedField("输出目录", out _dataOutputField));
 
@@ -216,7 +221,8 @@ namespace CFramework.Editor.Windows.Config
             var keyRow = CreateLabeledField("键类型", out _, null);
             var keyPopupContainer = keyRow.Q<VisualElement>("field-container");
 
-            _keyTypePopup = new PopupField<string>("", KeyTypeOptions, 0) { AddToClassList("popup-field") };
+            _keyTypePopup = new PopupField<string>("", new List<string>(KeyTypeOptions), 0);
+            _keyTypePopup.AddToClassList("popup-field");
             _keyTypePopup.RegisterValueChangedCallback(evt => { keyType = evt.newValue; });
             keyPopupContainer?.Clear();
             keyPopupContainer?.Add(_keyTypePopup);
@@ -259,7 +265,7 @@ namespace CFramework.Editor.Windows.Config
                                 _selectedFieldIndex = index;
                                 _fieldListView.RefreshItems();
                             },
-                            onFieldChanged: () => UpdatePreview()
+                            onChanged: () => UpdatePreview()
                         );
                     }
                 },
@@ -275,8 +281,9 @@ namespace CFramework.Editor.Windows.Config
             section.Add(_fieldListView);
 
             // 添加按钮行
-            var addBtnRow = new VisualElement { AddToClassList("add-btn-row") };
-            addBtnRow.Add(new FlexibleSpace());
+            var addBtnRow = new VisualElement();
+            addBtnRow.AddToClassList("add-btn-row");
+            addBtnRow.Add(CreateFlexibleSpace());
 
             var addBtn = new Button(() =>
             {
@@ -286,12 +293,12 @@ namespace CFramework.Editor.Windows.Config
                 UpdatePreview();
             })
             {
-                text = "+ 添加字段",
-                AddToClassList("add-field-btn"
+                text = "+ 添加字段"
             };
+            addBtn.AddToClassList("add-field-btn");
             addBtnRow.Add(addBtn);
 
-            addBtnRow.Add(new FlexibleSpace());
+            addBtnRow.Add(CreateFlexibleSpace());
             section.Add(addBtnRow);
 
             return section;
@@ -318,25 +325,29 @@ namespace CFramework.Editor.Windows.Config
         {
             var section = CreateSection("代码预览");
 
-            section.Add(new Label("配置表类:") { AddToClassList("preview-sub-label") });
+            var previewLabel1 = new Label("配置表类:");
+            previewLabel1.AddToClassList("preview-sub-label");
+            section.Add(previewLabel1);
 
             _configPreviewField = new TextField("")
             {
                 isReadOnly = true,
-                multiline = true,
-                AddToClassList("preview-text"
+                multiline = true
             };
+            _configPreviewField.AddToClassList("preview-text");
             _configPreviewField.style.height = 80;
             section.Add(_configPreviewField);
 
-            section.Add(new Label("数据类:") { AddToClassList("preview-sub-label") });
+            var previewLabel2 = new Label("数据类:");
+            previewLabel2.AddToClassList("preview-sub-label");
+            section.Add(previewLabel2);
 
             _dataPreviewField = new TextField("")
             {
                 isReadOnly = true,
-                multiline = true,
-                AddToClassList("preview-text"
+                multiline = true
             };
+            _dataPreviewField.AddToClassList("preview-text");
             _dataPreviewField.style.height = 120;
             section.Add(_dataPreviewField);
 
@@ -348,27 +359,30 @@ namespace CFramework.Editor.Windows.Config
         /// </summary>
         private VisualElement CreateButtonSection()
         {
-            var container = new VisualElement { AddToClassList("button-section") };
+            var container = new VisualElement();
+            container.AddToClassList("button-section");
 
-            var btnRow = new VisualElement { AddToClassList("btn-row" };
-            btnRow.Add(new FlexibleSpace());
+            var btnRow = new VisualElement();
+            btnRow.AddToClassList("btn-row");
+            btnRow.Add(CreateFlexibleSpace());
 
             _generateCodeBtn = new Button(OnGenerateCodeOnlyClicked)
             {
-                text = "仅生成代码",
-                AddToClassList("action-button"
+                text = "仅生成代码"
             };
+            _generateCodeBtn.AddToClassList("action-button");
             btnRow.Add(_generateCodeBtn);
 
             _generateAllBtn = new Button(OnGenerateAllClicked)
             {
                 text = "生成代码并创建资产",
-                name = "primary-action",
-                AddToClassList("action-button primary"
+                name = "primary-action"
             };
+            _generateAllBtn.AddToClassList("action-button");
+            _generateAllBtn.AddToClassList("primary");
             btnRow.Add(_generateAllBtn);
 
-            btnRow.Add(new FlexibleSpace());
+            btnRow.Add(CreateFlexibleSpace());
             container.Add(btnRow);
 
             return container;
@@ -379,12 +393,25 @@ namespace CFramework.Editor.Windows.Config
         #region UI 工具方法
 
         /// <summary>
+        ///     创建弹性空白区域
+        /// </summary>
+        private static VisualElement CreateFlexibleSpace()
+        {
+            var space = new VisualElement();
+            space.style.flexGrow = 1;
+            return space;
+        }
+
+        /// <summary>
         ///     创建分区容器
         /// </summary>
         private static VisualElement CreateSection(string title)
         {
-            var container = new VisualElement { AddToClassList("section") };
-            container.Add(new Label(title) { AddToClassList("section-label") });
+            var container = new VisualElement();
+            container.AddToClassList("section");
+            var titleLabel = new Label(title);
+            titleLabel.AddToClassList("section-label");
+            container.Add(titleLabel);
             return container;
         }
 
@@ -393,13 +420,17 @@ namespace CFramework.Editor.Windows.Config
         /// </summary>
         private static VisualElement CreateLabeledField(string labelText, out TextField field, EventCallback<ChangeEvent<string>> onChange = null)
         {
-            var row = new VisualElement { AddToClassList("field-row") };
-            row.Add(new Label(labelText) { AddToClassList("field-label") });
+            var row = new VisualElement();
+            row.AddToClassList("field-row");
+            var label = new Label(labelText);
+            label.AddToClassList("field-label");
+            row.Add(label);
 
             var fieldContainer = new VisualElement { name = "field-container" };
             fieldContainer.style.flexGrow = 1;
 
-            field = new TextField("") { AddToClassList("text-field") };
+            field = new TextField("");
+            field.AddToClassList("text-field");
             if (onChange != null) field.RegisterValueChangedCallback(onChange);
             fieldContainer.Add(field);
             row.Add(fieldContainer);
@@ -412,10 +443,14 @@ namespace CFramework.Editor.Windows.Config
         /// </summary>
         private static VisualElement CreateIndentedField(string labelText, out TextField field)
         {
-            var row = new VisualElement { AddToClassList("indented-row") };
-            row.Add(new Label(labelText) { AddToClassList("indent-label") });
+            var row = new VisualElement();
+            row.AddToClassList("indented-row");
+            var label = new Label(labelText);
+            label.AddToClassList("indent-label");
+            row.Add(label);
 
-            field = new TextField("") { AddToClassList("indent-field") };
+            field = new TextField("");
+            field.AddToClassList("indent-field");
             row.Add(field);
 
             return row;
@@ -426,7 +461,8 @@ namespace CFramework.Editor.Windows.Config
         /// </summary>
         private static Toggle CreateToggleField(string labelText, out Toggle toggle)
         {
-            toggle = new Toggle(labelText) { AddToClassList("toggle-field") };
+            toggle = new Toggle(labelText);
+            toggle.AddToClassList("toggle-field");
             return toggle;
         }
 
@@ -700,52 +736,6 @@ namespace CFramework.Editor.Windows.Config
 
         #endregion
 
-        #region 样式
-
-        private static StyleSheet CreateStyleSheet()
-        {
-            var sb = new System.Text.StringBuilder();
-
-            sb.AppendLine(".main-scroll { padding: 4px; }");
-            sb.AppendLine(".section { margin-top: 8px; margin-bottom: 4px; }");
-            sb.AppendLine(".section-label { font-size: 13px; font-weight: bold; color: rgb(190,190,190); margin-bottom: 4px; }");
-            sb.AppendLine(".sub-label { font-size: 11px; font-weight: bold; color: rgb(160,160,160); margin-top: 6px; margin-bottom: 2px; }");
-
-            sb.AppendLine(".field-row { flex-direction: row; align-items: center; margin-bottom: 3px; }");
-            sb.AppendLine(".field-label { min-width: 100px; font-size: 12px; }");
-            sb.AppendLine("#field-container { flex-grow: 1; }");
-            sb.AppendLine(".text-field { width: 100%; }");
-
-            sb.AppendLine(".indented-row { flex-direction: row; align-items: center; margin-left: 16px; margin-bottom: 2px; }");
-            sb.AppendLine(".indent-label { min-width: 70px; font-size: 11px; }");
-            sb.AppendLine(".indent-field { flex-grow: 1; }");
-
-            sb.AppendLine(".popup-field { flex-grow: 1; }");
-
-            sb.AppendLine(".toggle-field { margin-top: 2px; margin-bottom: 2px; }");
-
-            sb.AppendLine(".field-list { max-height: 200px; border-radius: 3px; background-color: rgba(35,35,35,0.5); margin-bottom: 4px; }");
-
-            sb.AppendLine(".add-btn-row { flex-direction: row; justify-content: center; margin-top: 4px; margin-bottom: 8px; }");
-            sb.AppendLine(".add-field-btn { min-width: 100px; font-size: 11px; }");
-
-            sb.AppendLine(".preview-sub-label { font-size: 11px; font-weight: bold; color: rgb(150,150,150); margin-top: 4px; margin-bottom: 2px; }");
-            sb.AppendLine(".preview-text { font-family: monospace; font-size: 10px; background-color: rgba(30,30,30,0.9); border-radius: 2px; padding: 4px; white-space: pre-wrap; }");
-
-            sb.AppendLine(".button-section { margin-top: 10px; margin-bottom: 8px; }");
-            sb.AppendLine(".btn-row { flex-direction: row; align-items: center; }");
-            sb.AppendLine(".action-button { height: 30px; min-width: 100px; margin: 0 4px; }");
-            sb.AppendLine("#primary-action { min-width: 160px; font-weight: bold; }");
-            sb.AppendLine(".action-button.primary { background-color: rgba(50,120,200,0.7); }");
-            sb.AppendLine(":disabled.action-button.primary { opacity: 0.5; }");
-
-            var styleSheet = new StyleSheet();
-            // 样式通过内联方式应用到各控件
-            return styleSheet;
-        }
-
-        #endregion
-
         #region 数据类
 
         [Serializable]
@@ -779,30 +769,35 @@ namespace CFramework.Editor.Windows.Config
             {
                 AddToClassList("field-item");
 
-                var topRow = new VisualElement { AddToClassList("item-top-row") };
+                var topRow = new VisualElement();
+                topRow.AddToClassList("item-top-row");
 
-                _keyToggle = new Toggle("主键") { AddToClassList("key-toggle") };
+                _keyToggle = new Toggle("主键");
+                _keyToggle.AddToClassList("key-toggle");
                 _keyToggle.RegisterValueChangedCallback(evt => { _onChanged?.Invoke(); });
                 topRow.Add(_keyToggle);
 
-                _nameField = new TextField("") { AddToClassList("name-field") };
+                _nameField = new TextField("");
+                _nameField.AddToClassList("name-field");
                 _nameField.RegisterValueChangedCallback(evt => { _onChanged?.Invoke(); });
                 topRow.Add(_nameField);
 
-                _typePopup = new PopupField<string>(typeOptions, 0) { AddToClassList("type-popup") };
+                _typePopup = new PopupField<string>(new List<string>(typeOptions), 0);
+                _typePopup.AddToClassList("type-popup");
                 _typePopup.RegisterValueChangedCallback(evt => { _onChanged?.Invoke(); });
                 topRow.Add(_typePopup);
 
                 _removeBtn = new Button(() => _onRemove?.Invoke())
                 {
-                    text = "\u00D7",  // × 符号
-                    AddToClassList("remove-btn"
+                    text = "\u00D7"  // × 符号
                 };
+                _removeBtn.AddToClassList("remove-btn");
                 topRow.Add(_removeBtn);
 
                 Add(topRow);
 
-                _descField = new TextField("描述") { AddToClassList("desc-field") };
+                _descField = new TextField("描述");
+                _descField.AddToClassList("desc-field");
                 _descField.RegisterValueChangedCallback(evt => { _onChanged?.Invoke(); });
                 Add(_descField);
 

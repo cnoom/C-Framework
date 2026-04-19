@@ -1,0 +1,65 @@
+/* MissingReferenceFinder 样式表 */
+
+.title-label {
+    font-size: 14px;
+    color: rgb(209, 209, 209);
+    margin-bottom: 8px;
+}
+
+.detect-toggle {
+    margin-bottom: 8px;
+}
+
+.scan-button {
+    height: 32px;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.count-label {
+    font-size: 12px;
+    color: rgb(179, 179, 179);
+    margin-bottom: 6px;
+}
+
+.result-scroll {
+    flex-grow: 1;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-color: rgba(56, 56, 56, 0.9);
+    background-color: rgba(33, 33, 33, 0.5);
+    padding-top: 6px;
+    padding-bottom: 6px;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+
+.result-foldout {
+    margin-bottom: 4px;
+}
+
+.result-item-row {
+    flex-direction: row;
+    align-items: center;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    padding-left: 8px;
+    padding-right: 8px;
+    background-color: rgba(41, 41, 41, 0.4);
+    margin-bottom: 2px;
+}
+
+.result-item-name {
+    font-size: 11px;
+    flex-grow: 1;
+    min-width: 200px;
+    -unity-text-align: upper-left;
+}
+
+.result-select-btn {
+    min-width: 50px;
+    font-size: 10px;
+    margin-left: 8px;
+}

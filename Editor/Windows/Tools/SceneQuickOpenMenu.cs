@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using CFramework.Editor.Utilities;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -59,10 +60,11 @@ namespace CFramework.Editor.Windows.Tools
     /// </summary>
     public sealed class SceneQuickOpenWindow : EditorWindow
     {
+        private const string USS_FILE_NAME = "SceneQuickOpenMenu.uss";
+
         private List<string> _scenePaths;
         private List<string> _filteredScenes;
 
-        // UIToolkit 控件
         private TextField _searchField;
         private Button _refreshButton;
         private Label _currentSceneLabel;
@@ -81,20 +83,16 @@ namespace CFramework.Editor.Windows.Tools
         {
             var root = rootVisualElement;
 
+            // 加载 USS 样式表
+            var styleSheet = EditorStyleSheet.Find(USS_FILE_NAME);
+            if (styleSheet != null) root.styleSheets.Add(styleSheet);
+
             // 搜索栏容器
             var searchRow = new VisualElement();
-            searchRow.style.flexDirection = FlexDirection.Row;
-            searchRow.style.alignItems = Align.Center;
-            searchRow.style.paddingTop = 6;
-            searchRow.style.paddingBottom = 6;
-            searchRow.style.paddingLeft = 8;
-            searchRow.style.paddingRight = 8;
-            searchRow.style.marginBottom = 6;
-            searchRow.style.backgroundColor = new Color(0.2f, 0.2f, 0.22f, 0.9f);
+            searchRow.AddToClassList("search-row");
 
             _searchField = new TextField();
-            _searchField.style.flexGrow = 1;
-            _searchField.style.marginRight = 4;
+            _searchField.AddToClassList("search-field");
             _searchField.RegisterValueChangedCallback(evt => FilterScenes(evt.newValue));
             searchRow.Add(_searchField);
 
@@ -104,10 +102,7 @@ namespace CFramework.Editor.Windows.Tools
                 FilterScenes(_searchField.value);
             })
             { text = "\u21bb" };
-            _refreshButton.style.width = 24;
-            _refreshButton.style.height = 24;
-            _refreshButton.style.fontSize = 14;
-            _refreshButton.style.unityTextAlign = TextAnchor.MiddleCenter;
+            _refreshButton.AddToClassList("refresh-button");
             searchRow.Add(_refreshButton);
 
             root.Add(searchRow);
@@ -115,14 +110,7 @@ namespace CFramework.Editor.Windows.Tools
             // 当前场景信息
             var activeScene = SceneManager.GetActiveScene();
             _currentSceneLabel = new Label($"当前场景: {activeScene.name}");
-            _currentSceneLabel.style.fontSize = 11;
-            _currentSceneLabel.style.color = new Color(0.63f, 0.71f, 0.63f);
-            _currentSceneLabel.style.paddingTop = 4;
-            _currentSceneLabel.style.paddingBottom = 4;
-            _currentSceneLabel.style.paddingLeft = 10;
-            _currentSceneLabel.style.marginBottom = 4;
-            _currentSceneLabel.style.backgroundColor = new Color(0.18f, 0.22f, 0.18f, 0.5f);
-            _currentSceneLabel.style.unityTextAlign = TextAnchor.UpperLeft;
+            _currentSceneLabel.AddToClassList("current-scene-label");
             root.Add(_currentSceneLabel);
 
             // 场景列表
@@ -143,18 +131,12 @@ namespace CFramework.Editor.Windows.Tools
                 showBorder = false,
                 fixedItemHeight = 28
             };
-            _sceneListView.style.flexGrow = 1;
-            _sceneListView.style.paddingLeft = 4;
-            _sceneListView.style.paddingRight = 4;
+            _sceneListView.AddToClassList("scene-list");
             root.Add(_sceneListView);
 
             // 底部提示
             _footerLabel = new Label("点击切换 | ESC 关闭");
-            _footerLabel.style.fontSize = 10;
-            _footerLabel.style.color = new Color(0.47f, 0.47f, 0.47f);
-            _footerLabel.style.paddingTop = 4;
-            _footerLabel.style.paddingBottom = 4;
-            _footerLabel.style.paddingLeft = 10;
+            _footerLabel.AddToClassList("footer-label");
             root.Add(_footerLabel);
 
             // 注册键盘事件
@@ -215,27 +197,18 @@ namespace CFramework.Editor.Windows.Tools
 
             public SceneItemElement()
             {
-                style.flexDirection = FlexDirection.Row;
-                style.alignItems = Align.Center;
-                style.paddingLeft = 8;
-                style.paddingRight = 8;
+                AddToClassList("scene-item");
 
                 _iconContainer = new VisualElement();
-                _iconContainer.style.width = 16;
-                _iconContainer.style.height = 16;
-                _iconContainer.style.marginRight = 6;
+                _iconContainer.AddToClassList("scene-item-icon");
                 Add(_iconContainer);
 
                 _nameLabel = new Label();
-                _nameLabel.style.fontSize = 12;
-                _nameLabel.style.flexGrow = 1;
-                _nameLabel.style.unityTextAlign = TextAnchor.UpperLeft;
+                _nameLabel.AddToClassList("scene-item-name");
                 Add(_nameLabel);
 
                 _pathLabel = new Label();
-                _pathLabel.style.fontSize = 10;
-                _pathLabel.style.color = new Color(0.43f, 0.43f, 0.43f);
-                _pathLabel.style.marginLeft = 8;
+                _pathLabel.AddToClassList("scene-item-path");
                 Add(_pathLabel);
 
                 RegisterCallback<ClickEvent>(_ => _onSelected?.Invoke(_boundScenePath));
@@ -247,7 +220,7 @@ namespace CFramework.Editor.Windows.Tools
                 _onSelected = onSelected;
 
                 var sceneName = Path.GetFileNameWithoutExtension(scenePath);
-                _nameLabel.text = isActive ? $"\u25CF {sceneName}" : sceneName;  // ●
+                _nameLabel.text = isActive ? $"\u25CF {sceneName}" : sceneName;
 
                 if (isActive)
                 {
