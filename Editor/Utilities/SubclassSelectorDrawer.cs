@@ -207,7 +207,7 @@ namespace CFramework.Editor.Utilities
                 {
                     if (type.IsAbstract || type.IsInterface) continue;
                     if (!baseType.IsAssignableFrom(type)) continue;
-                    if (!type.IsSerializable && !type.GetCustomAttribute<SerializableAttribute>(false))
+                    if (!type.IsSerializable && type.GetCustomAttribute<SerializableAttribute>(false) == null)
                         continue;
                     // 排除 Unity 内置类型
                     if (typeof(UnityEngine.Object).IsAssignableFrom(type)) continue;
