@@ -499,10 +499,11 @@ namespace CFramework.Editor.Utilities
         {
             var state = new DrawerState();
 
-            var fi = GetFieldInfo(property, out _);
-            if (fi == null) return state;
+            // 使用 out fieldType（解析后的最终类型）而非 fi.FieldType（声明类型）
+            GetFieldInfo(property, out var fieldType);
+            if (fieldType == null) return state;
 
-            state.FieldType = fi.FieldType;
+            state.FieldType = fieldType;
 
             if (!state.FieldType.IsInterface && !state.FieldType.IsAbstract)
             {
@@ -610,8 +611,9 @@ namespace CFramework.Editor.Utilities
                 }
             }
 
-            if (fieldInfo != null)
-                fieldType = fieldInfo.FieldType;
+            // 返回解析后的最终类型（而非声明字段的原始类型）
+            // 例如列表元素路径解析后 type = IWeapon，而非 List<IWeapon>
+            fieldType = type;
 
             return fieldInfo;
         }
