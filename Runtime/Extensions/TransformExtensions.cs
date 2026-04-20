@@ -358,22 +358,6 @@ namespace CFramework.Runtime.Extensions
 
         #region 查找
 
-        /// <summary>
-        /// 查找最近的双亲中指定类型的组件
-        /// </summary>
-        public static T GetComponentInParent<T>(this Transform transform) where T : Component
-        {
-            return transform.GetComponentInParent<T>();
-        }
-
-        /// <summary>
-        /// 查找或添加组件
-        /// </summary>
-        public static T GetOrAddComponent<T>(this Transform transform) where T : Component
-        {
-            return transform.GetComponent<T>() ?? transform.gameObject.AddComponent<T>();
-        }
-
         #endregion
     }
 }

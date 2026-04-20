@@ -1,8 +1,11 @@
 ﻿using CFramework.Utility.String;
 using UnityEngine;
 
-namespace CFramework.Utility
+namespace CFramework
 {
+    /// <summary>
+    ///     ILogger 扩展方法，提供彩色日志功能
+    /// </summary>
     public static class LogUtility
     {
         public static void LogWithColor(this ILogger logger, string tag, string message, Color color,

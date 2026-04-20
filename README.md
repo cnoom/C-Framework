@@ -19,6 +19,12 @@
 | State | 有限状态机（FSM），支持普通状态与栈状态 |
 | Utility | 字符串、随机数、日志等通用工具 |
 
+## 可选模块定义符号
+
+| 符号 | 说明 |
+|------|------|
+| `CFRAMEWORK_AUDIO` | 启用音频模块（AudioService）。未定义时整个音频模块不会编译，需在 Player Settings → Scripting Define Symbols 中手动添加 |
+
 ## 环境要求
 
 - Unity 2021.3+
@@ -372,7 +378,7 @@ Core 模块是框架的基础，提供以下能力：
 | MaxSlotsPerGroup | int | 20 | 分组 Slot 自动扩容上限 |
 | VolumePrefsPrefix | string | "Audio_Volume_" | 音量持久化存储键前缀 |
 | AutoSaveInterval | int | 60 | 自动保存间隔（秒） |
-| EncryptionKey | string | "CFramework" | 存档加密密钥 |
+| EncryptionKey | string | "CFramework_DefaultKey" | 存档加密密钥（AES-128 需要 16 字符） |
 | LogLevel | LogLevel | Debug | 日志级别 |
 | ConfigAddressPrefix | string | "Config" | 配置表 Addressable 地址前缀 |
 

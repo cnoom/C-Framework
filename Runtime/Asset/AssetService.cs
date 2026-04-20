@@ -258,12 +258,13 @@ namespace CFramework
                 if (_disposed) return;
                 _disposed = true;
 
+                // 先释放资源（此时 _key 仍有效），再清空引用防止误用
                 _service?.Release(_key);
                 _scope?.Dispose();
 
-                _key = null;
                 _service = null;
                 _scope = null;
+                // _key 保留不清空，避免二次 Dispose 时因 null key 导致异常
             }
         }
 
