@@ -142,26 +142,33 @@ namespace CFramework.Editor.Windows.Config
             _selectedConfig = null;
             _selectedConfigInfo = null;
 
-            // 查找所有继承自 ConfigTableBase 的资产
-            var guids = AssetDatabase.FindAssets("t:ScriptableObject");
+            // 按 ConfigTableBase 子类类型精准搜索，避免遍历所有 ScriptableObject
+            var configTypes = TypeCache.GetTypesDerivedFrom<ConfigTableBase>();
+            var visitedPaths = new HashSet<string>();
 
-            foreach (var guid in guids)
+            foreach (var type in configTypes)
             {
-                var path = AssetDatabase.GUIDToAssetPath(guid);
-                var asset = AssetDatabase.LoadAssetAtPath<ScriptableObject>(path);
+                var guids = AssetDatabase.FindAssets($"t:{type.Name}");
 
-                if (asset is ConfigTableBase configTable)
+                foreach (var guid in guids)
                 {
-                    var configType = configTable.GetType();
-                    existingConfigs.Add(new ConfigInfo
+                    var path = AssetDatabase.GUIDToAssetPath(guid);
+                    if (!visitedPaths.Add(path)) continue;
+
+                    var asset = AssetDatabase.LoadAssetAtPath<ScriptableObject>(path);
+                    if (asset is ConfigTableBase configTable)
                     {
-                        Name = configType.Name,
-                        Type = configType.BaseType?.Name ?? "ConfigTableBase",
-                        Count = configTable.Count,
-                        Path = path,
-                        Asset = asset,
-                        ConfigType = configType
-                    });
+                        var configType = configTable.GetType();
+                        existingConfigs.Add(new ConfigInfo
+                        {
+                            Name = configType.Name,
+                            Type = configType.BaseType?.Name ?? "ConfigTableBase",
+                            Count = configTable.Count,
+                            Path = path,
+                            Asset = asset,
+                            ConfigType = configType
+                        });
+                    }
                 }
             }
 

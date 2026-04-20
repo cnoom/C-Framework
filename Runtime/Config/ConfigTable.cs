@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
-using Sirenix.OdinInspector;
-using Sirenix.Serialization;
 using UnityEngine;
+
+#if ODIN_INSPECTOR
+using Sirenix.OdinInspector;
+#endif
 
 namespace CFramework
 {
@@ -16,13 +18,12 @@ namespace CFramework
         /// </summary>
 #if ODIN_INSPECTOR
         [OdinSerialize]
-#else
-        [SerializeField]
-#endif
         [TableList]
         [ShowInInspector]
         [PropertyOrder(1)]
         [Searchable]
+#endif
+        [SerializeField]
         protected List<TValue> dataList = new();
 
         /// <summary>
@@ -86,8 +87,12 @@ namespace CFramework
 
             _cache = new Dictionary<TKey, TValue>();
             foreach (var item in dataList)
-                if (item != null)
-                    _cache[item.Key] = item;
+            {
+                if (item == null) continue;
+                if (_cache.ContainsKey(item.Key))
+                    Debug.LogWarning($"[ConfigTable] 重复主键: {item.Key}，后值覆盖前值");
+                _cache[item.Key] = item;
+            }
         }
 
         /// <summary>

@@ -1,12 +1,19 @@
 using System;
+
+#if ODIN_INSPECTOR
 using Sirenix.OdinInspector;
+#endif
 
 namespace CFramework
 {
     /// <summary>
     ///     配置表基类
     /// </summary>
+#if ODIN_INSPECTOR
     public abstract class ConfigTableBase : SerializedScriptableObject
+#else
+    public abstract class ConfigTableBase : ScriptableObject
+#endif
     {
         public bool IsLoaded { get; set; }
         public abstract int Count { get; }
