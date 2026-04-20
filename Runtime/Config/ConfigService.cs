@@ -82,7 +82,7 @@ namespace CFramework
         ///     通过主键获取配置数据
         ///     遍历已加载的配置表，查找继承自 ConfigTable&lt;TKey, TValue&gt; 的条目
         /// </summary>
-        public TValue Get<TKey, TValue>(TKey key) where TValue : class
+        public TValue Get<TKey, TValue>(TKey key) where TValue : class, IConfigItem<TKey>
         {
             foreach (var kvp in _tables)
             {
