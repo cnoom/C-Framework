@@ -77,7 +77,8 @@ namespace CFramework
                 if (handle.Result is Texture tex)
                     return tex.width * tex.height * (tex.graphicsFormat != 0 ? 4 : 4);
                 if (handle.Result is AudioClip clip)
-                    return (long)(clip.samples * clip.channels * (clip.bitsPerSample / 8f));
+                    // 估算：采样数 × 声道数 × 2字节（假设16位PCM）
+                    return clip.samples * clip.channels * 2L;
                 return 1024L;
             }
         }
