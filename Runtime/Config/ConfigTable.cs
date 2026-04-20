@@ -2,48 +2,77 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-#if ODIN_INSPECTOR
-using Sirenix.OdinInspector;
-#endif
-
 namespace CFramework
 {
     /// <summary>
-    ///     泛型配置表
+    ///     泛型配置表（纯 C# 数据容器，运行时使用）
+    ///     <para>不继承 ScriptableObject，数据通过 Load 注入</para>
     /// </summary>
-    public abstract class ConfigTable<TKey, TValue> : ConfigTableBase where TValue : class, IConfigItem<TKey>
+    /// <typeparam name="TKey">主键类型</typeparam>
+    /// <typeparam name="TValue">数据行类型</typeparam>
+    public class ConfigTable<TKey, TValue> where TValue : class, IConfigItem<TKey>
     {
-        /// <summary>
-        ///     配置数据列表
-        /// </summary>
-#if ODIN_INSPECTOR
-        [OdinSerialize]
-        [TableList]
-        [ShowInInspector]
-        [PropertyOrder(1)]
-        [Searchable]
-#endif
-        [SerializeField]
-        protected List<TValue> dataList = new();
+        private List<TValue> _dataList;
+        private Dictionary<TKey, TValue> _cache;
 
         /// <summary>
-        ///     字典缓存，用于快速查找
+        ///     数据是否已加载
         /// </summary>
-        [NonSerialized] private Dictionary<TKey, TValue> _cache;
-
-        public override int Count => dataList.Count;
+        public bool IsLoaded { get; private set; }
 
         /// <summary>
-        ///     获取配置数据列表
+        ///     数据行数
         /// </summary>
-        public IReadOnlyList<TValue> DataList => dataList;
+        public int Count => _dataList?.Count ?? 0;
+
+        /// <summary>
+        ///     获取所有数据行（只读）
+        /// </summary>
+        public IReadOnlyList<TValue> All => _dataList;
+
+        /// <summary>
+        ///     数据加载完成事件
+        /// </summary>
+        public event Action OnDataLoaded;
+
+        /// <summary>
+        ///     加载数据（深拷贝，避免数据污染）
+        /// </summary>
+        /// <param name="data">数据源</param>
+        public void Load(IEnumerable<TValue> data)
+        {
+            _dataList = new List<TValue>();
+            _cache = new Dictionary<TKey, TValue>();
+
+            if (data != null)
+            {
+                foreach (var item in data)
+                {
+                    if (item == null) continue;
+
+                    // 深拷贝：如果数据行实现 ICloneable 则克隆，否则直接引用
+                    var value = item is ICloneable cloneable
+                        ? (TValue)cloneable.Clone()
+                        : item;
+
+                    if (_cache.ContainsKey(value.Key))
+                        Debug.LogWarning($"[ConfigTable] 重复主键: {value.Key}，后值覆盖前值");
+
+                    _cache[value.Key] = value;
+                    _dataList.Add(value);
+                }
+            }
+
+            IsLoaded = true;
+            OnDataLoaded?.Invoke();
+        }
 
         /// <summary>
         ///     通过主键获取配置数据
         /// </summary>
         public TValue Get(TKey key)
         {
-            EnsureCache();
+            if (_cache == null) return null;
             _cache.TryGetValue(key, out var value);
             return value;
         }
@@ -53,8 +82,21 @@ namespace CFramework
         /// </summary>
         public bool TryGet(TKey key, out TValue value)
         {
-            EnsureCache();
+            if (_cache == null)
+            {
+                value = null;
+                return false;
+            }
+
             return _cache.TryGetValue(key, out value);
+        }
+
+        /// <summary>
+        ///     是否包含指定主键
+        /// </summary>
+        public bool Contains(TKey key)
+        {
+            return _cache != null && _cache.ContainsKey(key);
         }
 
         /// <summary>
@@ -62,45 +104,18 @@ namespace CFramework
         /// </summary>
         public IEnumerable<TKey> Keys()
         {
-            EnsureCache();
-            return _cache.Keys;
+            if (_cache == null) yield break;
+            foreach (var key in _cache.Keys) yield return key;
         }
 
         /// <summary>
-        ///     扩展点：从外部注入数据
+        ///     清空数据
         /// </summary>
-        public void SetData(List<TValue> newData, ConfigDataSource source = ConfigDataSource.External)
+        public void Clear()
         {
-            dataList = newData ?? throw new ArgumentNullException(nameof(newData));
-            _cache = null; // 清除缓存，下次访问时重建
-            Source = source;
-            IsLoaded = true;
-            NotifyDataLoaded();
-        }
-
-        /// <summary>
-        ///     确保字典缓存已初始化
-        /// </summary>
-        private void EnsureCache()
-        {
-            if (_cache != null) return;
-
-            _cache = new Dictionary<TKey, TValue>();
-            foreach (var item in dataList)
-            {
-                if (item == null) continue;
-                if (_cache.ContainsKey(item.Key))
-                    Debug.LogWarning($"[ConfigTable] 重复主键: {item.Key}，后值覆盖前值");
-                _cache[item.Key] = item;
-            }
-        }
-
-        /// <summary>
-        ///     清除缓存（在数据变更后调用）
-        /// </summary>
-        protected void InvalidateCache()
-        {
-            _cache = null;
+            _dataList?.Clear();
+            _cache?.Clear();
+            IsLoaded = false;
         }
     }
 }

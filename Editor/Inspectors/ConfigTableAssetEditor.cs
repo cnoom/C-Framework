@@ -1,69 +1,15 @@
-#if ODIN_INSPECTOR
-using Sirenix.OdinInspector.Editor;
-using UnityEditor;
-using UnityEngine;
-using UnityEngine.UIElements;
-
-namespace CFramework.Editor.Inspectors
-{
-    [CustomEditor(typeof(ConfigTableBase), true)]
-    public class ConfigTableEditor : OdinEditor
-    {
-        private VisualElement _rootElement;
-
-        public override VisualElement CreateInspectorGUI()
-        {
-            _rootElement = new VisualElement();
-
-            var headerContainer = new VisualElement();
-            headerContainer.style.flexDirection = FlexDirection.Row;
-            headerContainer.style.alignItems = Align.Center;
-            headerContainer.style.paddingTop = 4;
-            headerContainer.style.paddingBottom = 4;
-
-            var config = (ConfigTableBase)target;
-            var typeName = config.GetType().Name;
-
-            var nameLabel = new Label(typeName);
-            nameLabel.style.fontSize = 13;
-            nameLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-            nameLabel.style.color = new Color(0.78f, 0.78f, 0.78f);
-            nameLabel.style.unityTextAlign = TextAnchor.UpperLeft;
-            headerContainer.Add(nameLabel);
-
-            headerContainer.Add(new VisualElement { style = { flexGrow = 1 } });
-
-            var infoLabel = new Label($"{config.Count} 条记录");
-            infoLabel.style.fontSize = 11;
-            infoLabel.style.color = new Color(0.55f, 0.55f, 0.55f);
-            headerContainer.Add(infoLabel);
-
-            _rootElement.Add(headerContainer);
-
-            var divider = new VisualElement();
-            divider.style.height = 1;
-            divider.style.backgroundColor = new Color(0.19f, 0.19f, 0.19f);
-            divider.style.marginTop = 4;
-            divider.style.marginBottom = 4;
-            _rootElement.Add(divider);
-
-            return _rootElement;
-        }
-    }
-}
-#else
 using UnityEditor;
 using UnityEditor.UIElements;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace CFramework.Editor.Inspectors
 {
     /// <summary>
-    ///     配置表自定义编辑器（UIToolkit 默认实现）
+    ///     ConfigTableAsset 自定义编辑器
+    ///     <para>显示配置表类型名 + 记录数标题栏 + 序列化属性编辑</para>
     /// </summary>
-    [CustomEditor(typeof(ConfigTableBase), true)]
-    public class ConfigTableEditor : UnityEditor.Editor
+    [CustomEditor(typeof(ConfigTableAsset), true)]
+    public class ConfigTableAssetEditor : UnityEditor.Editor
     {
         public override VisualElement CreateInspectorGUI()
         {
@@ -77,7 +23,7 @@ namespace CFramework.Editor.Inspectors
             headerContainer.style.paddingBottom = 4;
             headerContainer.style.marginBottom = 2;
 
-            var config = (ConfigTableBase)target;
+            var config = (ConfigTableAsset)target;
             var typeName = config.GetType().Name;
 
             var nameLabel = new Label(typeName);
@@ -117,10 +63,10 @@ namespace CFramework.Editor.Inspectors
                     defaultInspector.Add(field);
                 } while (prop.NextVisible(false));
             }
+
             root.Add(defaultInspector);
 
             return root;
         }
     }
 }
-#endif

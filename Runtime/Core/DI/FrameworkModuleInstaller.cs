@@ -21,6 +21,7 @@ namespace CFramework
             builder.InstallModule<IAudioService, AudioService>();
 #endif
             builder.InstallModule<ISceneService, SceneService>();
+            builder.InstallModule<IConfigProvider, SOConfigProvider>();
             builder.InstallModule<IConfigService, ConfigService>();
             builder.InstallModule<ISaveService, SaveService>();
         }

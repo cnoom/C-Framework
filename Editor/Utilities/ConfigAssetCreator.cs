@@ -179,7 +179,7 @@ namespace CFramework.Editor.Utilities
                         : configName;
 
                     var type = assembly.GetType(fullTypeName);
-                    if (type != null && typeof(ConfigTableBase).IsAssignableFrom(type)) return type;
+                    if (type != null && typeof(ConfigTableAsset).IsAssignableFrom(type)) return type;
                 }
                 catch (Exception)
                 {
@@ -191,7 +191,7 @@ namespace CFramework.Editor.Utilities
                 try
                 {
                     var type = assembly.GetType(configName);
-                    if (type != null && typeof(ConfigTableBase).IsAssignableFrom(type)) return type;
+                    if (type != null && typeof(ConfigTableAsset).IsAssignableFrom(type)) return type;
                 }
                 catch (Exception)
                 {

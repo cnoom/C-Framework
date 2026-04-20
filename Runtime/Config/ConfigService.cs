@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -7,117 +9,212 @@ using UnityEngine;
 namespace CFramework
 {
     /// <summary>
-    ///     配置服务实现（基于Addressables）
+    ///     配置服务实现
+    ///     <para>通过 IConfigProvider 加载配置数据，管理 ConfigTable 实例的生命周期</para>
     /// </summary>
-    public sealed class ConfigService : IConfigService, IDisposable
+    public sealed class ConfigService : IConfigService
     {
-        private readonly IAssetService _assetService;
-        private readonly Dictionary<Type, AssetHandle> _handles = new();
+        private readonly IConfigProvider _provider;
         private readonly FrameworkSettings _settings;
-        private readonly Dictionary<Type, ConfigTableBase> _tables = new();
 
-        public ConfigService(FrameworkSettings settings, IAssetService assetService)
+        /// <summary>
+        ///     数据类型 → ConfigTable 实例（object 装箱，因为 TKey 编译期未知）
+        /// </summary>
+        private readonly Dictionary<Type, object> _tables = new();
+
+        /// <summary>
+        ///     数据类型 → 加载地址
+        /// </summary>
+        private readonly Dictionary<Type, string> _addresses = new();
+
+        /// <summary>
+        ///     数据类型 → 对应的 ConfigTable 泛型类型
+        /// </summary>
+        private readonly Dictionary<Type, Type> _tableTypes = new();
+
+        private bool _disposed;
+
+        public ConfigService(IConfigProvider provider, FrameworkSettings settings)
         {
+            _provider = provider;
             _settings = settings;
-            _assetService = assetService;
         }
 
-        public async UniTask LoadAsync<TConfigTable>(CancellationToken ct = default)
+        public async UniTask LoadAsync<TValue>(string address = null, CancellationToken ct = default)
+            where TValue : class
         {
             ct.ThrowIfCancellationRequested();
 
-            var type = typeof(TConfigTable);
+            var valueType = typeof(TValue);
+            if (_tables.ContainsKey(valueType)) return;
 
-            // 如果已加载，直接返回
-            if (_tables.ContainsKey(type)) return;
-
-            // 构建地址：{前缀}/{表名}
-            var address = string.IsNullOrEmpty(_settings.ConfigAddressPrefix)
-                ? type.Name
-                : $"{_settings.ConfigAddressPrefix}/{type.Name}";
-
-            try
+            // 解析地址
+            if (string.IsNullOrEmpty(address))
             {
-                // 使用 Addressables 加载
-                var handle = await _assetService.LoadAsync<ConfigTableBase>(address, ct);
-
-                if (handle.Asset is ConfigTableBase table)
+                if (!_addresses.TryGetValue(valueType, out address))
                 {
-                    _tables[type] = table;
-                    _handles[type] = handle;
-                    table.IsLoaded = true;
-                }
-                else
-                {
-                    handle.Dispose();
-                    Debug.LogWarning($"[ConfigService] 配置表加载失败，资源类型不匹配: {address}");
+                    // 自动构建地址：{前缀}/{ValueType名称}
+                    var prefix = _settings?.ConfigAddressPrefix;
+                    address = string.IsNullOrEmpty(prefix)
+                        ? valueType.Name
+                        : $"{prefix}/{valueType.Name}";
                 }
             }
-            catch (Exception ex)
+
+            // 通过反射获取 TKey
+            var keyType = GetKeyType(valueType);
+            if (keyType == null)
             {
-                Debug.LogError($"[ConfigService] 配置表加载失败: {address}, 错误: {ex.Message}");
-                throw;
+                Debug.LogError($"[ConfigService] 无法解析 {valueType.Name} 的主键类型，确保实现了 IConfigItem<TKey>");
+                return;
+            }
+
+            // 反射调用 provider.LoadAsync<TKey, TValue>(address)
+            var table = await InvokeProviderLoad(keyType, valueType, address, ct);
+            if (table != null)
+            {
+                _tables[valueType] = table;
+                _addresses[valueType] = address;
             }
         }
 
-        public T GetTable<T>() where T : ConfigTableBase
+        public async UniTask LoadAllAsync(CancellationToken ct = default)
         {
-            if (_tables.TryGetValue(typeof(T), out var table)) return table as T;
+            foreach (var kvp in _addresses.ToList())
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (_tables.ContainsKey(kvp.Key)) continue;
+
+                var keyType = GetKeyType(kvp.Key);
+                if (keyType == null) continue;
+
+                await InvokeProviderLoad(keyType, kvp.Key, kvp.Value, ct);
+            }
+        }
+
+        public ConfigTable<TKey, TValue> GetTable<TKey, TValue>()
+            where TValue : class, IConfigItem<TKey>
+        {
+            if (_tables.TryGetValue(typeof(TValue), out var table))
+                return table as ConfigTable<TKey, TValue>;
             return null;
         }
 
-        public bool TryGetTable<T>(out T table) where T : ConfigTableBase
+        public object GetTable<TValue>() where TValue : class
         {
-            if (_tables.TryGetValue(typeof(T), out var t))
-            {
-                table = t as T;
-                return table != null;
-            }
-
-            table = null;
-            return false;
+            _tables.TryGetValue(typeof(TValue), out var table);
+            return table;
         }
 
-        /// <summary>
-        ///     通过主键获取配置数据
-        ///     遍历已加载的配置表，查找继承自 ConfigTable&lt;TKey, TValue&gt; 的条目
-        /// </summary>
+        public bool TryGetTable<TKey, TValue>(out ConfigTable<TKey, TValue> table)
+            where TValue : class, IConfigItem<TKey>
+        {
+            table = GetTable<TKey, TValue>();
+            return table != null;
+        }
+
         public TValue Get<TKey, TValue>(TKey key) where TValue : class, IConfigItem<TKey>
         {
-            foreach (var kvp in _tables)
-            {
-                if (kvp.Value is ConfigTable<TKey, TValue> table)
-                    return table.Get(key);
-            }
-
-            return default;
+            var table = GetTable<TKey, TValue>();
+            return table?.Get(key);
         }
 
-        public async UniTask ReloadAsync<TConfigTable>(CancellationToken ct = default)
+        public async UniTask ReloadAsync<TValue>(string address = null, CancellationToken ct = default)
+            where TValue : class
         {
-            var type = typeof(TConfigTable);
+            Unload<TValue>();
+            await LoadAsync<TValue>(address, ct);
+        }
 
-            // 移除已加载的配置
-            _tables.Remove(type);
+        public void Unload<TValue>() where TValue : class
+        {
+            var valueType = typeof(TValue);
 
-            // 释放资源句柄
-            if (_handles.TryGetValue(type, out var handle))
+            if (_tables.TryGetValue(valueType, out var table))
             {
-                handle.Dispose();
-                _handles.Remove(type);
-            }
+                // 释放 provider 资源
+                if (_addresses.TryGetValue(valueType, out var address))
+                    _provider.Release(address);
 
-            // 重新加载
-            await LoadAsync<TConfigTable>(ct);
+                _tables.Remove(valueType);
+            }
+        }
+
+        public void UnloadAll()
+        {
+            foreach (var kvp in _addresses)
+                _provider.Release(kvp.Value);
+
+            _tables.Clear();
+        }
+
+        public void RegisterAddress<TValue>(string address) where TValue : class
+        {
+            _addresses[typeof(TValue)] = address;
         }
 
         public void Dispose()
         {
-            // 释放所有资源句柄
-            foreach (var handle in _handles.Values) handle.Dispose();
-
-            _handles.Clear();
-            _tables.Clear();
+            if (_disposed) return;
+            _disposed = true;
+            UnloadAll();
+            _provider?.Dispose();
         }
+
+        #region 反射辅助
+
+        /// <summary>
+        ///     获取 IConfigItem&lt;TKey&gt; 中的 TKey 类型
+        /// </summary>
+        private static Type GetKeyType(Type valueType)
+        {
+            foreach (var iface in valueType.GetInterfaces())
+            {
+                if (iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(IConfigItem<>))
+                    return iface.GetGenericArguments()[0];
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        ///     通过反射调用 IConfigProvider.LoadAsync&lt;TKey, TValue&gt;(address)
+        /// </summary>
+        private async UniTask<object> InvokeProviderLoad(Type keyType, Type valueType, string address,
+            CancellationToken ct)
+        {
+            try
+            {
+                var loadMethod = typeof(ConfigService).GetMethod(nameof(InvokeLoadInternal),
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                var genericMethod = loadMethod.MakeGenericMethod(keyType, valueType);
+                var task = (UniTask)genericMethod.Invoke(this, new object[] { address });
+                await task;
+
+                return _tables.TryGetValue(valueType, out var table) ? table : null;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[ConfigService] 加载配置失败: {address}, 错误: {ex.InnerException?.Message ?? ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        ///     泛型加载辅助（供反射调用）
+        /// </summary>
+        private async UniTask InvokeLoadInternal<TKey, TValue>(string address)
+            where TValue : class, IConfigItem<TKey>
+        {
+            var table = await _provider.LoadAsync<TKey, TValue>(address);
+            if (table != null)
+            {
+                _tables[typeof(TValue)] = table;
+                _addresses[typeof(TValue)] = address;
+            }
+        }
+
+        #endregion
     }
 }

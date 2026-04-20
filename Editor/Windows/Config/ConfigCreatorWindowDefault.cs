@@ -717,7 +717,8 @@ namespace CFramework.Editor.Windows.Config
             sb.AppendLine("    /// </summary>");
             sb.AppendLine(
                 $"    [CreateAssetMenu(fileName = \"{configName}\", menuName = \"Game/Config/{configName}\")]");
-            sb.AppendLine($"    public sealed class {configName} : ConfigTable<{keyType}, {valueTypeName}>");
+            sb.AppendLine(
+                $"    public sealed class {configName} : ConfigTableAsset<{keyType}, {valueTypeName}>");
             sb.AppendLine("    {");
             sb.AppendLine("        // 数据在 Inspector 中配置");
             sb.AppendLine("    }");

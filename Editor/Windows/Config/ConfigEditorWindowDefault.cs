@@ -75,7 +75,7 @@ namespace CFramework.Editor.Windows.Config
 
         private UnityEditor.Editor _configEditor;
         private SerializedObject _serializedConfig;
-        private ConfigTableBase _selectedConfig;
+        private ConfigTableAsset _selectedConfig;
 
         #endregion
 
@@ -337,7 +337,7 @@ namespace CFramework.Editor.Windows.Config
             if (index < 0 || index >= _configs.Count) return;
 
             var config = _configs[index];
-            _selectedConfig = config.Asset as ConfigTableBase;
+            _selectedConfig = config.Asset as ConfigTableAsset;
 
             if (_selectedConfig == null) return;
 
@@ -381,8 +381,8 @@ namespace CFramework.Editor.Windows.Config
             _selectedConfig = null;
             CleanupEditor();
 
-            // 按 ConfigTableBase 子类类型精准搜索，避免遍历所有 ScriptableObject
-            var configTypes = TypeCache.GetTypesDerivedFrom<ConfigTableBase>();
+            // 按 ConfigTableAsset 子类类型精准搜索
+            var configTypes = TypeCache.GetTypesDerivedFrom<ConfigTableAsset>();
             var visitedPaths = new HashSet<string>();
 
             foreach (var type in configTypes)
@@ -395,13 +395,13 @@ namespace CFramework.Editor.Windows.Config
                     if (!visitedPaths.Add(path)) continue;
 
                     var asset = AssetDatabase.LoadAssetAtPath<ScriptableObject>(path);
-                    if (asset is ConfigTableBase configTable)
+                    if (asset is ConfigTableAsset configTable)
                     {
                         var configType = configTable.GetType();
                         _configs.Add(new ConfigInfo
                         {
                             Name = configType.Name,
-                            Type = configType.BaseType?.Name ?? "ConfigTableBase",
+                            Type = configType.BaseType?.Name ?? "ConfigTableAsset",
                             Count = configTable.Count,
                             Path = path,
                             Asset = asset,
