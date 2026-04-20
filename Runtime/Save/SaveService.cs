@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
@@ -15,7 +16,7 @@ namespace CFramework
     /// </summary>
     public sealed class SaveService : ISaveService, IDisposable
     {
-        private readonly Dictionary<string, object> _cache = new();
+        private readonly ConcurrentDictionary<string, object> _cache = new();
         private readonly Subject<bool> _dirtyChanged = new();
         private readonly FrameworkSettings _settings;
         private CancellationTokenSource _autoSaveCts;
@@ -308,9 +309,23 @@ namespace CFramework
 
         #region 加密/解密
 
+        private byte[] GetEncryptionKeyBytes()
+        {
+            var keyStr = _settings.EncryptionKey;
+            if (string.IsNullOrEmpty(keyStr))
+                keyStr = "CFramework_DefaultKey";
+
+            // 按 UTF-8 编码，截取或填充到恰好 16 字节（AES-128）
+            var bytes = Encoding.UTF8.GetBytes(keyStr);
+            var key = new byte[16];
+            var copyLen = Math.Min(bytes.Length, 16);
+            Buffer.BlockCopy(bytes, 0, key, 0, copyLen);
+            return key;
+        }
+
         private byte[] Encrypt(string data)
         {
-            var key = Encoding.UTF8.GetBytes(_settings.EncryptionKey.PadRight(16)[..16]);
+            var key = GetEncryptionKeyBytes();
 
             using var aes = Aes.Create();
             aes.Key = key;
@@ -329,7 +344,7 @@ namespace CFramework
 
         private string Decrypt(byte[] data)
         {
-            var key = Encoding.UTF8.GetBytes(_settings.EncryptionKey.PadRight(16)[..16]);
+            var key = GetEncryptionKeyBytes();
 
             using var aes = Aes.Create();
             aes.Key = key;

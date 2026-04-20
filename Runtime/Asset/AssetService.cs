@@ -66,10 +66,21 @@ namespace CFramework
                 var loadedAsset = await loadingTcs.Task;
                 lock (_lock)
                 {
-                    _refCounts.TryGetValue(key, out var count);
-                    _refCounts[key] = count + 1;
+                    // 检查资源是否已被释放（竞态条件：await 期间其他调用者可能已 Release）
+                    if (!_loadedAssets.ContainsKey(key))
+                    {
+                        // 资源已释放，跳出等待路径，递归重新加载
+                    }
+                    else
+                    {
+                        _refCounts.TryGetValue(key, out var count);
+                        _refCounts[key] = count + 1;
+                        return new AssetHandle(loadedAsset as T, this, key);
+                    }
                 }
-                return new AssetHandle(loadedAsset as T, this, key);
+
+                // 资源已被释放，静默重新加载
+                return await LoadAsync<T>(key, ct);
             }
 
             // 当前请求是加载发起者，执行实际加载

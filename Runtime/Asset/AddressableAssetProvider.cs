@@ -41,7 +41,10 @@ namespace CFramework
             await handle.ToUniTask(cancellationToken: ct);
 
             if (handle.Status != AsyncOperationStatus.Succeeded)
+            {
+                Addressables.Release(handle);
                 throw new System.Exception($"Failed to instantiate: {key}");
+            }
 
             var instKey = "$inst_" + key;
             lock (_handles)

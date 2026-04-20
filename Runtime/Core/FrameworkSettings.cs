@@ -38,7 +38,8 @@ namespace CFramework
         [Header("Save")] [Tooltip("自动保存间隔(秒)")]
         public int AutoSaveInterval = 60;
 
-        [Tooltip("存档加密密钥")] public string EncryptionKey = "CFramework";
+        [Tooltip("存档加密密钥（AES-128 需要 16 字符，AES-256 需要 32 字符）")]
+        public string EncryptionKey = "CFramework_DefaultKey";
 
         [Header("Log")] [Tooltip("日志级别")] public LogLevel LogLevel = LogLevel.Debug;
 
