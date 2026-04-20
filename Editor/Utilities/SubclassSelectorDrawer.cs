@@ -450,14 +450,15 @@ namespace CFramework.Editor.Utilities
         /// </summary>
         private (bool isList, Type elementType) CheckIfListField(SerializedProperty property)
         {
-            var fi = GetFieldInfo(property, out var fieldType);
+            var fi = GetFieldInfo(property, out _, out var declaredType);
             if (fi == null) return (false, null);
 
-            if (fieldType.IsArray)
-                return (true, fieldType.GetElementType());
+            // 使用声明类型（List<T>/T[]）判断是否为列表
+            if (declaredType.IsArray)
+                return (true, declaredType.GetElementType());
 
-            if (fieldType.IsGenericType && fieldType.GetGenericTypeDefinition() == typeof(List<>))
-                return (true, fieldType.GetGenericArguments()[0]);
+            if (declaredType.IsGenericType && declaredType.GetGenericTypeDefinition() == typeof(List<>))
+                return (true, declaredType.GetGenericArguments()[0]);
 
             return (false, null);
         }
@@ -499,8 +500,8 @@ namespace CFramework.Editor.Utilities
         {
             var state = new DrawerState();
 
-            // 使用 out fieldType（解析后的最终类型）而非 fi.FieldType（声明类型）
-            GetFieldInfo(property, out var fieldType);
+            // 使用 fieldType（解析后的最终类型，如 IWeapon）
+            GetFieldInfo(property, out var fieldType, out _);
             if (fieldType == null) return state;
 
             state.FieldType = fieldType;
@@ -569,9 +570,13 @@ namespace CFramework.Editor.Utilities
         /// 获取 SerializedProperty 对应的 FieldInfo。
         /// 支持嵌套路径、数组/列表元素、SerializableDictionary 的 _pairs[i].Value 路径。
         /// </summary>
-        private static FieldInfo GetFieldInfo(SerializedProperty property, out Type fieldType)
+        /// <param name="property">目标属性</param>
+        /// <param name="fieldType">解析后的最终类型（如列表元素的 IWeapon）</param>
+        /// <param name="declaredType">声明字段的原始类型（如 List&lt;IWeapon&gt;），用于判断是否为列表</param>
+        private static FieldInfo GetFieldInfo(SerializedProperty property, out Type fieldType, out Type declaredType)
         {
             fieldType = null;
+            declaredType = null;
             var targetObject = property.serializedObject.targetObject;
             if (targetObject == null) return null;
 
@@ -598,6 +603,9 @@ namespace CFramework.Editor.Utilities
                 }
 
                 if (fieldInfo == null) return null;
+
+                // 记录声明字段的原始类型（用于 CheckIfListField 判断列表）
+                declaredType = fieldInfo.FieldType;
 
                 type = fieldInfo.FieldType;
 
