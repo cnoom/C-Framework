@@ -4,15 +4,15 @@ using System.Linq;
 using System.Reflection;
 using CFramework.Utility.Serialization;
 using UnityEditor;
+using UnityEditorInternal;
 using UnityEngine;
 
 namespace CFramework.Editor.Utilities
 {
     /// <summary>
-    /// SubclassSelector 的 DecorateDrawer 实现。
+    /// SubclassSelector 的 PropertyDrawer 实现。
     /// 为 [SerializeReference] + [SubclassSelector] 字段提供子类型下拉选择器。
-    /// 使用 DecoratorDrawer 模式在属性上方插入类型选择 Popup，
-    /// 子属性绘制完全交给 Unity 默认处理，确保列表/字典等容器内也能正常工作。
+    /// 支持单个字段、数组/List、以及 SerializableDictionary 中的值类型。
     /// </summary>
     [CustomPropertyDrawer(typeof(SubclassSelectorAttribute))]
     public class SubclassSelectorDrawer : PropertyDrawer
@@ -23,21 +23,226 @@ namespace CFramework.Editor.Utilities
         // 缓存：字段类型 → 类型显示名列表
         private static readonly Dictionary<Type, string[]> _displayNameCache = new();
 
-        // 每个属性的临时状态
-        private struct DrawerState
-        {
-            public int SelectedIndex;
-            public Type FieldType;
-            public List<Type> ConcreteTypes;
-            public string[] DisplayNames;
-        }
+        // 缓存：属性路径 → ReorderableList（列表/数组场景）
+        private static readonly Dictionary<string, ReorderableList> _listCache = new();
+
+        #region 入口
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+        {
+            // 检测列表/数组：需要用 ReorderableList 为每个元素单独提供子类选择器
+            if (IsArrayOrList(property))
+            {
+                DrawListField(position, property, label);
+                return;
+            }
+
+            DrawSingleField(position, property, label);
+        }
+
+        public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
+        {
+            if (IsArrayOrList(property))
+            {
+                return GetListFieldHeight(property, label);
+            }
+
+            return GetSingleFieldHeight(property);
+        }
+
+        #endregion
+
+        #region 列表/数组渲染
+
+        private void DrawListField(Rect position, SerializedProperty property, GUIContent label)
+        {
+            var elementType = GetElementTypeInfo(property);
+            if (elementType == null || (!elementType.IsInterface && !elementType.IsAbstract))
+            {
+                // 元素类型不是接口/抽象，回退默认绘制
+                EditorGUI.PropertyField(position, property, label, true);
+                return;
+            }
+
+            var list = GetOrCreateList(property, label, elementType);
+            list.DoList(position);
+        }
+
+        private float GetListFieldHeight(SerializedProperty property, GUIContent label)
+        {
+            var elementType = GetElementTypeInfo(property);
+            if (elementType == null || (!elementType.IsInterface && !elementType.IsAbstract))
+            {
+                return EditorGUI.GetPropertyHeight(property, label, true);
+            }
+
+            var list = GetOrCreateList(property, label, elementType);
+            return list.GetHeight();
+        }
+
+        /// <summary>
+        /// 获取或创建列表对应的 ReorderableList，缓存以避免每帧重建
+        /// </summary>
+        private ReorderableList GetOrCreateList(SerializedProperty property, GUIContent label, Type elementType)
+        {
+            var path = property.propertyPath;
+
+            if (_listCache.TryGetValue(path, out var list))
+            {
+                // 更新 serializedProperty 引用（可能因撤销/重做而变化）
+                list.serializedProperty = property;
+                return list;
+            }
+
+            var concreteTypes = GetConcreteTypes(elementType);
+            var displayNames = GetDisplayNames(elementType);
+            var attr = (SubclassSelectorAttribute)attribute;
+
+            list = new ReorderableList(property.serializedObject, property, true, true, true, true)
+            {
+                drawHeaderCallback = rect =>
+                {
+                    var sizeRect = new Rect(rect.x + rect.width - 100, rect.y, 100, rect.height);
+                    EditorGUI.LabelField(rect, label);
+                    EditorGUI.LabelField(sizeRect, $"Count: {property.arraySize}",
+                        new GUIStyle(EditorStyles.label) { alignment = TextAnchor.MiddleRight });
+                },
+
+                drawElementCallback = (rect, index, isActive, isFocused) =>
+                {
+                    var element = property.GetArrayElementAtIndex(index);
+                    DrawListElement(rect, element, index, elementType, concreteTypes, displayNames);
+                },
+
+                elementHeightCallback = index =>
+                {
+                    var element = property.GetArrayElementAtIndex(index);
+                    return GetListElementHeight(element, elementType, concreteTypes);
+                },
+
+                onAddDropdownCallback = (buttonRect, reorderableList) =>
+                {
+                    // 添加新元素时显示类型选择菜单
+                    var menu = new GenericMenu();
+                    for (int i = 1; i < concreteTypes.Count; i++)
+                    {
+                        var type = concreteTypes[i];
+                        menu.AddItem(new GUIContent(displayNames[i]), false, () =>
+                        {
+                            property.arraySize++;
+                            var newElement = property.GetArrayElementAtIndex(property.arraySize - 1);
+                            newElement.managedReferenceValue = Activator.CreateInstance(type);
+                            property.serializedObject.ApplyModifiedProperties();
+                        });
+                    }
+
+                    // 也支持添加 null 元素
+                    menu.AddSeparator("");
+                    menu.AddItem(new GUIContent("None (Null)"), false, () =>
+                    {
+                        property.arraySize++;
+                        property.serializedObject.ApplyModifiedProperties();
+                    });
+
+                    menu.DropDown(buttonRect);
+                }
+            };
+
+            _listCache[path] = list;
+            return list;
+        }
+
+        /// <summary>
+        /// 绘制列表中的单个元素：类型选择 Popup + 子属性
+        /// </summary>
+        private void DrawListElement(Rect rect, SerializedProperty element, int index,
+            Type elementType, List<Type> concreteTypes, string[] displayNames)
+        {
+            // ReorderableList 的元素区域需要微调
+            rect.y += 2;
+
+            // 类型选择 Popup
+            var selectedIndex = GetSelectedIndex(element, concreteTypes);
+            var popupRect = new Rect(rect.x, rect.y, rect.width, EditorGUIUtility.singleLineHeight);
+
+            EditorGUI.BeginProperty(rect, new GUIContent($"Element {index}"), element);
+
+            var newIndex = EditorGUI.Popup(popupRect, $"Element {index}", selectedIndex, displayNames);
+            if (newIndex != selectedIndex)
+            {
+                var selectedType = concreteTypes[newIndex];
+                element.managedReferenceValue = selectedType == null
+                    ? null
+                    : Activator.CreateInstance(selectedType);
+                element.serializedObject.ApplyModifiedProperties();
+            }
+
+            EditorGUI.EndProperty();
+
+            // 子属性
+            if (element.managedReferenceValue != null)
+            {
+                EditorGUI.indentLevel++;
+                var yOffset = popupRect.yMax + EditorGUIUtility.standardVerticalSpacing;
+                var childProperty = element.Copy();
+                var childEnd = element.GetEndProperty();
+                var enterChildren = true;
+
+                while (childProperty.NextVisible(enterChildren))
+                {
+                    if (SerializedProperty.EqualContents(childProperty, childEnd))
+                        break;
+
+                    var childHeight = EditorGUI.GetPropertyHeight(childProperty, true);
+                    var childRect = new Rect(rect.x, yOffset, rect.width, childHeight);
+                    EditorGUI.PropertyField(childRect, childProperty, true);
+                    yOffset += childHeight + EditorGUIUtility.standardVerticalSpacing;
+                    enterChildren = false;
+                }
+
+                EditorGUI.indentLevel--;
+            }
+        }
+
+        /// <summary>
+        /// 计算列表中单个元素的总高度
+        /// </summary>
+        private float GetListElementHeight(SerializedProperty element, Type elementType,
+            List<Type> concreteTypes)
+        {
+            float height = EditorGUIUtility.singleLineHeight + 4; // 4 = 上下 padding
+
+            if (element.managedReferenceValue != null)
+            {
+                height += EditorGUIUtility.standardVerticalSpacing;
+
+                var childProperty = element.Copy();
+                var childEnd = element.GetEndProperty();
+                var enterChildren = true;
+
+                while (childProperty.NextVisible(enterChildren))
+                {
+                    if (SerializedProperty.EqualContents(childProperty, childEnd))
+                        break;
+
+                    height += EditorGUI.GetPropertyHeight(childProperty, true)
+                              + EditorGUIUtility.standardVerticalSpacing;
+                    enterChildren = false;
+                }
+            }
+
+            return height;
+        }
+
+        #endregion
+
+        #region 单字段渲染
+
+        private void DrawSingleField(Rect position, SerializedProperty property, GUIContent label)
         {
             var state = PrepareState(property);
             if (state.FieldType == null)
             {
-                // 非 接口/抽象类型 时静默回退到默认绘制
                 EditorGUI.PropertyField(position, property, label, true);
                 return;
             }
@@ -49,7 +254,7 @@ namespace CFramework.Editor.Utilities
                 return;
             }
 
-            // 第一行：类型选择弹出菜单
+            // 类型选择 Popup
             var popupRect = new Rect(position.x, position.y, position.width,
                 EditorGUIUtility.singleLineHeight);
 
@@ -69,7 +274,7 @@ namespace CFramework.Editor.Utilities
 
             EditorGUI.EndProperty();
 
-            // 子属性：使用 Unity 默认绘制，确保列表/字典容器中正常工作
+            // 子属性
             if (property.managedReferenceValue != null)
             {
                 EditorGUI.indentLevel++;
@@ -85,7 +290,6 @@ namespace CFramework.Editor.Utilities
 
                     var childHeight = EditorGUI.GetPropertyHeight(childProperty, true);
                     var childRect = new Rect(position.x, yOffset, position.width, childHeight);
-
                     EditorGUI.PropertyField(childRect, childProperty, true);
                     yOffset += childHeight + EditorGUIUtility.standardVerticalSpacing;
                     enterChildren = false;
@@ -95,12 +299,12 @@ namespace CFramework.Editor.Utilities
             }
         }
 
-        public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
+        private float GetSingleFieldHeight(SerializedProperty property)
         {
             var state = PrepareState(property);
             if (state.FieldType == null)
             {
-                return EditorGUI.GetPropertyHeight(property, label, true);
+                return EditorGUI.GetPropertyHeight(property, GUIContent.none, true);
             }
 
             if (state.ConcreteTypes == null || state.ConcreteTypes.Count == 0)
@@ -108,7 +312,6 @@ namespace CFramework.Editor.Utilities
                 return EditorGUIUtility.singleLineHeight;
             }
 
-            // 基础高度 = 类型选择 Popup 的一行
             float height = EditorGUIUtility.singleLineHeight;
 
             if (property.managedReferenceValue != null)
@@ -133,6 +336,80 @@ namespace CFramework.Editor.Utilities
             return height;
         }
 
+        #endregion
+
+        #region 工具方法
+
+        /// <summary>
+        /// 判断属性是否为数组或列表
+        /// </summary>
+        private static bool IsArrayOrList(SerializedProperty property)
+        {
+            return property.isArray && property.propertyType != SerializedPropertyType.String;
+        }
+
+        /// <summary>
+        /// 获取列表/数组字段的元素类型信息（提取泛型参数或数组元素类型）
+        /// </summary>
+        private Type GetElementTypeInfo(SerializedProperty property)
+        {
+            var fieldInfo = GetFieldInfo(property, out var fieldType);
+            if (fieldInfo == null) return null;
+
+            if (fieldType.IsArray)
+                return fieldType.GetElementType();
+
+            if (fieldType.IsGenericType && fieldType.GetGenericTypeDefinition() == typeof(List<>))
+                return fieldType.GetGenericArguments()[0];
+
+            return null;
+        }
+
+        /// <summary>
+        /// 获取或缓存具体类型列表
+        /// </summary>
+        private static List<Type> GetConcreteTypes(Type baseType)
+        {
+            if (!_typeCache.TryGetValue(baseType, out var types))
+            {
+                types = FindConcreteTypes(baseType);
+                _typeCache[baseType] = types;
+            }
+
+            return types;
+        }
+
+        /// <summary>
+        /// 获取或缓存显示名称
+        /// </summary>
+        private string[] GetDisplayNames(Type baseType)
+        {
+            if (!_displayNameCache.TryGetValue(baseType, out var names))
+            {
+                var concreteTypes = GetConcreteTypes(baseType);
+                var attr = (SubclassSelectorAttribute)attribute;
+                names = BuildDisplayNames(concreteTypes, attr.ShowFullNamespace);
+                _displayNameCache[baseType] = names;
+            }
+
+            return names;
+        }
+
+        /// <summary>
+        /// 获取当前 managedReferenceValue 在类型列表中的索引
+        /// </summary>
+        private static int GetSelectedIndex(SerializedProperty property, List<Type> concreteTypes)
+        {
+            var value = property.managedReferenceValue;
+            if (value == null) return 0;
+
+            var index = concreteTypes.IndexOf(value.GetType());
+            return index < 0 ? 0 : index;
+        }
+
+        /// <summary>
+        /// 准备单字段的绘制状态
+        /// </summary>
         private DrawerState PrepareState(SerializedProperty property)
         {
             var state = new DrawerState();
@@ -149,37 +426,9 @@ namespace CFramework.Editor.Utilities
                 return state;
             }
 
-            // 获取或缓存具体类型列表
-            if (!_typeCache.TryGetValue(state.FieldType, out var concreteTypes))
-            {
-                concreteTypes = FindConcreteTypes(state.FieldType);
-                _typeCache[state.FieldType] = concreteTypes;
-            }
-
-            state.ConcreteTypes = concreteTypes;
-
-            // 获取或缓存显示名
-            if (!_displayNameCache.TryGetValue(state.FieldType, out var displayNames))
-            {
-                var attr = (SubclassSelectorAttribute)attribute;
-                displayNames = BuildDisplayNames(concreteTypes, attr.ShowFullNamespace);
-                _displayNameCache[state.FieldType] = displayNames;
-            }
-
-            state.DisplayNames = displayNames;
-
-            // 确定当前选中索引
-            var currentValue = property.managedReferenceValue;
-            if (currentValue == null)
-            {
-                state.SelectedIndex = 0; // "None (Null)"
-            }
-            else
-            {
-                var currentType = currentValue.GetType();
-                state.SelectedIndex = concreteTypes.IndexOf(currentType);
-                if (state.SelectedIndex < 0) state.SelectedIndex = 0;
-            }
+            state.ConcreteTypes = GetConcreteTypes(state.FieldType);
+            state.DisplayNames = GetDisplayNames(state.FieldType);
+            state.SelectedIndex = GetSelectedIndex(property, state.ConcreteTypes);
 
             return state;
         }
@@ -213,7 +462,6 @@ namespace CFramework.Editor.Utilities
                     if (!baseType.IsAssignableFrom(type)) continue;
                     if (!type.IsSerializable && type.GetCustomAttribute<SerializableAttribute>(false) == null)
                         continue;
-                    // 排除 Unity 内置类型
                     if (typeof(UnityEngine.Object).IsAssignableFrom(type)) continue;
 
                     result.Add(type);
@@ -301,13 +549,24 @@ namespace CFramework.Editor.Utilities
         }
 
         /// <summary>
-        /// 当程序集重新加载时清除缓存
+        /// 当程序集重新加载时清除所有缓存
         /// </summary>
         [InitializeOnLoadMethod]
         private static void ClearCacheOnLoad()
         {
             _typeCache.Clear();
             _displayNameCache.Clear();
+            _listCache.Clear();
         }
+
+        private struct DrawerState
+        {
+            public int SelectedIndex;
+            public Type FieldType;
+            public List<Type> ConcreteTypes;
+            public string[] DisplayNames;
+        }
+
+        #endregion
     }
 }
