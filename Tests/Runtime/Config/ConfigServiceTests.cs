@@ -77,7 +77,7 @@ namespace CFramework.Tests
                 new() { Id = 1, Name = "Test1" },
                 new() { Id = 2, Name = "Test2" }
             };
-            table.SetData(testData);
+            table.Load(testData);
 
             // Act
             var value = table.Get(1);
@@ -97,7 +97,7 @@ namespace CFramework.Tests
             {
                 new() { Id = 1, Name = "Test1" }
             };
-            table.SetData(testData);
+            table.Load(testData);
 
             // Act
             var result = table.TryGet(1, out var value);
@@ -113,7 +113,7 @@ namespace CFramework.Tests
             // Arrange
             var table = new TestConfigTable();
             var testData = new List<TestConfigData>();
-            table.SetData(testData);
+            table.Load(testData);
 
             // Act
             var result = table.TryGet(999, out var value);
