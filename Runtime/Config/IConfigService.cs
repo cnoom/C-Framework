@@ -12,7 +12,7 @@ namespace CFramework
 
         T GetTable<T>() where T : ConfigTableBase;
         bool TryGetTable<T>(out T table) where T : ConfigTableBase;
-        TValue Get<TKey, TValue>(TKey key);
+        TValue Get<TKey, TValue>(TKey key) where TValue : class;
 
         UniTask ReloadAsync<TConfigTable>(CancellationToken ct = default);
     }
