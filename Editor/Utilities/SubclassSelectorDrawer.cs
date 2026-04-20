@@ -586,10 +586,15 @@ namespace CFramework.Editor.Utilities
             FieldInfo fieldInfo = null;
             var parts = path.Split('.');
 
-            foreach (var part in parts)
+            foreach (var rawPart in parts)
             {
-                if (part.StartsWith("["))
+                // 纯索引片段如 [0]，跳过
+                if (rawPart.StartsWith("["))
                     continue;
+
+                // 提取字段名：tConfigs[0] → tConfigs
+                var bracketIndex = rawPart.IndexOf('[');
+                var part = bracketIndex >= 0 ? rawPart.Substring(0, bracketIndex) : rawPart;
 
                 fieldInfo = null;
                 var searchType = type;
@@ -609,14 +614,11 @@ namespace CFramework.Editor.Utilities
 
                 type = fieldInfo.FieldType;
 
+                // 解析数组/列表的元素类型
                 if (type.IsArray)
-                {
                     type = type.GetElementType();
-                }
                 else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
-                {
                     type = type.GetGenericArguments()[0];
-                }
             }
 
             // 返回解析后的最终类型（而非声明字段的原始类型）
