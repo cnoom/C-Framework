@@ -197,7 +197,7 @@ namespace CFramework
             ct.ThrowIfCancellationRequested();
 
             // 从缓存中移除
-            _cache.Remove(key);
+            _cache.TryRemove(key, out _);
 
             // 在主线程获取路径
             var filePath = GetFilePath(key);
