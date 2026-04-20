@@ -450,6 +450,10 @@ namespace CFramework.Editor.Utilities
         /// </summary>
         private (bool isList, Type elementType) CheckIfListField(SerializedProperty property)
         {
+            // 如果路径包含数组索引，说明这是列表的某个元素，不是列表本身
+            if (property.propertyPath.Contains(".Array.data["))
+                return (false, null);
+
             var fi = GetFieldInfo(property, out _, out var declaredType);
             if (fi == null) return (false, null);
 
