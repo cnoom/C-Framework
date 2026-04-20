@@ -9,8 +9,10 @@ using UnityEngine;
 namespace CFramework.Editor.Utilities
 {
     /// <summary>
-    /// SubclassSelector 的 PropertyDrawer 实现。
+    /// SubclassSelector 的 DecorateDrawer 实现。
     /// 为 [SerializeReference] + [SubclassSelector] 字段提供子类型下拉选择器。
+    /// 使用 DecoratorDrawer 模式在属性上方插入类型选择 Popup，
+    /// 子属性绘制完全交给 Unity 默认处理，确保列表/字典等容器内也能正常工作。
     /// </summary>
     [CustomPropertyDrawer(typeof(SubclassSelectorAttribute))]
     public class SubclassSelectorDrawer : PropertyDrawer
@@ -21,7 +23,7 @@ namespace CFramework.Editor.Utilities
         // 缓存：字段类型 → 类型显示名列表
         private static readonly Dictionary<Type, string[]> _displayNameCache = new();
 
-        // 每个属性实例的临时状态
+        // 每个属性的临时状态
         private struct DrawerState
         {
             public int SelectedIndex;
@@ -35,7 +37,7 @@ namespace CFramework.Editor.Utilities
             var state = PrepareState(property);
             if (state.FieldType == null)
             {
-                // 非 接口/抽象类型 时静默回退到默认绘制，不显示错误
+                // 非 接口/抽象类型 时静默回退到默认绘制
                 EditorGUI.PropertyField(position, property, label, true);
                 return;
             }
@@ -47,47 +49,44 @@ namespace CFramework.Editor.Utilities
                 return;
             }
 
-            // 绘制类型选择弹出菜单
+            // 第一行：类型选择弹出菜单
             var popupRect = new Rect(position.x, position.y, position.width,
                 EditorGUIUtility.singleLineHeight);
+
+            EditorGUI.BeginProperty(position, label, property);
 
             var newIndex = EditorGUI.Popup(popupRect, label.text,
                 state.SelectedIndex, state.DisplayNames);
 
             if (newIndex != state.SelectedIndex)
             {
-                // 选择改变，替换实例
-                state.SelectedIndex = newIndex;
                 var selectedType = state.ConcreteTypes[newIndex];
                 property.managedReferenceValue = selectedType == null
                     ? null
                     : Activator.CreateInstance(selectedType);
+                property.serializedObject.ApplyModifiedProperties();
             }
 
-            // 如果有实际值，绘制子属性
+            EditorGUI.EndProperty();
+
+            // 子属性：使用 Unity 默认绘制，确保列表/字典容器中正常工作
             if (property.managedReferenceValue != null)
             {
                 EditorGUI.indentLevel++;
-                var childRect = new Rect(position.x, popupRect.yMax + 2f,
-                    position.width, position.height - popupRect.height - 2f);
-
                 var childProperty = property.Copy();
                 var childEnd = property.GetEndProperty();
-                bool enterChildren = true;
+                var enterChildren = true;
+                var yOffset = popupRect.yMax + EditorGUIUtility.standardVerticalSpacing;
 
-                float yOffset = 0f;
                 while (childProperty.NextVisible(enterChildren))
                 {
                     if (SerializedProperty.EqualContents(childProperty, childEnd))
                         break;
 
                     var childHeight = EditorGUI.GetPropertyHeight(childProperty, true);
-                    var childDrawRect = new Rect(position.x,
-                        popupRect.yMax + 2f + yOffset,
-                        position.width - EditorGUI.indentLevel * 15f,
-                        childHeight);
+                    var childRect = new Rect(position.x, yOffset, position.width, childHeight);
 
-                    EditorGUI.PropertyField(childDrawRect, childProperty, true);
+                    EditorGUI.PropertyField(childRect, childProperty, true);
                     yOffset += childHeight + EditorGUIUtility.standardVerticalSpacing;
                     enterChildren = false;
                 }
@@ -101,7 +100,6 @@ namespace CFramework.Editor.Utilities
             var state = PrepareState(property);
             if (state.FieldType == null)
             {
-                // 非 接口/抽象类型 时使用默认高度
                 return EditorGUI.GetPropertyHeight(property, label, true);
             }
 
@@ -110,15 +108,16 @@ namespace CFramework.Editor.Utilities
                 return EditorGUIUtility.singleLineHeight;
             }
 
+            // 基础高度 = 类型选择 Popup 的一行
             float height = EditorGUIUtility.singleLineHeight;
 
             if (property.managedReferenceValue != null)
             {
-                height += 2f;
+                height += EditorGUIUtility.standardVerticalSpacing;
 
                 var childProperty = property.Copy();
                 var childEnd = property.GetEndProperty();
-                bool enterChildren = true;
+                var enterChildren = true;
 
                 while (childProperty.NextVisible(enterChildren))
                 {
@@ -138,7 +137,6 @@ namespace CFramework.Editor.Utilities
         {
             var state = new DrawerState();
 
-            // 获取字段类型
             var fieldInfo = GetFieldInfo(property, out _);
             if (fieldInfo == null) return state;
 
@@ -244,7 +242,8 @@ namespace CFramework.Editor.Utilities
         }
 
         /// <summary>
-        /// 获取 SerializedProperty 对应的 FieldInfo
+        /// 获取 SerializedProperty 对应的 FieldInfo。
+        /// 支持嵌套路径、数组/列表元素、SerializableDictionary 的 _pairs[i].Value 路径。
         /// </summary>
         private static FieldInfo GetFieldInfo(SerializedProperty property, out Type fieldType)
         {
@@ -260,10 +259,9 @@ namespace CFramework.Editor.Utilities
 
             foreach (var part in parts)
             {
-                // 处理数组索引
+                // 处理数组/列表索引，如 [0]
                 if (part.StartsWith("["))
                 {
-                    // 当前是列表/数组元素，类型不变
                     continue;
                 }
 
@@ -282,8 +280,13 @@ namespace CFramework.Editor.Utilities
 
                 type = fieldInfo.FieldType;
 
+                // 如果是数组，取元素类型
+                if (type.IsArray)
+                {
+                    type = type.GetElementType();
+                }
                 // 如果是 List<T>，取元素类型 T
-                if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
+                else if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
                 {
                     type = type.GetGenericArguments()[0];
                 }
