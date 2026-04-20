@@ -65,9 +65,37 @@ namespace CFramework
         public override void PopulateTable(object table)
         {
             if (table is ConfigTable<TKey, TValue> typedTable)
-                typedTable.Load(_data);
+            {
+                // SO 数据可能被多次引用，深拷贝后注入
+                var copiedData = DeepCopyList(_data);
+                typedTable.Load(copiedData);
+            }
             else
-                Debug.LogError($"[ConfigTableAsset] PopulateTable 类型不匹配：期望 ConfigTable<{typeof(TKey).Name}, {typeof(TValue).Name}>，实际 {table?.GetType().Name}");
+            {
+                Debug.LogError(
+                    $"[ConfigTableAsset] PopulateTable 类型不匹配：期望 ConfigTable<{typeof(TKey).Name}, {typeof(TValue).Name}>，实际 {table?.GetType().Name}");
+            }
+        }
+
+        /// <summary>
+        ///     深拷贝数据列表
+        ///     <para>如果数据行实现 ICloneable 则克隆，否则直接引用（由数据类负责不可变性）</para>
+        /// </summary>
+        private static List<TValue> DeepCopyList(List<TValue> source)
+        {
+            if (source == null) return null;
+
+            var result = new List<TValue>(source.Count);
+            foreach (var item in source)
+            {
+                if (item == null) continue;
+                var value = item is ICloneable cloneable
+                    ? (TValue)cloneable.Clone()
+                    : item;
+                result.Add(value);
+            }
+
+            return result;
         }
     }
 }

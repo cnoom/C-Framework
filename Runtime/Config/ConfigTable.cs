@@ -7,6 +7,7 @@ namespace CFramework
     /// <summary>
     ///     泛型配置表（纯 C# 数据容器，运行时使用）
     ///     <para>不继承 ScriptableObject，数据通过 Load 注入</para>
+    ///     <para>Load 不做拷贝，由 Provider 负责确保数据独立性</para>
     /// </summary>
     /// <typeparam name="TKey">主键类型</typeparam>
     /// <typeparam name="TValue">数据行类型</typeparam>
@@ -36,7 +37,8 @@ namespace CFramework
         public event Action OnDataLoaded;
 
         /// <summary>
-        ///     加载数据（深拷贝，避免数据污染）
+        ///     加载数据（直接存储，不进行拷贝）
+        ///     <para>Provider 负责确保传入数据的独立性（深拷贝或全新对象）</para>
         /// </summary>
         /// <param name="data">数据源</param>
         public void Load(IEnumerable<TValue> data)
@@ -50,16 +52,11 @@ namespace CFramework
                 {
                     if (item == null) continue;
 
-                    // 深拷贝：如果数据行实现 ICloneable 则克隆，否则直接引用
-                    var value = item is ICloneable cloneable
-                        ? (TValue)cloneable.Clone()
-                        : item;
+                    if (_cache.ContainsKey(item.Key))
+                        Debug.LogWarning($"[ConfigTable] 重复主键: {item.Key}，后值覆盖前值");
 
-                    if (_cache.ContainsKey(value.Key))
-                        Debug.LogWarning($"[ConfigTable] 重复主键: {value.Key}，后值覆盖前值");
-
-                    _cache[value.Key] = value;
-                    _dataList.Add(value);
+                    _cache[item.Key] = item;
+                    _dataList.Add(item);
                 }
             }
 
