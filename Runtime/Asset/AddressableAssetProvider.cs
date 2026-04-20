@@ -69,7 +69,17 @@ namespace CFramework
 
         public long GetAssetMemorySize(object key)
         {
-            return 1024L;
+            // TODO: Addressables 没有按资源查询内存的公开 API
+            // 当前返回估算值，后续可通过 Profiler 或自定义追踪实现精确计算
+            lock (_handles)
+            {
+                if (!_handles.TryGetValue(key, out var handle)) return 0L;
+                if (handle.Result is Texture tex)
+                    return tex.width * tex.height * (tex.graphicsFormat != 0 ? 4 : 4);
+                if (handle.Result is AudioClip clip)
+                    return (long)(clip.samples * clip.channels * (clip.bitsPerSample / 8f));
+                return 1024L;
+            }
         }
     }
 }

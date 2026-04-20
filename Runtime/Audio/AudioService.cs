@@ -39,7 +39,22 @@ namespace CFramework
         public void Start()
         {
             if (!_initialized)
-                InitializeAsync().Forget();
+                SafeInitializeAsync().Forget();
+        }
+
+        /// <summary>
+        ///     安全初始化包装，捕获异步异常并输出日志
+        /// </summary>
+        private async UniTaskVoid SafeInitializeAsync()
+        {
+            try
+            {
+                await InitializeAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[Audio] Initialization failed: {ex.Message}");
+            }
         }
 
         #endregion

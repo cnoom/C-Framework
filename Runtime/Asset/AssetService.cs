@@ -102,18 +102,22 @@ namespace CFramework
             return new AssetHandle(asset, this, key);
         }
 
+        /// <summary>
+        ///     实例化计数器，用于生成唯一实例 key
+        /// </summary>
+        private int _instanceCounter;
+
         public async UniTask<GameObject> InstantiateAsync(object key, Transform parent = null,
             CancellationToken ct = default)
         {
             var instance = await _provider.InstantiateAsync(key, parent, ct);
 
-            // 使用独立前缀避免与 LoadAsync 的 key 冲突
-            var instKey = "$inst_" + key;
+            // 每次实例化使用唯一 key，避免多次实例化共享同一引用计数
+            var instKey = $"$inst_{System.Threading.Interlocked.Increment(ref _instanceCounter)}_{key}";
             lock (_lock)
             {
                 _instanceFlags[instKey] = true;
-                _refCounts.TryGetValue(instKey, out var count);
-                _refCounts[instKey] = count + 1;
+                _refCounts[instKey] = 1;
             }
 
             return instance;

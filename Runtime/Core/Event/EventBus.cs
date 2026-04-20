@@ -11,6 +11,8 @@ namespace CFramework
     /// </summary>
     public sealed class EventBus : IEventBus, IDisposable
     {
+        private bool _disposed;
+
         // 异步事件处理器：Type -> List<Handler>
         private readonly Dictionary<Type, List<AsyncHandler>> _asyncHandlers = new();
 
@@ -26,6 +28,9 @@ namespace CFramework
         {
             lock (_lock)
             {
+                if (_disposed) return;
+                _disposed = true;
+
                 foreach (var subject in _subjects.Values) (subject as IDisposable)?.Dispose();
                 _subjects.Clear();
                 _syncHandlers.Clear();
@@ -48,6 +53,7 @@ namespace CFramework
             // 单次锁获取，防止与 Dispose 竞态
             lock (_lock)
             {
+                if (_disposed) return;
                 hasSubject = _subjects.TryGetValue(type, out var s);
                 if (hasSubject) subject = (Subject<T>)s;
 
@@ -81,6 +87,7 @@ namespace CFramework
 
             lock (_lock)
             {
+                if (_disposed) return Disposable.Empty;
                 if (!_syncHandlers.TryGetValue(type, out var list))
                 {
                     list = new List<SyncHandler>();
@@ -110,6 +117,7 @@ namespace CFramework
 
             lock (_lock)
             {
+                if (_disposed) return Observable.Empty<T>();
                 if (!_subjects.TryGetValue(type, out var subject))
                 {
                     subject = new Subject<T>();
@@ -131,6 +139,7 @@ namespace CFramework
 
             lock (_lock)
             {
+                if (_disposed) return;
                 if (!_asyncHandlers.TryGetValue(type, out handlers)) return; // 无订阅者
                 // 复制列表以避免迭代时修改（已在订阅时按优先级降序排列）
                 handlers = new List<AsyncHandler>(handlers);
@@ -167,6 +176,7 @@ namespace CFramework
 
             lock (_lock)
             {
+                if (_disposed) return Disposable.Empty;
                 if (!_asyncHandlers.TryGetValue(type, out var list))
                 {
                     list = new List<AsyncHandler>();

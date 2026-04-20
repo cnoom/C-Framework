@@ -140,7 +140,14 @@ namespace CFramework.Runtime.UI
         /// </summary>
         public async UniTask<T> OpenAsync<T>() where T : IUI, new()
         {
-            await UniTask.WaitUntil(() => _uiRoot != null);
+            // 等待 UIRoot 初始化完成，添加超时保护（30秒）
+            var uiRootReady = UniTask.WaitUntil(() => _uiRoot != null);
+            var timeout = UniTask.Delay(TimeSpan.FromSeconds(30));
+            if (await UniTask.WhenAny(uiRootReady, timeout) == 1)
+            {
+                Debug.LogError("[UIService] 等待 UIRoot 初始化超时（30秒），请检查 UIRoot 配置");
+                return default;
+            }
             var panelKey = typeof(T).Name;
 
             // 已缓存的面板，直接显示
@@ -275,7 +282,8 @@ namespace CFramework.Runtime.UI
             {
                 panel.UI.OnHide();
                 panel.IsOpen = false;
-                panel.GameObject.SetActive(false);
+                if (panel.GameObject != null)
+                    panel.GameObject.SetActive(false);
             }
 
             _navigationStack.Remove(panelKey);
