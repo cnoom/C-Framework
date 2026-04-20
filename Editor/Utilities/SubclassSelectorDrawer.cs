@@ -35,7 +35,8 @@ namespace CFramework.Editor.Utilities
             var state = PrepareState(property);
             if (state.FieldType == null)
             {
-                EditorGUI.LabelField(position, label.text, "SubclassSelector 仅支持接口或抽象类型");
+                // 非 接口/抽象类型 时静默回退到默认绘制，不显示错误
+                EditorGUI.PropertyField(position, property, label, true);
                 return;
             }
 
@@ -98,8 +99,13 @@ namespace CFramework.Editor.Utilities
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
         {
             var state = PrepareState(property);
-            if (state.FieldType == null || state.ConcreteTypes == null ||
-                state.ConcreteTypes.Count == 0)
+            if (state.FieldType == null)
+            {
+                // 非 接口/抽象类型 时使用默认高度
+                return EditorGUI.GetPropertyHeight(property, label, true);
+            }
+
+            if (state.ConcreteTypes == null || state.ConcreteTypes.Count == 0)
             {
                 return EditorGUIUtility.singleLineHeight;
             }

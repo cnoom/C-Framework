@@ -9,9 +9,15 @@ namespace CFramework.Utility.Serialization
     /// 可序列化的字典，通过 ISerializationCallbackReceiver 在 Dictionary 和 List 之间转换，
     /// 使 Unity 原生序列化器能够序列化字典类型。
     /// <para>
-    /// 注意：TKey 和 TValue 必须是 Unity 可序列化的类型
-    /// （基本类型、[Serializable] 标记的类/结构体、ScriptableObject 等）。
+    /// 注意：TKey 必须是 Unity 可序列化的类型。TValue 支持具体类型和接口/抽象类型
+    /// （通过 [SerializeReference] 实现多态序列化，Inspector 中自动显示子类选择器）。
     /// </para>
+    /// <example>
+    /// // 具体类型值
+    /// [SerializeField] private SerializableDictionary&lt;string, int&gt; _intDict;
+    /// // 接口类型值（Inspector 中自动显示子类下拉选择）
+    /// [SerializeField] private SerializableDictionary&lt;string, IWeapon&gt; _weaponDict;
+    /// </example>
     /// </summary>
     [Serializable]
     public class SerializableDictionary<TKey, TValue> :
@@ -30,6 +36,8 @@ namespace CFramework.Utility.Serialization
         public struct SerializablePair
         {
             public TKey Key;
+
+            [SerializeReference, SubclassSelector]
             public TValue Value;
 
             public SerializablePair(TKey key, TValue value)
