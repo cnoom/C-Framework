@@ -65,7 +65,7 @@ namespace CFramework.Tests
             return asset;
         }
 
-        public async UniTask<GameObject> InstantiateAsync(object key, Transform parent,
+        public async UniTask<GameObject> InstantiateAsync(object key, object instanceKey, Transform parent,
             CancellationToken ct = default)
         {
             if (_loadDelayMs > 0) await UniTask.Delay(_loadDelayMs, cancellationToken: ct);
@@ -81,10 +81,9 @@ namespace CFramework.Tests
             instance.name = sourceGo.name + "(Clone)";
             instance.SetActive(true);
 
-            var instKey = "$inst_" + key;
             lock (_instantiated)
             {
-                _instantiated.Add(instKey);
+                _instantiated.Add(instanceKey);
             }
 
             return instance;
