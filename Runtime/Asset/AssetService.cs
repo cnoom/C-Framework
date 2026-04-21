@@ -110,10 +110,10 @@ namespace CFramework
         public async UniTask<GameObject> InstantiateAsync(object key, Transform parent = null,
             CancellationToken ct = default)
         {
-            var instance = await _provider.InstantiateAsync(key, parent, ct);
-
             // 每次实例化使用唯一 key，避免多次实例化共享同一引用计数
-            var instKey = $"$inst_{System.Threading.Interlocked.Increment(ref _instanceCounter)}_{key}";
+            var instKey = $"$inst_{Interlocked.Increment(ref _instanceCounter)}_{key}";
+            var instance = await _provider.InstantiateAsync(key, instKey, parent, ct);
+
             lock (_lock)
             {
                 _instanceFlags[instKey] = true;

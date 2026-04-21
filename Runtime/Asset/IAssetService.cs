@@ -21,7 +21,12 @@ namespace CFramework
         /// <summary>
         ///     异步实例化预制体
         /// </summary>
-        UniTask<GameObject> InstantiateAsync(object key, Transform parent, CancellationToken ct = default);
+        /// <param name="key">资源地址</param>
+        /// <param name="instanceKey">实例唯一标识（由调用方生成，用于后续 ReleaseHandle）</param>
+        /// <param name="parent">父级 Transform</param>
+        /// <param name="ct">取消令牌</param>
+        UniTask<GameObject> InstantiateAsync(object key, object instanceKey, Transform parent,
+            CancellationToken ct = default);
 
         /// <summary>
         ///     释放资源句柄

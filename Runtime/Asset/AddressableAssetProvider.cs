@@ -34,7 +34,7 @@ namespace CFramework
             return handle.Result;
         }
 
-        public async UniTask<GameObject> InstantiateAsync(object key, Transform parent,
+        public async UniTask<GameObject> InstantiateAsync(object key, object instanceKey, Transform parent,
             CancellationToken ct = default)
         {
             var handle = Addressables.InstantiateAsync(key, parent);
@@ -46,10 +46,9 @@ namespace CFramework
                 throw new System.Exception($"Failed to instantiate: {key}");
             }
 
-            var instKey = "$inst_" + key;
             lock (_handles)
             {
-                _handles[instKey] = handle;
+                _handles[instanceKey] = handle;
             }
 
             return handle.Result;

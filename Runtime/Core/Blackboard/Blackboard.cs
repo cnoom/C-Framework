@@ -1,14 +1,21 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using R3;
 
 namespace CFramework
 {
     /// <summary>
     ///     黑板实现，支持响应式数据存储
+    ///     <para>使用 ReaderWriterLockSlim 保护并发读写</para>
     /// </summary>
     public sealed class Blackboard : IBlackboard
     {
+        /// <summary>
+        ///     读写锁，保护并发访问
+        /// </summary>
+        private readonly ReaderWriterLockSlim _lock = new();
+
         /// <summary>
         ///     全局键变化事件
         /// </summary>
@@ -42,13 +49,19 @@ namespace CFramework
             ThrowIfDisposed();
 
             var compositeKey = (key.Name, typeof(T));
-            _values[compositeKey] = value;
 
-            // 触发响应式通知
-            if (_subjects.TryGetValue(compositeKey, out var subject)) ((Subject<T>)subject).OnNext(value);
+            _lock.EnterWriteLock();
+            try
+            {
+                _values[compositeKey] = value;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
 
-            // 触发全局变化通知
-            _keyChangedSubject.OnNext(new BlackboardChange(key.Name, typeof(T)));
+            // 通知在锁外执行，避免在锁内触发订阅者回调导致死锁
+            NotifyValueChanged(compositeKey, value, key.Name);
         }
 
         /// <summary>
@@ -59,10 +72,18 @@ namespace CFramework
             ThrowIfDisposed();
 
             var compositeKey = (key.Name, typeof(T));
-            if (_values.TryGetValue(compositeKey, out var obj))
+            _lock.EnterReadLock();
+            try
             {
-                value = (T)obj;
-                return true;
+                if (_values.TryGetValue(compositeKey, out var obj))
+                {
+                    value = (T)obj;
+                    return true;
+                }
+            }
+            finally
+            {
+                _lock.ExitReadLock();
             }
 
             value = default;
@@ -83,7 +104,16 @@ namespace CFramework
         public bool Has<T>(BlackboardKey<T> key)
         {
             ThrowIfDisposed();
-            return _values.ContainsKey((key.Name, typeof(T)));
+
+            _lock.EnterReadLock();
+            try
+            {
+                return _values.ContainsKey((key.Name, typeof(T)));
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
         }
 
         /// <summary>
@@ -94,14 +124,32 @@ namespace CFramework
             ThrowIfDisposed();
 
             var compositeKey = (key.Name, typeof(T));
-            var removed = _values.Remove(compositeKey);
+            bool removed;
+
+            _lock.EnterWriteLock();
+            try
+            {
+                removed = _values.Remove(compositeKey);
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
 
             if (removed)
             {
                 // 触发响应式通知（发送 default 值表示已移除）
-                if (_subjects.TryGetValue(compositeKey, out var subject)) ((Subject<T>)subject).OnNext(default);
+                _lock.EnterReadLock();
+                try
+                {
+                    if (_subjects.TryGetValue(compositeKey, out var subject))
+                        ((Subject<T>)subject).OnNext(default);
+                }
+                finally
+                {
+                    _lock.ExitReadLock();
+                }
 
-                // 触发全局变化通知
                 _keyChangedSubject.OnNext(new BlackboardChange(key.Name, typeof(T)));
             }
 
@@ -115,13 +163,19 @@ namespace CFramework
         {
             ThrowIfDisposed();
 
-            // 触发所有 Subject 的通知
-            foreach (var kvp in _subjects)
+            _lock.EnterWriteLock();
+            try
             {
-                _keyChangedSubject.OnNext(new BlackboardChange(kvp.Key.name, kvp.Key.type));
-            }
+                // 触发所有 Subject 的通知
+                foreach (var kvp in _subjects)
+                    _keyChangedSubject.OnNext(new BlackboardChange(kvp.Key.name, kvp.Key.type));
 
-            _values.Clear();
+                _values.Clear();
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
         }
 
         /// <summary>
@@ -133,13 +187,21 @@ namespace CFramework
 
             var compositeKey = (key.Name, typeof(T));
 
-            if (!_subjects.TryGetValue(compositeKey, out var subject))
+            _lock.EnterWriteLock();
+            try
             {
-                subject = new Subject<T>();
-                _subjects[compositeKey] = subject;
-            }
+                if (!_subjects.TryGetValue(compositeKey, out var subject))
+                {
+                    subject = new Subject<T>();
+                    _subjects[compositeKey] = subject;
+                }
 
-            return (Subject<T>)subject;
+                return (Subject<T>)subject;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
         }
 
         /// <summary>
@@ -148,15 +210,25 @@ namespace CFramework
         public void Dispose()
         {
             if (_disposed) return;
-
             _disposed = true;
 
-            // 释放所有 Subject
-            foreach (var subject in _subjects.Values) (subject as IDisposable)?.Dispose();
+            _lock.EnterWriteLock();
+            try
+            {
+                // 释放所有 Subject
+                foreach (var subject in _subjects.Values)
+                    (subject as IDisposable)?.Dispose();
 
-            _subjects.Clear();
-            _values.Clear();
+                _subjects.Clear();
+                _values.Clear();
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+
             _keyChangedSubject.Dispose();
+            _lock.Dispose();
         }
 
         /// <summary>
@@ -165,6 +237,27 @@ namespace CFramework
         private void ThrowIfDisposed()
         {
             if (_disposed) throw new ObjectDisposedException(nameof(Blackboard));
+        }
+
+        /// <summary>
+        ///     通知值变化（在锁外调用，避免死锁）
+        /// </summary>
+        private void NotifyValueChanged<T>((string name, Type type) compositeKey, T value, string keyName)
+        {
+            Subject<T> subject = null;
+            _lock.EnterReadLock();
+            try
+            {
+                if (_subjects.TryGetValue(compositeKey, out var s))
+                    subject = (Subject<T>)s;
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+
+            subject?.OnNext(value);
+            _keyChangedSubject.OnNext(new BlackboardChange(keyName, typeof(T)));
         }
     }
 }
