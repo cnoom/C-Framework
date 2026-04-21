@@ -64,7 +64,7 @@ namespace CFramework
             if (options.Loop)
                 slot.Source.Play();
             else
-                slot.Source.PlayOneShot(clip, options.Volume);
+                slot.Source.PlayOneShot(clip, 1f);
 
             if (options.FadeIn > 0)
             {
