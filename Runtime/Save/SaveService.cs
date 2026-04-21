@@ -19,11 +19,17 @@ namespace CFramework
         private readonly ConcurrentDictionary<string, object> _cache = new();
         private readonly Subject<bool> _dirtyChanged = new();
         private readonly FrameworkSettings _settings;
+        private readonly ISaveSerializer _serializer;
         private CancellationTokenSource _autoSaveCts;
 
-        public SaveService(FrameworkSettings settings)
+        public SaveService(FrameworkSettings settings) : this(settings, new JsonUtilitySerializer())
+        {
+        }
+
+        public SaveService(FrameworkSettings settings, ISaveSerializer serializer)
         {
             _settings = settings;
+            _serializer = serializer;
         }
 
         private string SavePath => Path.Combine(Application.persistentDataPath, "Save", $"slot_{CurrentSlot}");
@@ -127,20 +133,13 @@ namespace CFramework
             {
                 var bytes = await File.ReadAllBytesAsync(filePath);
                 var json = Decrypt(bytes);
-                var data = JsonUtility.FromJson<T>(json);
+                var data = _serializer.Deserialize<T>(json);
 
                 _cache[key] = data;
                 return data;
             }
-            catch (FormatException)
+            catch (Exception ex)
             {
-                // HMAC 校验失败 → 不降级，数据可能被篡改
-                Debug.LogWarning($"[SaveService] 存档数据校验失败: {key}");
-                return defaultValue;
-            }
-            catch (Exception ex) when (ex is not FormatException)
-            {
-                // 其他异常（如旧格式兼容尝试失败）
                 Debug.LogWarning($"[SaveService] Failed to load: {key}, Error: {ex.Message}");
                 return defaultValue;
             }
@@ -169,7 +168,7 @@ namespace CFramework
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(filePath));
 
-                var json = JsonUtility.ToJson(value, true);
+                var json = _serializer.Serialize(value);
                 var bytes = Encrypt(json);
 
                 // 原子写入：先写临时文件，再重命名
@@ -376,7 +375,6 @@ namespace CFramework
 
         private string Decrypt(byte[] data)
         {
-            // 数据至少包含 HMAC + IV
             if (data.Length < HmacSize + 16)
                 throw new FormatException("[SaveService] 存档数据格式错误（数据过短）");
 
@@ -398,14 +396,7 @@ namespace CFramework
                 }
             }
 
-            return DecryptPayload(payload);
-        }
-
-        /// <summary>
-        ///     解密载荷（[IV][密文]），供内部和兼容模式调用
-        /// </summary>
-        private string DecryptPayload(byte[] payload)
-        {
+            // 解密
             var key = GetEncryptionKeyBytes();
             using var aes = Aes.Create();
             aes.Key = key;

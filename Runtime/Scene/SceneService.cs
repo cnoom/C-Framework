@@ -82,6 +82,20 @@ namespace CFramework
 
         public async UniTask UnloadAdditiveAsync(string sceneName, CancellationToken ct = default)
         {
+            await UnloadAdditiveInternalAsync(sceneName, ct);
+            _sceneUnloaded.OnNext(sceneName);
+        }
+
+        public void Start()
+        {
+            CurrentScene = SceneManager.GetActiveScene().name;
+        }
+
+        /// <summary>
+        ///     内部卸载叠加场景（不触发事件）
+        /// </summary>
+        private async UniTask UnloadAdditiveInternalAsync(string sceneName, CancellationToken ct)
+        {
             var op = SceneManager.UnloadSceneAsync(sceneName);
 
             while (!op.isDone)
@@ -89,13 +103,6 @@ namespace CFramework
                 ct.ThrowIfCancellationRequested();
                 await UniTask.Yield(ct);
             }
-
-            _sceneUnloaded.OnNext(sceneName);
-        }
-
-        public void Start()
-        {
-            CurrentScene = SceneManager.GetActiveScene().name;
         }
 
         private async UniTask UnloadAllAdditiveScenesAsync(CancellationToken ct)
@@ -106,7 +113,8 @@ namespace CFramework
             for (var i = SceneManager.sceneCount - 1; i >= 0; i--)
             {
                 var scene = SceneManager.GetSceneAt(i);
-                if (scene.isLoaded && scene.name != currentScene) await UnloadAdditiveAsync(scene.name, ct);
+                if (scene.isLoaded && scene.name != currentScene)
+                    await UnloadAdditiveInternalAsync(scene.name, ct);
             }
         }
     }
