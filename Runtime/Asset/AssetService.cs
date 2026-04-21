@@ -12,7 +12,6 @@ namespace CFramework
     /// </summary>
     public sealed class AssetService : IAssetService, IDisposable
     {
-        private readonly Dictionary<object, bool> _instanceFlags = new();
         private readonly Dictionary<object, Object> _loadedAssets = new();
         private readonly Dictionary<object, UniTaskCompletionSource<Object>> _loadingTasks = new();
         private readonly object _lock = new();
@@ -102,25 +101,11 @@ namespace CFramework
             return new AssetHandle(asset, this, key);
         }
 
-        /// <summary>
-        ///     实例化计数器，用于生成唯一实例 key
-        /// </summary>
-        private int _instanceCounter;
-
-        public async UniTask<GameObject> InstantiateAsync(object key, Transform parent = null,
+        public async UniTask<InstanceHandle> InstantiateAsync(object key, Transform parent = null,
             CancellationToken ct = default)
         {
-            // 每次实例化使用唯一 key，避免多次实例化共享同一引用计数
-            var instKey = $"$inst_{Interlocked.Increment(ref _instanceCounter)}_{key}";
-            var instance = await _provider.InstantiateAsync(key, instKey, parent, ct);
-
-            lock (_lock)
-            {
-                _instanceFlags[instKey] = true;
-                _refCounts[instKey] = 1;
-            }
-
-            return instance;
+            var instance = await _provider.InstantiateAsync(key, parent, ct);
+            return new InstanceHandle(instance, _provider);
         }
 
         public IDisposable LinkToScope(object key, object scope)
@@ -158,14 +143,11 @@ namespace CFramework
                 if (count <= 0)
                 {
                     // 引用计数归零，释放资源
-                    var isInstance = _instanceFlags.ContainsKey(key);
-
-                    if (_loadedAssets.ContainsKey(key) || isInstance)
+                    if (_loadedAssets.ContainsKey(key))
                     {
                         MemoryBudget.UsedBytes -= _provider.GetAssetMemorySize(key);
-                        _provider.ReleaseHandle(key, isInstance);
+                        _provider.ReleaseHandle(key);
                         _loadedAssets.Remove(key);
-                        _instanceFlags.Remove(key);
                     }
 
                     _refCounts.Remove(key);
@@ -182,13 +164,9 @@ namespace CFramework
             lock (_lock)
             {
                 foreach (var kvp in _loadedAssets)
-                    _provider.ReleaseHandle(kvp.Key, false);
-
-                foreach (var kvp in _instanceFlags)
-                    _provider.ReleaseHandle(kvp.Key, true);
+                    _provider.ReleaseHandle(kvp.Key);
 
                 _loadedAssets.Clear();
-                _instanceFlags.Clear();
                 _refCounts.Clear();
                 MemoryBudget.UsedBytes = 0;
             }

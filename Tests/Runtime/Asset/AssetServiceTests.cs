@@ -227,33 +227,31 @@ namespace CFramework.Tests
 
         [UnityTest]
         [Timeout(10000)]
-        public IEnumerator A005_Instantiate_CreatesInstanceAndTracksReference()
+        public IEnumerator A005_Instantiate_CreatesInstanceAndDisposeReleases()
         {
             return UniTask.ToCoroutine(async () =>
             {
                 // Act - 实例化预制体
-                var instance = await _assetService.InstantiateAsync(TestPrefabKey);
+                using var handle = await _assetService.InstantiateAsync(TestPrefabKey);
 
                 // Assert
-                Assert.IsNotNull(instance, "应成功实例化预制体");
-                Assert.IsTrue(instance.name.Contains("TestPrefab"), $"实例名称应包含 TestPrefab，实际: {instance.name}");
+                Assert.IsNotNull(handle.GameObject, "应成功实例化预制体");
+                Assert.IsTrue(handle.GameObject.name.Contains("TestPrefab"),
+                    $"实例名称应包含 TestPrefab，实际: {handle.GameObject.name}");
 
-                _cleanupObjects.Add(instance);
+                _cleanupObjects.Add(handle.GameObject);
 
                 // Act - 实例化多个
-                var instance2 = await _assetService.InstantiateAsync(TestPrefabKey);
-                var instance3 = await _assetService.InstantiateAsync(TestPrefabKey);
+                using var handle2 = await _assetService.InstantiateAsync(TestPrefabKey);
+                using var handle3 = await _assetService.InstantiateAsync(TestPrefabKey);
 
-                Assert.IsNotNull(instance2, "第二个实例应成功创建");
-                Assert.IsNotNull(instance3, "第三个实例应成功创建");
+                Assert.IsNotNull(handle2.GameObject, "第二个实例应成功创建");
+                Assert.IsNotNull(handle3.GameObject, "第三个实例应成功创建");
 
-                _cleanupObjects.Add(instance2);
-                _cleanupObjects.Add(instance3);
+                _cleanupObjects.Add(handle2.GameObject);
+                _cleanupObjects.Add(handle3.GameObject);
 
-                // 清理实例
-                _assetService.Release("$inst_" + TestPrefabKey);
-                _assetService.Release("$inst_" + TestPrefabKey);
-                _assetService.Release("$inst_" + TestPrefabKey);
+                // using 结束时自动 Dispose（ReleaseInstance）
             });
         }
 

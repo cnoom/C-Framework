@@ -13,7 +13,7 @@ namespace CFramework.Tests
     public sealed class MockAssetProvider : IAssetProvider
     {
         private readonly Dictionary<object, Object> _assets = new();
-        private readonly HashSet<object> _instantiated = new();
+        private readonly HashSet<GameObject> _instantiated = new();
         private readonly Dictionary<object, long> _memorySizes = new();
         private int _loadDelayMs;
 
@@ -65,7 +65,7 @@ namespace CFramework.Tests
             return asset;
         }
 
-        public async UniTask<GameObject> InstantiateAsync(object key, object instanceKey, Transform parent,
+        public async UniTask<GameObject> InstantiateAsync(object key, Transform parent,
             CancellationToken ct = default)
         {
             if (_loadDelayMs > 0) await UniTask.Delay(_loadDelayMs, cancellationToken: ct);
@@ -83,23 +83,27 @@ namespace CFramework.Tests
 
             lock (_instantiated)
             {
-                _instantiated.Add(instanceKey);
+                _instantiated.Add(instance);
             }
 
             return instance;
         }
 
-        public void ReleaseHandle(object key, bool isInstance)
+        public void ReleaseInstance(GameObject instance)
         {
-            ReleaseLog.Add((key, isInstance));
+            if (instance == null) return;
 
-            if (isInstance)
+            ReleaseLog.Add((instance.name, true));
+
+            lock (_instantiated)
             {
-                lock (_instantiated)
-                {
-                    _instantiated.Remove(key);
-                }
+                _instantiated.Remove(instance);
             }
+        }
+
+        public void ReleaseHandle(object key)
+        {
+            ReleaseLog.Add((key, false));
         }
 
         public long GetAssetMemorySize(object key)

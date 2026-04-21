@@ -14,6 +14,7 @@ namespace CFramework
     public sealed class AddressableAssetProvider : IAssetProvider
     {
         private readonly Dictionary<object, AsyncOperationHandle> _handles = new();
+        private readonly Dictionary<GameObject, AsyncOperationHandle> _instanceHandles = new();
 
         public async UniTask<Object> LoadAssetAsync<T>(object key, CancellationToken ct = default) where T : Object
         {
@@ -34,7 +35,7 @@ namespace CFramework
             return handle.Result;
         }
 
-        public async UniTask<GameObject> InstantiateAsync(object key, object instanceKey, Transform parent,
+        public async UniTask<GameObject> InstantiateAsync(object key, Transform parent,
             CancellationToken ct = default)
         {
             var handle = Addressables.InstantiateAsync(key, parent);
@@ -46,15 +47,30 @@ namespace CFramework
                 throw new System.Exception($"Failed to instantiate: {key}");
             }
 
-            lock (_handles)
+            var instance = handle.Result;
+            lock (_instanceHandles)
             {
-                _handles[instanceKey] = handle;
+                _instanceHandles[instance] = handle;
             }
 
-            return handle.Result;
+            return instance;
         }
 
-        public void ReleaseHandle(object key, bool isInstance)
+        public void ReleaseInstance(GameObject instance)
+        {
+            if (instance == null) return;
+
+            lock (_instanceHandles)
+            {
+                if (_instanceHandles.TryGetValue(instance, out var handle))
+                {
+                    _instanceHandles.Remove(instance);
+                    Addressables.Release(handle);
+                }
+            }
+        }
+
+        public void ReleaseHandle(object key)
         {
             lock (_handles)
             {

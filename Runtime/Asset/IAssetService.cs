@@ -21,17 +21,17 @@ namespace CFramework
         /// <summary>
         ///     异步实例化预制体
         /// </summary>
-        /// <param name="key">资源地址</param>
-        /// <param name="instanceKey">实例唯一标识（由调用方生成，用于后续 ReleaseHandle）</param>
-        /// <param name="parent">父级 Transform</param>
-        /// <param name="ct">取消令牌</param>
-        UniTask<GameObject> InstantiateAsync(object key, object instanceKey, Transform parent,
-            CancellationToken ct = default);
+        UniTask<GameObject> InstantiateAsync(object key, Transform parent, CancellationToken ct = default);
 
         /// <summary>
-        ///     释放资源句柄
+        ///     释放实例（通过 GameObject 引用）
         /// </summary>
-        void ReleaseHandle(object key, bool isInstance);
+        void ReleaseInstance(GameObject instance);
+
+        /// <summary>
+        ///     释放资源句柄（通过 key）
+        /// </summary>
+        void ReleaseHandle(object key);
 
         /// <summary>
         ///     获取资源占用内存大小（字节）
@@ -55,9 +55,9 @@ namespace CFramework
         UniTask<AssetHandle> LoadAsync<T>(object key, CancellationToken ct = default) where T : Object;
 
         /// <summary>
-        ///     实例化预制体
+        ///     实例化预制体，返回独占句柄
         /// </summary>
-        UniTask<GameObject> InstantiateAsync(object key, Transform parent = null, CancellationToken ct = default);
+        UniTask<InstanceHandle> InstantiateAsync(object key, Transform parent = null, CancellationToken ct = default);
 
         /// <summary>
         ///     将资源绑定到指定生命周期
