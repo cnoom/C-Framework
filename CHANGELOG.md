@@ -2,6 +2,30 @@
 
 框架所有重要变更均记录于此。
 
+## [2.0.0] - 2026-04-21
+
+### 破坏性变更
+
+- **Config 模块重构：从 ScriptableObject 切换到 Luban 配置库**
+  - 移除 `IConfigItem<TKey>`、`IConfigProvider`、`ConfigTable<TKey, TValue>`、`ConfigTableAsset` 及所有 Provider 实现
+  - 移除 `ConfigService`（旧实现），新增 `LubanConfigService` 抽象基类
+  - 移除 `SOConfigProvider`、`JsonConfigProvider`、`ResourcesConfigProvider`、`MemoryConfigProvider`
+  - 新增 `ILubanDataLoader` 接口和 `AddressablesLubanDataLoader` 默认实现
+  - `IConfigService` 简化为 `LoadAllAsync` / `UnloadAll` / `IsLoaded`
+  - 配置服务不再由框架自动注册，需游戏项目通过 `GameScope.AddInstaller` 自行注册
+  - `FrameworkModuleInstaller` 移除 Config 相关 DI 注册
+  - `GameScope` 移除 `ConfigService` 公共属性
+  - `FrameworkSettings` 移除 `ConfigAddressPrefix` 字段
+  - 移除编辑器工具：`ConfigEditorWindow`、`ConfigCreatorWindow`、`ConfigTableAssetEditor`、`ConfigAssetCreator`
+  - 移除 `ConfigServiceTests`（旧测试）
+
+### 迁移指南
+
+1. 安装 Luban 工具链并配置 Excel/JSON 数据源
+2. 创建 `GameConfigService : LubanConfigService` 子类
+3. 在游戏安装器中注册 `ILubanDataLoader` 和 `IConfigService`
+4. 将配置数据导出为 `.bytes` 文件，放入 Addressables
+
 ## [1.6.0] - 2026-04-15
 
 ### 变更
