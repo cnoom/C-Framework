@@ -76,7 +76,7 @@ namespace CFramework
             {
                 // 使用独立延迟释放，不受调用方 ct 取消影响
                 var delayMs = (int)(clip.length / options.Pitch * 1000) + 100;
-                ScheduleSlotRelease(slot, node, delayMs);
+                ScheduleSlotRelease(slot, node, delayMs).Forget();
             }
 
             return slot;
@@ -223,8 +223,7 @@ namespace CFramework
         {
             try
             {
-                await UniTask.Delay(delayMs, ignoreTimeScale: false,
-                    timing: PlayerLoopTiming.Update);
+                await UniTask.Delay(delayMs, ignoreTimeScale: false);
             }
             catch (OperationCanceledException)
             {

@@ -11,9 +11,9 @@ namespace CFramework
     public interface IEventBus
     {
         /// <summary>
-        ///     处理器异常回调
+        ///     处理器异常回调（支持多个订阅者，外部只能添加/移除，不能覆盖）
         /// </summary>
-        Action<Exception, IEvent, object> OnHandlerError { get; set; }
+        event Action<Exception, IEvent, object> OnHandlerError;
 
         /// <summary>
         ///     同步发布事件

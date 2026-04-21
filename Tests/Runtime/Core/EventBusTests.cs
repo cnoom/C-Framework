@@ -47,7 +47,7 @@ namespace CFramework.Tests
             var disposable3 = _eventBus.Subscribe<TestEvent>(e => callOrder.Add(3), 0);
 
             // 注册异常处理器
-            _eventBus.OnHandlerError = (ex, evt, handler) => exceptionThrown = true;
+            _eventBus.OnHandlerError += (ex, evt, handler) => exceptionThrown = true;
 
             // Act
             _eventBus.Publish(new TestEvent { Value = 1 });
@@ -78,7 +78,7 @@ namespace CFramework.Tests
                 await UniTask.Delay(TimeSpan.FromSeconds(0.5), cancellationToken: ct);
             });
 
-            _eventBus.OnHandlerError = (ex, evt, handler) =>
+            _eventBus.OnHandlerError += (ex, evt, handler) =>
             {
                 if (ex is TimeoutException) timeoutOccurred = true;
             };
