@@ -132,8 +132,15 @@ namespace CFramework
                 _cache[key] = data;
                 return data;
             }
-            catch (Exception ex)
+            catch (FormatException)
             {
+                // HMAC 校验失败 → 不降级，数据可能被篡改
+                Debug.LogWarning($"[SaveService] 存档数据校验失败: {key}");
+                return defaultValue;
+            }
+            catch (Exception ex) when (ex is not FormatException)
+            {
+                // 其他异常（如旧格式兼容尝试失败）
                 Debug.LogWarning($"[SaveService] Failed to load: {key}, Error: {ex.Message}");
                 return defaultValue;
             }
@@ -309,6 +316,8 @@ namespace CFramework
 
         #region 加密/解密
 
+        private const int HmacSize = 32; // HMAC-SHA256 输出长度
+
         private byte[] GetEncryptionKeyBytes()
         {
             var keyStr = _settings.EncryptionKey;
@@ -323,6 +332,20 @@ namespace CFramework
             return key;
         }
 
+        /// <summary>
+        ///     使用 HMAC-SHA256 派生密钥，用于签名验证
+        /// </summary>
+        private byte[] GetHmacKey()
+        {
+            var aesKey = GetEncryptionKeyBytes();
+            // 简单派生：在 AES 密钥后追加固定后缀，扩展到足够长度
+            var derived = new byte[aesKey.Length + 8];
+            Buffer.BlockCopy(aesKey, 0, derived, 0, aesKey.Length);
+            var suffix = Encoding.UTF8.GetBytes("_hmac_v1");
+            Buffer.BlockCopy(suffix, 0, derived, aesKey.Length, suffix.Length);
+            return derived;
+        }
+
         private byte[] Encrypt(string data)
         {
             var key = GetEncryptionKeyBytes();
@@ -335,25 +358,62 @@ namespace CFramework
             var bytes = Encoding.UTF8.GetBytes(data);
             var encrypted = encryptor.TransformFinalBlock(bytes, 0, bytes.Length);
 
-            // 将 IV 拼接到密文头部：[IV 16字节][密文]
-            var result = new byte[aes.IV.Length + encrypted.Length];
-            Buffer.BlockCopy(aes.IV, 0, result, 0, aes.IV.Length);
-            Buffer.BlockCopy(encrypted, 0, result, aes.IV.Length, encrypted.Length);
+            // 布局：[IV 16字节][密文]
+            var payload = new byte[aes.IV.Length + encrypted.Length];
+            Buffer.BlockCopy(aes.IV, 0, payload, 0, aes.IV.Length);
+            Buffer.BlockCopy(encrypted, 0, payload, aes.IV.Length, encrypted.Length);
+
+            // 计算 HMAC：[HMAC 32字节][IV 16字节][密文]
+            var hmacKey = GetHmacKey();
+            using var hmac = new HMACSHA256(hmacKey);
+            var hash = hmac.ComputeHash(payload);
+
+            var result = new byte[HmacSize + payload.Length];
+            Buffer.BlockCopy(hash, 0, result, 0, HmacSize);
+            Buffer.BlockCopy(payload, 0, result, HmacSize, payload.Length);
             return result;
         }
 
         private string Decrypt(byte[] data)
         {
-            var key = GetEncryptionKeyBytes();
+            // 数据至少包含 HMAC + IV
+            if (data.Length < HmacSize + 16)
+                throw new FormatException("[SaveService] 存档数据格式错误（数据过短）");
 
+            // 提取 HMAC 和载荷
+            var storedHash = new byte[HmacSize];
+            var payload = new byte[data.Length - HmacSize];
+            Buffer.BlockCopy(data, 0, storedHash, 0, HmacSize);
+            Buffer.BlockCopy(data, HmacSize, payload, 0, payload.Length);
+
+            // 验证 HMAC
+            var hmacKey = GetHmacKey();
+            using (var hmac = new HMACSHA256(hmacKey))
+            {
+                var computedHash = hmac.ComputeHash(payload);
+                for (int i = 0; i < HmacSize; i++)
+                {
+                    if (computedHash[i] != storedHash[i])
+                        throw new FormatException("[SaveService] 存档数据校验失败（可能已被篡改）");
+                }
+            }
+
+            return DecryptPayload(payload);
+        }
+
+        /// <summary>
+        ///     解密载荷（[IV][密文]），供内部和兼容模式调用
+        /// </summary>
+        private string DecryptPayload(byte[] payload)
+        {
+            var key = GetEncryptionKeyBytes();
             using var aes = Aes.Create();
             aes.Key = key;
 
-            // 从密文头部提取 IV（前 16 字节）
             var iv = new byte[aes.BlockSize / 8];
-            var encrypted = new byte[data.Length - iv.Length];
-            Buffer.BlockCopy(data, 0, iv, 0, iv.Length);
-            Buffer.BlockCopy(data, iv.Length, encrypted, 0, encrypted.Length);
+            var encrypted = new byte[payload.Length - iv.Length];
+            Buffer.BlockCopy(payload, 0, iv, 0, iv.Length);
+            Buffer.BlockCopy(payload, iv.Length, encrypted, 0, encrypted.Length);
             aes.IV = iv;
 
             using var decryptor = aes.CreateDecryptor();
