@@ -59,6 +59,7 @@ namespace CFramework
             slot.Source.spatialBlend = options.Spatial ? 1f : 0f;
             if (options.Spatial) slot.Source.transform.position = options.Position;
             slot.SetClipKey(clipKey);
+            slot.SetClipHandle(handle);
 
             if (options.Loop)
                 slot.Source.Play();

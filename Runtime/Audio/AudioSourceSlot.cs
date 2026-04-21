@@ -23,6 +23,7 @@ namespace CFramework
         public string CurrentClipKey { get; private set; }
 
         private CancellationTokenSource _fadeCts;
+        private AssetHandle _clipHandle;
 
         public AudioSourceSlot(int index, AudioSource source)
         {
@@ -36,13 +37,27 @@ namespace CFramework
         public void SetClipKey(string key) => CurrentClipKey = key;
 
         /// <summary>
-        ///     重置 Slot 到初始状态（停止播放、清空引用）
+        ///     绑定资源句柄（Slot 回收时自动 Dispose）
+        /// </summary>
+        public void SetClipHandle(AssetHandle handle)
+        {
+            // 防御性释放：先释放旧 handle
+            _clipHandle.Dispose();
+            _clipHandle = handle;
+        }
+
+        /// <summary>
+        ///     重置 Slot 到初始状态（停止播放、清空引用、释放资源）
         /// </summary>
         public void Reset()
         {
             _fadeCts?.Cancel();
             _fadeCts?.Dispose();
             _fadeCts = null;
+
+            // 释放资源句柄（递减 AssetService 引用计数）
+            _clipHandle.Dispose();
+            _clipHandle = default;
 
             if (Source != null)
             {
