@@ -60,12 +60,20 @@ namespace CFramework
         UniTask<InstanceHandle> InstantiateAsync(object key, Transform parent = null, CancellationToken ct = default);
 
         /// <summary>
-        ///     将资源绑定到指定生命周期
+        ///     将资源绑定到 GameObject 生命周期（GameObject 销毁时自动 Release）
         /// </summary>
         /// <param name="key">资源 key</param>
-        /// <param name="scope">生命周期对象（支持 GameObject 或 IDisposable）</param>
+        /// <param name="scope">绑定的 GameObject</param>
         /// <returns>可释放的绑定对象</returns>
-        IDisposable LinkToScope(object key, object scope);
+        IDisposable LinkToScope(object key, GameObject scope);
+
+        /// <summary>
+        ///     将资源绑定到 IDisposable 生命周期（Dispose 时自动 Release）
+        /// </summary>
+        /// <param name="key">资源 key</param>
+        /// <param name="scope">绑定的 IDisposable 对象</param>
+        /// <returns>可释放的绑定对象</returns>
+        IDisposable LinkToScope(object key, IDisposable scope);
 
         /// <summary>
         ///     释放资源

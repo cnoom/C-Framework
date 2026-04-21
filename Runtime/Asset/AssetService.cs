@@ -91,7 +91,7 @@ namespace CFramework
                 _loadingTasks.Remove(key);
 
                 // 更新内存使用
-                MemoryBudget.UsedBytes += _provider.GetAssetMemorySize(key);
+                MemoryBudget.AddUsedBytes(_provider.GetAssetMemorySize(key));
                 MemoryBudget.CheckBudget();
             }
 
@@ -108,29 +108,32 @@ namespace CFramework
             return new InstanceHandle(instance, _provider);
         }
 
-        public IDisposable LinkToScope(object key, object scope)
+        public IDisposable LinkToScope(object key, GameObject scope)
         {
-            // 如果 scope 是 GameObject，绑定到其生命周期
-            if (scope is GameObject go)
+            // 增加引用计数
+            lock (_lock)
             {
-                // 增加引用计数
-                lock (_lock)
-                {
-                    if (!_refCounts.TryGetValue(key, out var count))
-                        throw new InvalidOperationException($"Asset not loaded: {key}");
-                    _refCounts[key] = count + 1;
-                }
-
-                var tracker = go.AddComponent<AssetLifetimeTracker>();
-                tracker.Initialize(key, this);
-                return new GameObjectBinding(tracker);
+                if (!_refCounts.TryGetValue(key, out var count))
+                    throw new InvalidOperationException($"Asset not loaded: {key}");
+                _refCounts[key] = count + 1;
             }
 
-            // 对于普通 IDisposable，返回组合 Disposable
-            if (scope is IDisposable disposable) return new ScopeLink(key, this, disposable);
+            var tracker = scope.AddComponent<AssetLifetimeTracker>();
+            tracker.Initialize(key, this);
+            return new GameObjectBinding(tracker);
+        }
 
-            // 其他类型不支持
-            throw new ArgumentException($"Unsupported scope type: {scope?.GetType().Name}", nameof(scope));
+        public IDisposable LinkToScope(object key, IDisposable scope)
+        {
+            // 增加引用计数
+            lock (_lock)
+            {
+                if (!_refCounts.TryGetValue(key, out var count))
+                    throw new InvalidOperationException($"Asset not loaded: {key}");
+                _refCounts[key] = count + 1;
+            }
+
+            return new ScopeLink(key, this, scope);
         }
 
         public void Release(object key)
@@ -145,7 +148,7 @@ namespace CFramework
                     // 引用计数归零，释放资源
                     if (_loadedAssets.ContainsKey(key))
                     {
-                        MemoryBudget.UsedBytes -= _provider.GetAssetMemorySize(key);
+                        MemoryBudget.AddUsedBytes(-_provider.GetAssetMemorySize(key));
                         _provider.ReleaseHandle(key);
                         _loadedAssets.Remove(key);
                     }
@@ -168,7 +171,7 @@ namespace CFramework
 
                 _loadedAssets.Clear();
                 _refCounts.Clear();
-                MemoryBudget.UsedBytes = 0;
+                MemoryBudget.UsedBytes = 0; // ReleaseAll 已在 lock 内，直接赋值安全
             }
         }
 

@@ -33,12 +33,6 @@ namespace CFramework
             where TValue : class, IConfigItem<TKey>;
 
         /// <summary>
-        ///     获取指定数据类型的配置表（自动推断 TKey）
-        /// </summary>
-        /// <typeparam name="TValue">数据行类型（需实现 IConfigItem&lt;TKey&gt;）</typeparam>
-        object GetTable<TValue>() where TValue : class;
-
-        /// <summary>
         ///     尝试获取配置表
         /// </summary>
         bool TryGetTable<TKey, TValue>(out ConfigTable<TKey, TValue> table)

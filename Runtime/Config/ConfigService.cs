@@ -102,12 +102,6 @@ namespace CFramework
             return null;
         }
 
-        public object GetTable<TValue>() where TValue : class
-        {
-            _tables.TryGetValue(typeof(TValue), out var table);
-            return table;
-        }
-
         public bool TryGetTable<TKey, TValue>(out ConfigTable<TKey, TValue> table)
             where TValue : class, IConfigItem<TKey>
         {
