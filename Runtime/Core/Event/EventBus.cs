@@ -38,7 +38,7 @@ namespace CFramework
             }
         }
 
-        public Action<Exception, IEvent, object> OnHandlerError { get; set; }
+        public event Action<Exception, IEvent, object> OnHandlerError;
 
         #region 同步事件
 

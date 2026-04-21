@@ -283,6 +283,16 @@ namespace CFramework
 
         private void DisposeInternal()
         {
+            // 先释放所有 Slot，避免引用已销毁的 AudioSource
+            if (_tree != null)
+            {
+                foreach (var path in _tree.GetAllPaths())
+                {
+                    var node = _tree.GetNode(path);
+                    node?.ReleaseAll();
+                }
+            }
+
             _tree?.Dispose();
             _tree = null;
             _volumeCtrl = null;

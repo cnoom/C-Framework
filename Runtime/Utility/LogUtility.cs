@@ -12,27 +12,18 @@ namespace CFramework
             LogLevel logLevel = LogLevel.Debug)
         {
             tag = StringRichTextUtility.Color(tag, color);
-            switch (logLevel)
-            {
-                case LogLevel.Debug:
-                    logger.LogDebug(tag, message);
-                    break;
-                case LogLevel.Info:
-                    logger.LogInfo(tag, message);
-                    break;
-                case LogLevel.Warning:
-                    logger.LogWarning(tag, message);
-                    break;
-                case LogLevel.Error:
-                    logger.LogError(tag, message);
-                    break;
-            }
+            LogWithTag(logger, tag, message, logLevel);
         }
 
         public static void LogWithLevelColor(this ILogger logger, string tag, string message,
             LogLevel logLevel = LogLevel.Debug)
         {
             tag = TagWithLevelColor(tag, logLevel);
+            LogWithTag(logger, tag, message, logLevel);
+        }
+
+        private static void LogWithTag(ILogger logger, string tag, string message, LogLevel logLevel)
+        {
             switch (logLevel)
             {
                 case LogLevel.Debug:

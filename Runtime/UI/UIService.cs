@@ -26,6 +26,7 @@ namespace CFramework.Runtime.UI
 
         private readonly Dictionary<string, UIPanelData> _panels = new();
         private readonly FrameworkSettings _settings;
+        private readonly UniTaskCompletionSource _uiRootReady = new();
         private CancellationTokenSource _cancellationTokenSource;
         [Inject] ILogger _logger;
 
@@ -73,6 +74,7 @@ namespace CFramework.Runtime.UI
                             if (Canvas == null)
                                 Debug.LogWarning("[UIService] UIRoot Prefab 上未找到 Canvas 组件，UI 可能无法正确渲染");
 
+                            _uiRootReady.TrySetResult();
                             return;
                         }
                     }
@@ -86,15 +88,18 @@ namespace CFramework.Runtime.UI
 
                 // Fallback：代码创建带 Canvas 的 UIRoot
                 CreateFallbackUIRoot();
+                _uiRootReady.TrySetResult();
             }
             catch (Exception e)
             {
                 _logger.LogWithLevelColor("UIService", $"Initialize failed: {e.Message}", LogLevel.Error);
+                _uiRootReady.TrySetException(e);
             }
         }
 
         public void Dispose()
         {
+            _cancellationTokenSource?.Cancel();
             _cancellationTokenSource?.Dispose();
             CloseAll();
 
@@ -140,13 +145,12 @@ namespace CFramework.Runtime.UI
         /// </summary>
         public async UniTask<T> OpenAsync<T>() where T : IUI, new()
         {
-            // 等待 UIRoot 初始化完成，添加超时保护（30秒）
-            var uiRootReady = UniTask.WaitUntil(() => _uiRoot != null);
+            // 等待 UIRoot 初始化完成（事件信号，无轮询），超时保护 30 秒
+            var readyTask = _uiRootReady.Task;
             var timeout = UniTask.Delay(TimeSpan.FromSeconds(30));
-            if (await UniTask.WhenAny(uiRootReady, timeout) == 1)
+            if (await UniTask.WhenAny(readyTask, timeout) == 1)
             {
-                Debug.LogError("[UIService] 等待 UIRoot 初始化超时（30秒），请检查 UIRoot 配置");
-                return default;
+                throw new InvalidOperationException("[UIService] 等待 UIRoot 初始化超时（30秒），请检查 UIRoot 配置");
             }
             var panelKey = typeof(T).Name;
 
@@ -170,8 +174,7 @@ namespace CFramework.Runtime.UI
             if (go == null)
             {
                 handle.Dispose();
-                Debug.LogError($"[UIService] Prefab 实例化失败: {panelKey}");
-                return default;
+                throw new InvalidOperationException($"[UIService] Prefab 实例化失败: {panelKey}");
             }
 
             var binder = go.GetComponent<UIBinder>();
@@ -179,8 +182,7 @@ namespace CFramework.Runtime.UI
             {
                 Object.Destroy(go);
                 handle.Dispose();
-                Debug.LogError($"[UIService] Prefab 上未找到 UIBinder 组件: {panelKey}");
-                return default;
+                throw new InvalidOperationException($"[UIService] Prefab 上未找到 UIBinder 组件: {panelKey}");
             }
 
             // 创建 IUI 实例、注入组件并初始化

@@ -20,7 +20,15 @@ namespace CFramework
             CreateOverlay();
             _overlay.color = new Color(FadeColor.r, FadeColor.g, FadeColor.b, 0f);
 
-            await FadeAsync(0f, 1f, ct);
+            try
+            {
+                await FadeAsync(0f, 1f, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                DestroyOverlay();
+                throw;
+            }
         }
 
         public async UniTask PlayExitAsync(CancellationToken ct = default)

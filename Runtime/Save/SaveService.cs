@@ -113,10 +113,8 @@ namespace CFramework
 
             Directory.CreateDirectory(SavePath);
 
-            // 复制缓存键值对，避免遍历时修改集合
-            var cacheCopy = new List<KeyValuePair<string, object>>(_cache);
-
-            foreach (var kvp in cacheCopy) await SaveToFileAsync(kvp.Key, kvp.Value, ct);
+            // ConcurrentDictionary 的迭代器是快照式的，可直接遍历，无需复制
+            foreach (var kvp in _cache) await SaveToFileAsync(kvp.Key, kvp.Value, ct);
 
             ClearDirty();
         }

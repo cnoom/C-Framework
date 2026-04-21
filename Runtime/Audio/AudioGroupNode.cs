@@ -27,6 +27,7 @@ namespace CFramework
 
         private readonly List<AudioSourceSlot> _slots = new();
         private readonly Queue<int> _freeSlots = new();
+        private readonly HashSet<int> _freeSlotSet = new();
         private int _initialSlotCount;
         private int _maxSlots;
         private float _lastShrinkCheck;
@@ -56,6 +57,7 @@ namespace CFramework
             if (_freeSlots.Count > 0)
             {
                 var index = _freeSlots.Dequeue();
+                _freeSlotSet.Remove(index);
                 return _slots[index];
             }
 
@@ -78,7 +80,7 @@ namespace CFramework
             if (index >= 0 && index < _slots.Count && _slots[index] != null)
             {
                 _slots[index].Reset();
-                if (!_freeSlots.Contains(index))
+                if (_freeSlotSet.Add(index))
                     _freeSlots.Enqueue(index);
             }
         }
@@ -86,9 +88,11 @@ namespace CFramework
         public void ReleaseAll()
         {
             _freeSlots.Clear();
+            _freeSlotSet.Clear();
             foreach (var slot in _slots)
             {
                 slot.Reset();
+                _freeSlotSet.Add(slot.Index);
                 _freeSlots.Enqueue(slot.Index);
             }
         }
@@ -102,11 +106,10 @@ namespace CFramework
             if (Time.time - _lastShrinkCheck < ShrinkInterval) return;
             _lastShrinkCheck = Time.time;
 
-            var freeSet = new HashSet<int>(_freeSlots);
-            var excess = freeSet.Count - _initialSlotCount;
+            var excess = _freeSlotSet.Count - _initialSlotCount;
             if (excess <= 0) return;
 
-            var toRemove = freeSet.OrderByDescending(x => x).Take(excess).ToList();
+            var toRemove = _freeSlotSet.OrderByDescending(x => x).Take(excess).ToList();
             foreach (var idx in toRemove)
             {
                 if (idx >= _initialSlotCount && _slots[idx] != null)
@@ -126,6 +129,7 @@ namespace CFramework
                 slot?.Reset();
             _slots.Clear();
             _freeSlots.Clear();
+            _freeSlotSet.Clear();
             if (GameObject != null)
                 Object.Destroy(GameObject);
         }
@@ -139,6 +143,7 @@ namespace CFramework
 
             var slot = new AudioSourceSlot(index, source);
             _slots.Add(slot);
+            _freeSlotSet.Add(index);
             _freeSlots.Enqueue(index);
             return slot;
         }
@@ -146,10 +151,14 @@ namespace CFramework
         private void RebuildFreeQueue()
         {
             _freeSlots.Clear();
+            _freeSlotSet.Clear();
             for (int i = 0; i < _slots.Count; i++)
             {
                 if (_slots[i] != null && !_slots[i].IsPlaying)
+                {
+                    _freeSlotSet.Add(i);
                     _freeSlots.Enqueue(i);
+                }
             }
         }
     }

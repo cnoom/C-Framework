@@ -15,6 +15,8 @@ namespace CFramework
     {
         private readonly Dictionary<int, AudioGroupNode> _nodes = new();  // hash → node
         private readonly Dictionary<string, int> _pathToHash = new();     // path → hash
+        private List<string> _cachedPaths;
+        private List<int> _cachedHashes;
         private GameObject _root;
 
         public GameObject Root => _root;
@@ -43,22 +45,24 @@ namespace CFramework
         public AudioGroupNode GetNode(int hash)
             => _nodes.TryGetValue(hash, out var node) ? node : null;
 
-        /// <summary>获取所有已注册的 Group 路径</summary>
+        /// <summary>获取所有已注册的 Group 路径（缓存结果，Build/Dispose 后失效）</summary>
         public IReadOnlyList<string> GetAllPaths()
         {
-            var paths = new List<string>(_pathToHash.Count);
+            if (_cachedPaths != null) return _cachedPaths;
+            _cachedPaths = new List<string>(_pathToHash.Count);
             foreach (var p in _pathToHash.Keys)
-                paths.Add(p);
-            return paths;
+                _cachedPaths.Add(p);
+            return _cachedPaths;
         }
 
-        /// <summary>获取所有已注册的路径哈希值</summary>
+        /// <summary>获取所有已注册的路径哈希值（缓存结果，Build/Dispose 后失效）</summary>
         public IReadOnlyList<int> GetAllHashes()
         {
-            var hashes = new List<int>(_nodes.Count);
+            if (_cachedHashes != null) return _cachedHashes;
+            _cachedHashes = new List<int>(_nodes.Count);
             foreach (var h in _nodes.Keys)
-                hashes.Add(h);
-            return hashes;
+                _cachedHashes.Add(h);
+            return _cachedHashes;
         }
 
         /// <summary>获取所有路径→哈希的映射（供 AudioVolumeController 注册用）</summary>
@@ -74,6 +78,8 @@ namespace CFramework
                 node.Dispose();
             _nodes.Clear();
             _pathToHash.Clear();
+            _cachedPaths = null;
+            _cachedHashes = null;
             if (_root != null)
             {
                 Object.Destroy(_root);

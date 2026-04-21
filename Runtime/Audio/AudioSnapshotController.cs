@@ -1,6 +1,5 @@
 #if CFRAMEWORK_AUDIO
 using System.Collections.Generic;
-using System.Linq;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Audio;
@@ -14,6 +13,7 @@ namespace CFramework
     {
         private readonly AudioMixer _mixer;
         private readonly Dictionary<string, AudioMixerSnapshot> _snapshots = new();
+        private readonly List<string> _snapshotNames = new();
         private string _currentSnapshot;
 
         /// <summary>
@@ -28,12 +28,15 @@ namespace CFramework
             if (snapshots != null)
             {
                 foreach (var snapshot in snapshots)
+                {
                     _snapshots[snapshot.name] = snapshot;
+                    _snapshotNames.Add(snapshot.name);
+                }
             }
 
             // 设置初始快照
-            if (_snapshots.Count > 0 && snapshots != null)
-                _currentSnapshot = snapshots[0].name;
+            if (_snapshotNames.Count > 0)
+                _currentSnapshot = _snapshotNames[0];
         }
 
         /// <summary>
@@ -77,7 +80,7 @@ namespace CFramework
         public string CurrentSnapshot => _currentSnapshot;
 
         /// <summary>所有可用快照名称</summary>
-        public IReadOnlyList<string> SnapshotNames => _snapshots.Keys.ToList();
+        public IReadOnlyList<string> SnapshotNames => _snapshotNames;
 
         /// <summary>是否存在指定快照</summary>
         public bool HasSnapshot(string name) => _snapshots.ContainsKey(name);
