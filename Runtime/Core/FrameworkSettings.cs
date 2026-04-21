@@ -43,9 +43,6 @@ namespace CFramework
 
         [Header("Log")] [Tooltip("日志级别")] public LogLevel LogLevel = LogLevel.Debug;
 
-        [Header("Config")] [Tooltip("配置表地址前缀")]
-        public string ConfigAddressPrefix = "Config";
-
         /// <summary>
         ///     加载默认设置
         /// </summary>

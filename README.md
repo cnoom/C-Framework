@@ -14,7 +14,7 @@
 | UI | 面板管理、自动绑定、响应式数据绑定、代码生成 |
 | Audio | 双音轨 BGM 系统，分组音量控制 |
 | Scene | 场景加载管理，支持过渡动画和叠加场景 |
-| Config | 基于 ScriptableObject 的配置表系统 |
+| Config | 基于 Luban 配置库的配置系统 |
 | Save | 原子写入存档系统，脏状态管理 |
 | State | 有限状态机（FSM），支持普通状态与栈状态 |
 | Utility | 字符串、随机数、日志等通用工具 |
@@ -92,11 +92,9 @@ public sealed class GameEntry : MonoBehaviour
             Debug.LogError($"[全局异常] {ex.Message}");
         });
 
-        // 初始化服务
-        await UniTask.WhenAll(
-            container.Resolve<IConfigService>().InitializeAsync(),
-            container.Resolve<IAssetService>().InitializeAsync()
-        );
+        // 初始化配置服务（由游戏项目注册的 Luban 配置服务）
+        var configService = container.Resolve<IConfigService>();
+        await configService.LoadAllAsync();
 
         // 加载初始场景
         var sceneService = container.Resolve<ISceneService>();
