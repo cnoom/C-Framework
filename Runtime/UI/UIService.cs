@@ -39,6 +39,7 @@ namespace CFramework.Runtime.UI
             _assetService = assetService;
             _settings = settings;
             _maxStackCapacity = settings.MaxNavigationStack;
+            _cancellationTokenSource = new CancellationTokenSource();
         }
 
         public void Start()
@@ -53,7 +54,6 @@ namespace CFramework.Runtime.UI
         {
             try
             {
-                _cancellationTokenSource = new CancellationTokenSource();
                 // 尝试通过 Addressable 加载 UIRoot Prefab
                 var uiRootAddress = _settings.UIRootAddress;
                 if (!string.IsNullOrEmpty(uiRootAddress))

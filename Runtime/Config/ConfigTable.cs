@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using UnityEngine;
 
 namespace CFramework
@@ -15,6 +16,7 @@ namespace CFramework
     {
         private List<TValue> _dataList;
         private Dictionary<TKey, TValue> _cache;
+        private ReadOnlyCollection<TValue> _readOnlyWrapper;
 
         /// <summary>
         ///     数据是否已加载
@@ -29,7 +31,14 @@ namespace CFramework
         /// <summary>
         ///     获取所有数据行（只读）
         /// </summary>
-        public IReadOnlyList<TValue> All => _dataList;
+        public IReadOnlyList<TValue> All
+        {
+            get
+            {
+                if (_dataList == null) return null;
+                return _readOnlyWrapper ??= new ReadOnlyCollection<TValue>(_dataList);
+            }
+        }
 
         /// <summary>
         ///     数据加载完成事件
@@ -45,6 +54,7 @@ namespace CFramework
         {
             _dataList = new List<TValue>();
             _cache = new Dictionary<TKey, TValue>();
+            _readOnlyWrapper = null;
 
             if (data != null)
             {

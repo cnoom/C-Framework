@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Scripting;
 
 namespace CFramework
 {
@@ -204,6 +205,7 @@ namespace CFramework
         /// <summary>
         ///     泛型加载辅助（供反射调用）
         /// </summary>
+        [Preserve]
         private async UniTask InvokeLoadInternal<TKey, TValue>(string address)
             where TValue : class, IConfigItem<TKey>
         {

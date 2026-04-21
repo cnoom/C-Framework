@@ -18,6 +18,9 @@ namespace CFramework
         // 所有已注册的动态安装器
         private static readonly List<IInstaller> _additionalInstallers = new();
 
+        // 线程安全锁
+        private static readonly object _installerLock = new();
+
         // 框架内置安装器（按顺序执行）
         private static readonly IInstaller[] _builtInInstallers =
         {
@@ -71,7 +74,10 @@ namespace CFramework
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStaticState()
         {
-            _additionalInstallers.Clear();
+            lock (_installerLock)
+            {
+                _additionalInstallers.Clear();
+            }
         }
 
         protected override void Configure(IContainerBuilder builder)
@@ -90,8 +96,14 @@ namespace CFramework
             // 安装框架内置服务
             foreach (var installer in _builtInInstallers) builder.Install(installer);
 
-            // 安装动态注册的服务
-            foreach (var installer in _additionalInstallers) builder.Install(installer);
+            // 安装动态注册的服务（快照后遍历，避免在锁内执行 DI 注册）
+            IInstaller[] snapshot;
+            lock (_installerLock)
+            {
+                snapshot = _additionalInstallers.ToArray();
+            }
+
+            foreach (var installer in snapshot) builder.Install(installer);
         }
 
         /// <summary>
@@ -154,9 +166,12 @@ namespace CFramework
         {
             if (installer == null) throw new ArgumentNullException(nameof(installer));
 
-            foreach (var i in installer)
+            lock (_installerLock)
             {
-                _additionalInstallers.Add(i);
+                foreach (var i in installer)
+                {
+                    _additionalInstallers.Add(i);
+                }
             }
 
             // 如果 GameScope 已构建，触发容器重建
@@ -171,7 +186,11 @@ namespace CFramework
         public static void AddInstaller(Action<IContainerBuilder> installAction)
         {
             if (installAction == null) throw new ArgumentNullException(nameof(installAction));
-            _additionalInstallers.Add(new ActionInstaller(installAction));
+
+            lock (_installerLock)
+            {
+                _additionalInstallers.Add(new ActionInstaller(installAction));
+            }
 
             // 如果 GameScope 已构建，触发容器重建
             if (Instance != null && Instance._isBuilt) Instance.RebuildContainer();
@@ -185,7 +204,10 @@ namespace CFramework
         /// <returns>是否移除成功</returns>
         public static bool RemoveInstaller(IInstaller installer)
         {
-            return _additionalInstallers.Remove(installer);
+            lock (_installerLock)
+            {
+                return _additionalInstallers.Remove(installer);
+            }
         }
 
         /// <summary>
@@ -194,7 +216,10 @@ namespace CFramework
         /// </summary>
         public static void ClearInstallers()
         {
-            _additionalInstallers.Clear();
+            lock (_installerLock)
+            {
+                _additionalInstallers.Clear();
+            }
         }
 
         /// <summary>
