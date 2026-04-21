@@ -74,14 +74,9 @@ namespace CFramework
 
             if (!options.Loop)
             {
+                // 使用独立延迟释放，不受调用方 ct 取消影响
                 var delayMs = (int)(clip.length / options.Pitch * 1000) + 100;
-                UniTask.Delay(delayMs, cancellationToken: ct)
-                    .ContinueWith(() =>
-                    {
-                        if (slot.IsPlaying) return;
-                        node.ReleaseSlot(slot.Index);
-                    })
-                    .Forget();
+                ScheduleSlotRelease(slot, node, delayMs);
             }
 
             return slot;
@@ -217,6 +212,27 @@ namespace CFramework
             {
                 // 被新 Fade 接管时取消旧的是正常行为
             }
+        }
+
+        /// <summary>
+        ///     延迟释放 Slot（非循环音频播放完毕后自动回收）
+        ///     <para>不受外部 CancellationToken 影响，仅 Slot Reset 时停止</para>
+        /// </summary>
+        private static async UniTaskVoid ScheduleSlotRelease(
+            AudioSourceSlot slot, AudioGroupNode node, int delayMs)
+        {
+            try
+            {
+                await UniTask.Delay(delayMs, ignoreTimeScale: false,
+                    timing: PlayerLoopTiming.Update);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            if (slot.IsPlaying) return;
+            node.ReleaseSlot(slot.Index);
         }
     }
 }
