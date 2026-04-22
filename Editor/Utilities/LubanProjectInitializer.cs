@@ -93,9 +93,12 @@ namespace CFramework.Editor.Utilities
         private static void CreateProjectStructure(string root, bool useXlsx)
         {
             var datasDir = Path.Combine(root, "Datas");
+            var definesDir = Path.Combine(root, "Defines");
             Directory.CreateDirectory(datasDir);
+            Directory.CreateDirectory(definesDir);
 
             CreateLubanConf(root, useXlsx);
+            CreateBuiltinDefines(definesDir);
 
             if (useXlsx)
             {
@@ -123,7 +126,7 @@ namespace CFramework.Editor.Utilities
     ],
     ""schemaFiles"":
     [
-        {""fileName"":""Datas/Defines" + ext + @""", ""type"":""""},
+        {""fileName"":""Defines"", ""type"":""""},
         {""fileName"":""Datas/__tables__" + ext + @""", ""type"":""table""},
         {""fileName"":""Datas/__beans__" + ext + @""", ""type"":""bean""},
         {""fileName"":""Datas/__enums__" + ext + @""", ""type"":""enum""}
@@ -141,6 +144,32 @@ namespace CFramework.Editor.Utilities
 }";
             var confPath = Path.Combine(root, "luban.conf");
             File.WriteAllText(confPath, conf, Encoding.UTF8);
+        }
+
+        /// <summary>
+        ///     创建 Defines 目录下的内置类型定义
+        ///     <para>定义常用值类型（vector2/vector3/vector4），与官方 luban_examples 保持一致</para>
+        /// </summary>
+        private static void CreateBuiltinDefines(string definesDir)
+        {
+            var xml = @"<module name="""">
+    <bean name=""vector2"" valueType=""1"" sep="","">
+        <var name=""x"" type=""float""/>
+        <var name=""y"" type=""float""/>
+    </bean>
+    <bean name=""vector3"" valueType=""1"" sep="","">
+        <var name=""x"" type=""float""/>
+        <var name=""y"" type=""float""/>
+        <var name=""z"" type=""float""/>
+    </bean>
+    <bean name=""vector4"" valueType=""1"" sep="","">
+        <var name=""x"" type=""float""/>
+        <var name=""y"" type=""float""/>
+        <var name=""z"" type=""float""/>
+        <var name=""w"" type=""float""/>
+    </bean>
+</module>";
+            File.WriteAllText(Path.Combine(definesDir, "builtin.xml"), xml, Encoding.UTF8);
         }
 
         #region CSV 模板
@@ -172,14 +201,6 @@ namespace CFramework.Editor.Utilities
                 "##",
                 "## 在此定义枚举类型",
                 "## 示例：ItemType,物品类型枚举",
-            });
-
-            WriteCsv(datasDir, "Defines.csv", new[]
-            {
-                "##var:name,value,comment",
-                "##type:string,string,string",
-                "##",
-                "## 在此定义常量，可跨表引用",
             });
         }
 
@@ -236,14 +257,6 @@ namespace CFramework.Editor.Utilities
                 new[] { "##", "" },
                 new[] { "## 在此定义枚举类型", "" },
                 new[] { "## 示例：ItemType,物品类型枚举", "" },
-            });
-
-            WriteXlsx(datasDir, "Defines.xlsx", new[]
-            {
-                new[] { "##var:name", "##var:value", "##var:comment" },
-                new[] { "##type:string", "##type:string", "##type:string" },
-                new[] { "##", "", "" },
-                new[] { "## 在此定义常量，可跨表引用", "", "" },
             });
         }
 
@@ -419,11 +432,12 @@ namespace CFramework.Editor.Utilities
 LubanConfig/
 ├── luban.conf              主配置文件（定义生成目标、分组等）
 ├── README.md               本文档
+├── Defines/                类型定义目录（XML 格式）
+│   └── builtin.xml         内置类型（vector2/vector3/vector4）
 └── Datas/                  数据目录
     ├── __tables__." + ext + @"     表注册（定义有哪些数据表）
     ├── __beans__." + ext + @"      Bean 定义（复合数据结构）
     ├── __enums__." + ext + @"      枚举定义
-    ├── Defines." + ext + @"        常量定义
     └── *." + ext + @"              数据表文件（每个表一个文件）
 ```
 
@@ -519,10 +533,10 @@ Item,物品数据结构
             sb.AppendLine();
             sb.AppendLine("已创建文件:");
             sb.AppendLine("  ✓ luban.conf");
+            sb.AppendLine("  ✓ Defines/builtin.xml（内置类型：vector2/vector3/vector4）");
             sb.AppendLine($"  ✓ Datas/__tables__{ext}");
             sb.AppendLine($"  ✓ Datas/__beans__{ext}");
             sb.AppendLine($"  ✓ Datas/__enums__{ext}");
-            sb.AppendLine($"  ✓ Datas/Defines{ext}");
             sb.AppendLine($"  ✓ Datas/TbDemoItem{ext}（示例表）");
             sb.AppendLine("  ✓ README.md");
             return sb.ToString();
