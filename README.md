@@ -14,7 +14,7 @@
 | UI | 面板管理、自动绑定、响应式数据绑定、代码生成 |
 | Audio | 双音轨 BGM 系统，分组音量控制 |
 | Scene | 场景加载管理，支持过渡动画和叠加场景 |
-| Config | 基于 ScriptableObject 的配置表系统 |
+| Config | 基于 Luban 配置库的配置系统 |
 | Save | 原子写入存档系统，脏状态管理 |
 | State | 有限状态机（FSM），支持普通状态与栈状态 |
 | Utility | 字符串、随机数、日志等通用工具 |
@@ -92,11 +92,9 @@ public sealed class GameEntry : MonoBehaviour
             Debug.LogError($"[全局异常] {ex.Message}");
         });
 
-        // 初始化服务
-        await UniTask.WhenAll(
-            container.Resolve<IConfigService>().InitializeAsync(),
-            container.Resolve<IAssetService>().InitializeAsync()
-        );
+        // 初始化配置服务（由游戏项目注册的 Luban 配置服务）
+        var configService = container.Resolve<IConfigService>();
+        await configService.LoadAllAsync();
 
         // 加载初始场景
         var sceneService = container.Resolve<ISceneService>();
@@ -256,29 +254,62 @@ if (blackboard.TryGet<int>("Health", out var hp))
 }
 ```
 
-### 8. 配置表
+### 8. 配置表（Luban）
+
+框架使用 [Luban](https://luban.docable.cn/) 作为配置解决方案。游戏项目需继承 `LubanConfigService` 并注册到 DI 容器。
+
+#### 定义配置服务
 
 ```csharp
-// 定义配置项
-[Serializable]
-public class ItemData : IConfigItem<int>
+// GameConfigService.cs - 游戏项目实现
+public class GameConfigService : LubanConfigService
 {
-    public int Id;
-    public string Name;
-    public int Price;
-    public int Key => Id;
+    private readonly ILubanDataLoader _loader;
+    private cfg.Tables _tables;
+
+    public GameConfigService(ILubanDataLoader loader)
+    {
+        _loader = loader;
+    }
+
+    public cfg.Tables Tables => _tables;
+
+    protected override async UniTask OnLoadConfigAsync(CancellationToken ct)
+    {
+        // 预加载配置表 bytes 数据
+        await _loader.PreloadAsync(new[] { "TbItem", "TbSkill", "TbGlobal" }, ct);
+        // 创建 Luban Tables（同步）
+        _tables = new cfg.Tables(file => new ByteBuf(_loader.GetData(file)));
+    }
+
+    public override void UnloadAll()
+    {
+        _tables = null;
+        _loader.UnloadAll();
+    }
 }
+```
 
-// 定义配置表
-public class ItemConfig : ConfigTable<int, ItemData> { }
+#### 注册到 DI 容器
 
-// 使用
+```csharp
+// 在游戏安装器中注册
+GameScope.AddInstaller(builder =>
+{
+    builder.Register<ILubanDataLoader, AddressablesLubanDataLoader>(Lifetime.Singleton);
+    builder.Register<IConfigService, GameConfigService>(Lifetime.Singleton);
+});
+```
+
+#### 使用配置数据
+
+```csharp
 var configService = container.Resolve<IConfigService>();
-var itemConfig = configService.GetTable<ItemConfig>();
-if (itemConfig.TryGet(1001, out var itemData))
-{
-    Debug.Log($"物品名称: {itemData.Name}");
-}
+await configService.LoadAllAsync();
+
+var gameConfig = (GameConfigService)configService;
+var itemData = gameConfig.Tables.TbItem.Get(1001);
+Debug.Log($"物品名称: {itemData.Name}");
 ```
 
 ## 模块详情
@@ -324,11 +355,11 @@ Core 模块是框架的基础，提供以下能力：
 
 ### Config 模块
 
-- **ConfigTable<TKey, TValue>**：泛型配置表，类型安全的数据访问
-- 数据源标记：支持 ScriptableObject、Binary、Json、Network 等多种来源
-- 热重载：支持运行时重新加载配置数据
-- Odin 序列化：支持复杂类型（Odin 为可选依赖，未安装时使用 Unity 原生序列化）
-- 可视化编辑：内置配置表编辑器窗口，支持搜索、增删改数据
+- **LubanConfigService**：配置服务抽象基类，游戏项目继承并实现 Luban Tables 创建
+- **ILubanDataLoader**：数据加载器接口，抽象 bytes 数据加载方式
+- **AddressablesLubanDataLoader**：基于 Addressables 的默认数据加载器实现
+- 多数据源支持：通过实现 `ILubanDataLoader` 支持不同加载方式（Addressables、Resources、文件系统等）
+- DI 集成：通过 `GameScope.AddInstaller` 注册游戏项目的配置服务
 
 ### Save 模块
 
@@ -362,8 +393,8 @@ Core 模块是框架的基础，提供以下能力：
 | UIPanelGenerator | `CFramework → 生成UI绑定代码` | UI 面板绑定代码生成器 |
 | UIPanelGeneratorWindow | `CFramework → UI → UI面板生成器` | 代码生成器配置窗口 |
 | AddressableConstantsGenerator | — | Addressable 资源常量代码生成器 |
-| ConfigTableEditor | — | 配置表自定义 Inspector |
-| ConfigCreatorWindow | `CFramework → Config → 配置表创建` | 配置表创建窗口 |
+| ConfigTableEditor | — | 配置表自定义 Inspector（已移除，改用 Luban 工具链） |
+| ConfigCreatorWindow | — | 配置表创建窗口（已移除，改用 Luban 工具链） |
 | ExceptionViewerWindow | `CFramework → Tools → 异常查看器` | 运行时异常查看窗口 |
 
 ## FrameworkSettings 配置项
@@ -380,7 +411,6 @@ Core 模块是框架的基础，提供以下能力：
 | AutoSaveInterval | int | 60 | 自动保存间隔（秒） |
 | EncryptionKey | string | "CFramework_DefaultKey" | 存档加密密钥（AES-128 需要 16 字符） |
 | LogLevel | LogLevel | Debug | 日志级别 |
-| ConfigAddressPrefix | string | "Config" | 配置表 Addressable 地址前缀 |
 
 ## 测试
 
@@ -433,6 +463,7 @@ MIT License
 - [R3](https://github.com/Cysharp/R3) — Unity 响应式扩展库
 - [Odin Inspector](https://odininspector.com/) — 序列化与 Inspector 增强
 - [Addressables](https://docs.unity3d.com/Packages/com.unity.addressables@latest) — Unity 资源管理系统
+- [Luban](https://luban.docable.cn/) — 强大、易用、优雅、稳定的游戏配置解决方案
 
 ---
 

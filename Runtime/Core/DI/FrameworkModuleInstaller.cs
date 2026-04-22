@@ -6,7 +6,8 @@ namespace CFramework
 {
     /// <summary>
     ///     框架模块服务安装器
-    ///     <para>注册框架提供的功能模块：资源、UI、音频、场景、配置、存档</para>
+    ///     <para>注册框架提供的功能模块：资源、UI、音频、场景、存档、配置</para>
+    ///     <para>配置服务（IConfigService）需由游戏项目通过 LubanConfigService 子类自行注册</para>
     /// </summary>
     public sealed class FrameworkModuleInstaller : IInstaller
     {
@@ -21,9 +22,8 @@ namespace CFramework
             builder.InstallModule<IAudioService, AudioService>();
 #endif
             builder.InstallModule<ISceneService, SceneService>();
-            builder.InstallModule<IConfigProvider, SOConfigProvider>();
-            builder.InstallModule<IConfigService, ConfigService>();
             builder.InstallModule<ISaveService, SaveService>();
+            builder.InstallModule<ILubanDataLoader, AddressablesLubanDataLoader>();
         }
     }
 }
