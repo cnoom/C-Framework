@@ -239,21 +239,23 @@ namespace CFramework.Editor.Utilities
             });
 
             // __beans__ 字段（对照官方 luban_examples）：
-            // full_name, parent, valueType, alias, sep, comment, tags, group, *fields(name,alias,type,group,comment,tags,variants)
+            // Row 1: 顶级字段，*fields 标记多记录列
+            // Row 2: *fields 的子字段定义，从 B 列开始（无空列填充）
             WriteXlsx(datasDir, "__beans__.xlsx", new[]
             {
                 new[] { "##var", "full_name", "parent", "valueType", "alias", "sep", "comment", "tags", "group", "*fields", "", "", "", "", "", "" },
-                new[] { "##var", "", "", "", "", "", "", "", "", "name", "alias", "type", "group", "comment", "tags", "variants" },
-                new[] { "##", "全名", "父类", "是否值类型", "别名", "分隔符", "注释", "标签", "分组", "字段名", "别名", "类型", "分组", "注释", "标签", "多态" },
+                new[] { "##var", "name", "alias", "type", "group", "comment", "tags", "variants" },
+                new[] { "##", "全名(包含模块和名字)", "父类", "是否值类型", "别名", "分隔符", "注释", "标签", "分组", "字段名", "别名", "类型", "分组", "注释", "标签", "多态" },
             });
 
             // __enums__ 字段（对照官方 luban_examples）：
-            // full_name, flags, unique, group, comment, tags, *items(name,alias,value,comment,tags)
+            // Row 1: 顶级字段，*items 标记多记录列
+            // Row 2: *items 的子字段定义，从 B 列开始（无空列填充）
             WriteXlsx(datasDir, "__enums__.xlsx", new[]
             {
                 new[] { "##var", "full_name", "flags", "unique", "group", "comment", "tags", "*items", "", "", "", "" },
-                new[] { "##var", "", "", "", "", "", "", "name", "alias", "value", "comment", "tags" },
-                new[] { "##", "全名", "是否标志位", "枚举值唯一", "分组", "注释", "标签", "枚举名", "别名", "值", "注释", "标签" },
+                new[] { "##var", "name", "alias", "value", "comment", "tags" },
+                new[] { "##", "全名(包含模块和名字)", "是否标志位", "枚举值唯一", "分组", "注释", "标签", "枚举名", "别名", "值", "注释", "标签" },
             });
         }
 
