@@ -11,7 +11,7 @@ namespace CFramework.Editor.Utilities
 {
     /// <summary>
     ///     Luban 配置工程初始化器
-    ///     <para>一键创建 Luban 配置所需的目录结构、xlsx 模板文件和说明文档</para>
+    ///     <para>一键创建 Luban 配置所需的目录结构、模板文件和说明文档</para>
     /// </summary>
     public static class LubanProjectInitializer
     {
@@ -20,6 +20,17 @@ namespace CFramework.Editor.Utilities
         /// </summary>
         public static void Initialize()
         {
+            // 选择配置文件格式
+            var useXlsx = false;
+            var selected = EditorUtility.DisplayDialogComplex("选择配置文件格式",
+                "请选择 Luban 配置文件的数据格式：\n\n" +
+                "• CSV（推荐）— 所有 Luban 版本均支持，纯文本格式\n" +
+                "• XLSX — Excel 原生格式，需完整版 Luban（含 ExcelSchemaLoader）",
+                "CSV（推荐）", "XLSX", "取消");
+
+            if (selected == 2) return; // 取消
+            useXlsx = selected == 1;
+
             // 让用户选择输出目录（可在项目外部）
             var selectedPath = EditorUtility.OpenFolderPanel("选择 Luban 配置工程目录", "", "");
             if (string.IsNullOrEmpty(selectedPath)) return;
@@ -53,12 +64,12 @@ namespace CFramework.Editor.Utilities
 
             try
             {
-                CreateProjectStructure(selectedPath);
-                CreateReadme(selectedPath);
+                CreateProjectStructure(selectedPath, useXlsx);
+                CreateReadme(selectedPath, useXlsx);
 
                 // 询问是否更新 LubanConfig
                 if (EditorUtility.DisplayDialog("初始化完成",
-                    BuildSummary(selectedPath) +
+                    BuildSummary(selectedPath, useXlsx) +
                     "\n\n是否更新 Luban 设置指向此配置文件？\n" +
                     "（将在 CFramework → Luban → 设置 中生效）",
                     "更新设置", "稍后手动设置"))
@@ -79,26 +90,31 @@ namespace CFramework.Editor.Utilities
         /// <summary>
         ///     创建完整的 Luban 配置工程结构
         /// </summary>
-        private static void CreateProjectStructure(string root)
+        private static void CreateProjectStructure(string root, bool useXlsx)
         {
             var datasDir = Path.Combine(root, "Datas");
             Directory.CreateDirectory(datasDir);
 
-            // 创建 luban.conf
-            CreateLubanConf(root);
+            CreateLubanConf(root, useXlsx);
 
-            // 创建 xlsx 模板文件
-            CreateSchemaTemplates(datasDir);
-
-            // 创建示例数据表
-            CreateDemoTable(datasDir);
+            if (useXlsx)
+            {
+                CreateXlsxSchemaTemplates(datasDir);
+                CreateXlsxDemoTable(datasDir);
+            }
+            else
+            {
+                CreateCsvSchemaTemplates(datasDir);
+                CreateCsvDemoTable(datasDir);
+            }
         }
 
         /// <summary>
         ///     创建 luban.conf 主配置文件
         /// </summary>
-        private static void CreateLubanConf(string root)
+        private static void CreateLubanConf(string root, bool useXlsx)
         {
+            var ext = useXlsx ? ".xlsx" : ".csv";
             var conf = @"{
     ""groups"":
     [
@@ -107,10 +123,10 @@ namespace CFramework.Editor.Utilities
     ],
     ""schemaFiles"":
     [
-        {""fileName"":""Datas/Defines.xlsx"", ""type"":""""},
-        {""fileName"":""Datas/__tables__.xlsx"", ""type"":""table""},
-        {""fileName"":""Datas/__beans__.xlsx"", ""type"":""bean""},
-        {""fileName"":""Datas/__enums__.xlsx"", ""type"":""enum""}
+        {""fileName"":""Datas/Defines" + ext + @""", ""type"":""""},
+        {""fileName"":""Datas/__tables__" + ext + @""", ""type"":""table""},
+        {""fileName"":""Datas/__beans__" + ext + @""", ""type"":""bean""},
+        {""fileName"":""Datas/__enums__" + ext + @""", ""type"":""enum""}
     ],
     ""dataDir"": ""Datas"",
     ""targets"":
@@ -127,12 +143,74 @@ namespace CFramework.Editor.Utilities
             File.WriteAllText(confPath, conf, Encoding.UTF8);
         }
 
-        /// <summary>
-        ///     创建 Schema 定义模板文件
-        /// </summary>
-        private static void CreateSchemaTemplates(string datasDir)
+        #region CSV 模板
+
+        private static void CreateCsvSchemaTemplates(string datasDir)
         {
-            // __tables__.xlsx - 表注册文件
+            WriteCsv(datasDir, "__tables__.csv", new[]
+            {
+                "##var:name,value_type,index,comment",
+                "##type:string,string,string,string",
+                "##",
+                "## 在此注册数据表，每行一个表定义",
+                "## 示例：TbDemoItem,DemoItem,id,示例物品表",
+            });
+
+            WriteCsv(datasDir, "__beans__.csv", new[]
+            {
+                "##var:name,comment",
+                "##type:string,string",
+                "##",
+                "## 在此定义 Bean（复合数据结构），供数据表引用",
+                "## 示例：Reward,Reward奖励结构",
+            });
+
+            WriteCsv(datasDir, "__enums__.csv", new[]
+            {
+                "##var:name,comment",
+                "##type:string,string",
+                "##",
+                "## 在此定义枚举类型",
+                "## 示例：ItemType,物品类型枚举",
+            });
+
+            WriteCsv(datasDir, "Defines.csv", new[]
+            {
+                "##var:name,value,comment",
+                "##type:string,string,string",
+                "##",
+                "## 在此定义常量，可跨表引用",
+            });
+        }
+
+        private static void CreateCsvDemoTable(string datasDir)
+        {
+            WriteCsv(datasDir, "TbDemoItem.csv", new[]
+            {
+                "##var:id,name,desc,count",
+                "##type:int,string,string,int",
+                "##",
+                "## 示例物品表",
+                "## 可在 __tables__.csv 中添加 TbDemoItem,DemoItem,id,示例物品表 来启用",
+                "1,木剑,初始武器,1",
+                "2,治疗药水,恢复生命值,5",
+                "3,铁盾,基础防御装备,1",
+            });
+        }
+
+        private static void WriteCsv(string directory, string fileName, string[] lines)
+        {
+            var filePath = Path.Combine(directory, fileName);
+            var bom = new UTF8Encoding(true);
+            File.WriteAllLines(filePath, lines, bom);
+        }
+
+        #endregion
+
+        #region XLSX 模板
+
+        private static void CreateXlsxSchemaTemplates(string datasDir)
+        {
             WriteXlsx(datasDir, "__tables__.xlsx", new[]
             {
                 new[] { "##var:name", "##var:value_type", "##var:index", "##var:comment" },
@@ -142,7 +220,6 @@ namespace CFramework.Editor.Utilities
                 new[] { "## 示例：TbDemoItem,DemoItem,id,示例物品表", "", "", "" },
             });
 
-            // __beans__.xlsx - Bean 定义文件
             WriteXlsx(datasDir, "__beans__.xlsx", new[]
             {
                 new[] { "##var:name", "##var:comment" },
@@ -152,7 +229,6 @@ namespace CFramework.Editor.Utilities
                 new[] { "## 示例：Reward,Reward奖励结构", "" },
             });
 
-            // __enums__.xlsx - 枚举定义文件
             WriteXlsx(datasDir, "__enums__.xlsx", new[]
             {
                 new[] { "##var:name", "##var:comment" },
@@ -162,7 +238,6 @@ namespace CFramework.Editor.Utilities
                 new[] { "## 示例：ItemType,物品类型枚举", "" },
             });
 
-            // Defines.xlsx - 常量定义文件
             WriteXlsx(datasDir, "Defines.xlsx", new[]
             {
                 new[] { "##var:name", "##var:value", "##var:comment" },
@@ -172,10 +247,7 @@ namespace CFramework.Editor.Utilities
             });
         }
 
-        /// <summary>
-        ///     创建一个示例数据表，帮助用户理解格式
-        /// </summary>
-        private static void CreateDemoTable(string datasDir)
+        private static void CreateXlsxDemoTable(string datasDir)
         {
             WriteXlsx(datasDir, "TbDemoItem.xlsx", new[]
             {
@@ -300,9 +372,6 @@ namespace CFramework.Editor.Utilities
                 "</styleSheet>");
         }
 
-        /// <summary>
-        ///     列索引转 Excel 列名（0→A, 1→B, ... 25→Z, 26→AA）
-        /// </summary>
         private static string ColumnIndexToName(int index)
         {
             var name = "";
@@ -316,9 +385,6 @@ namespace CFramework.Editor.Utilities
             return name;
         }
 
-        /// <summary>
-        ///     XML 特殊字符转义
-        /// </summary>
         private static string EscapeXml(string text)
         {
             return text.Replace("&", "&amp;")
@@ -328,9 +394,6 @@ namespace CFramework.Editor.Utilities
                 .Replace("'", "&apos;");
         }
 
-        /// <summary>
-        ///     向 zip 中写入文本条目
-        /// </summary>
         private static void WriteEntry(ZipArchive archive, string entryName, string content)
         {
             var entry = archive.CreateEntry(entryName, System.IO.Compression.CompressionLevel.Optimal);
@@ -339,11 +402,15 @@ namespace CFramework.Editor.Utilities
             entryStream.Write(bytes, 0, bytes.Length);
         }
 
+        #endregion
+
         /// <summary>
         ///     创建 README 说明文档
         /// </summary>
-        private static void CreateReadme(string root)
+        private static void CreateReadme(string root, bool useXlsx)
         {
+            var ext = useXlsx ? ".xlsx" : ".csv";
+
             var readme = @"# Luban 配置工程
 
 ## 目录结构
@@ -353,17 +420,17 @@ LubanConfig/
 ├── luban.conf              主配置文件（定义生成目标、分组等）
 ├── README.md               本文档
 └── Datas/                  数据目录
-    ├── __tables__.xlsx     表注册（定义有哪些数据表）
-    ├── __beans__.xlsx      Bean 定义（复合数据结构）
-    ├── __enums__.xlsx      枚举定义
-    ├── Defines.xlsx        常量定义
-    └── *.xlsx              数据表文件（每个表一个文件）
+    ├── __tables__." + ext + @"     表注册（定义有哪些数据表）
+    ├── __beans__." + ext + @"      Bean 定义（复合数据结构）
+    ├── __enums__." + ext + @"      枚举定义
+    ├── Defines." + ext + @"        常量定义
+    └── *." + ext + @"              数据表文件（每个表一个文件）
 ```
 
 ## 快速上手
 
 ### 1. 注册数据表
-在 `__tables__.xlsx` 中添加行：
+在 `__tables__." + ext + @"` 中添加行：
 ```
 TbItem,Item,id,物品表
 ```
@@ -373,11 +440,11 @@ TbItem,Item,id,物品表
 - comment: 表描述
 
 ### 2. 定义数据结构
-在 `__beans__.xlsx` 中添加行：
+在 `__beans__." + ext + @"` 中添加行：
 ```
 Item,物品数据结构
 ```
-然后创建 `Item.xlsx` 定义字段：
+然后创建 `Item." + ext + @"` 定义字段：
 ```
 ##var:id,name,desc,quality
 ##type:int,string,string,int
@@ -386,7 +453,7 @@ Item,物品数据结构
 ```
 
 ### 3. 创建数据文件
-在与 Bean 同名的 xlsx 文件中填写数据：
+在与 Bean 同名的文件中填写数据：
 - 第 1 行 `##var:` — 字段名
 - 第 2 行 `##type:` — 类型（int, long, float, double, bool, string 等）
 - 第 3 行 `##` — 注释行（可选）
@@ -423,7 +490,7 @@ Item,物品数据结构
 ## 进阶用法
 
 ### 多态 Bean
-在 __beans__.xlsx 中定义父类后，可在子 Bean 文件中定义继承关系。
+在 __beans__." + ext + @" 中定义父类后，可在子 Bean 文件中定义继承关系。
 
 ### 引用校验
 使用 `ref` 类型可校验字段值是否引用了其他表的合法 key。
@@ -432,8 +499,8 @@ Item,物品数据结构
 使用 `path` 类型可校验资源路径是否存在。
 
 ## 注意事项
-- 数据文件使用 Excel 编辑
-- luban.conf 中的 schemaFiles 后缀必须与实际文件一致（.xlsx）
+- luban.conf 中的 schemaFiles 后缀必须与实际文件一致
+- 如需切换格式，需同时更新 luban.conf 后缀和 Datas 目录中的文件
 ";
             File.WriteAllText(Path.Combine(root, "README.md"), readme, Encoding.UTF8);
         }
@@ -441,19 +508,22 @@ Item,物品数据结构
         /// <summary>
         ///     构建初始化结果摘要
         /// </summary>
-        private static string BuildSummary(string root)
+        private static string BuildSummary(string root, bool useXlsx)
         {
+            var ext = useXlsx ? ".xlsx" : ".csv";
             var sb = new StringBuilder();
             sb.AppendLine("Luban 配置工程已创建于:");
             sb.AppendLine(root);
             sb.AppendLine();
+            sb.AppendLine($"格式: {ext.TrimStart('.').ToUpper()}");
+            sb.AppendLine();
             sb.AppendLine("已创建文件:");
             sb.AppendLine("  ✓ luban.conf");
-            sb.AppendLine("  ✓ Datas/__tables__.xlsx");
-            sb.AppendLine("  ✓ Datas/__beans__.xlsx");
-            sb.AppendLine("  ✓ Datas/__enums__.xlsx");
-            sb.AppendLine("  ✓ Datas/Defines.xlsx");
-            sb.AppendLine("  ✓ Datas/TbDemoItem.xlsx（示例表）");
+            sb.AppendLine($"  ✓ Datas/__tables__{ext}");
+            sb.AppendLine($"  ✓ Datas/__beans__{ext}");
+            sb.AppendLine($"  ✓ Datas/__enums__{ext}");
+            sb.AppendLine($"  ✓ Datas/Defines{ext}");
+            sb.AppendLine($"  ✓ Datas/TbDemoItem{ext}（示例表）");
             sb.AppendLine("  ✓ README.md");
             return sb.ToString();
         }
@@ -465,7 +535,6 @@ Item,物品数据结构
         {
             var projectRoot = Path.GetDirectoryName(Application.dataPath);
 
-            // ConfPath: 相对路径或绝对路径
             if (confPath.StartsWith(projectRoot, StringComparison.OrdinalIgnoreCase))
             {
                 LubanConfig.ConfPath = confPath.Substring(projectRoot.Length + 1).Replace('\\', '/');
