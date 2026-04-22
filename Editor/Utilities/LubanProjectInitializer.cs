@@ -188,16 +188,16 @@ namespace CFramework.Editor.Utilities
 
             WriteCsv(datasDir, "__beans__.csv", new[]
             {
-                "##var:full_name,comment",
-                "##type:string,string",
-                "##,注释",
+                "##var:full_name,parent,valueType,alias,sep,comment,tags,group,*fields.name,*fields.alias,*fields.type,*fields.group,*fields.comment,*fields.tags",
+                "##type:string,string,bool,string,string,string,string,string,string,string,string,string,string,string",
+                "##,全名,父类,是否值类型,别名,分隔符,注释,标签,分组,字段名,别名,类型,分组,注释,标签",
             });
 
             WriteCsv(datasDir, "__enums__.csv", new[]
             {
-                "##var:full_name,comment",
-                "##type:string,string",
-                "##,注释",
+                "##var:full_name,flags,unique,group,comment,tags,*items.name,*items.alias,*items.value,*items.comment,*items.tags",
+                "##type:string,bool,bool,string,string,string,string,string,string,string,string",
+                "##,全名,是否标志位,枚举值唯一,分组,注释,标签,枚举名,别名,值,注释,标签",
             });
         }
 
@@ -238,16 +238,22 @@ namespace CFramework.Editor.Utilities
                 new[] { "", "TbDemoItem", "DemoItem", "true", "TbDemoItem.xlsx", "id", "", "", "示例物品表", "", "TbDemoItem" },
             });
 
+            // __beans__ 字段（对照官方 luban_examples）：
+            // full_name, parent, valueType, alias, sep, comment, tags, group, *fields(name,alias,type,group,comment,tags,variants)
             WriteXlsx(datasDir, "__beans__.xlsx", new[]
             {
-                new[] { "##var", "full_name", "comment" },
-                new[] { "##", "全名", "注释" },
+                new[] { "##var", "full_name", "parent", "valueType", "alias", "sep", "comment", "tags", "group", "*fields", "", "", "", "", "", "" },
+                new[] { "##var", "", "", "", "", "", "", "", "", "name", "alias", "type", "group", "comment", "tags", "variants" },
+                new[] { "##", "全名", "父类", "是否值类型", "别名", "分隔符", "注释", "标签", "分组", "字段名", "别名", "类型", "分组", "注释", "标签", "多态" },
             });
 
+            // __enums__ 字段（对照官方 luban_examples）：
+            // full_name, flags, unique, group, comment, tags, *items(name,alias,value,comment,tags)
             WriteXlsx(datasDir, "__enums__.xlsx", new[]
             {
-                new[] { "##var", "full_name", "comment" },
-                new[] { "##", "全名", "注释" },
+                new[] { "##var", "full_name", "flags", "unique", "group", "comment", "tags", "*items", "", "", "", "" },
+                new[] { "##var", "", "", "", "", "", "", "name", "alias", "value", "comment", "tags" },
+                new[] { "##", "全名", "是否标志位", "枚举值唯一", "分组", "注释", "标签", "枚举名", "别名", "值", "注释", "标签" },
             });
         }
 
