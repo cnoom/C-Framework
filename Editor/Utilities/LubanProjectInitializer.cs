@@ -421,7 +421,7 @@ namespace CFramework.Editor.Utilities
         /// </summary>
         private static void WriteEntry(ZipArchive archive, string entryName, string content)
         {
-            var entry = archive.CreateEntry(entryName, CompressionLevel.Optimal);
+            var entry = archive.CreateEntry(entryName, System.IO.Compression.CompressionLevel.Optimal);
             using var entryStream = entry.Open();
             var bytes = Encoding.UTF8.GetBytes(content);
             entryStream.Write(bytes, 0, bytes.Length);
