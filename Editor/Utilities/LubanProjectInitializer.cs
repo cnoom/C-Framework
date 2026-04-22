@@ -176,27 +176,37 @@ namespace CFramework.Editor.Utilities
 
         private static void CreateCsvSchemaTemplates(string datasDir)
         {
+            // 表定义：full_name(必填), value_type(必填), input(必填), output(必填),
+            //         read_schema_from_file, index, mode, comment, group, tags
             WriteCsv(datasDir, "__tables__.csv", new[]
             {
-                "##var:name,value_type,index,comment",
-                "##type:string,string,string,string",
+                "##var:full_name,value_type,input,read_schema_from_file,index,comment,output",
+                "##type:string,string,string,bool,string,string,string",
                 "##",
                 "## 在此注册数据表，每行一个表定义",
-                "## 示例：TbDemoItem,DemoItem,id,示例物品表",
+                "## full_name: 表全名（如 TbItem）",
+                "## value_type: 记录类型名（如 Item）",
+                "## input: 数据文件路径（相对 dataDir）",
+                "## read_schema_from_file: true=从数据文件标题行读取类型定义，无需在 __beans__ 重复定义",
+                "## index: 主键字段名",
+                "## comment: 表描述",
+                "## output: 输出文件名",
+                "TbDemoItem,DemoItem,TbDemoItem,true,id,示例物品表,TbDemoItem",
             });
 
             WriteCsv(datasDir, "__beans__.csv", new[]
             {
-                "##var:name,comment",
+                "##var:full_name,comment",
                 "##type:string,string",
                 "##",
                 "## 在此定义 Bean（复合数据结构），供数据表引用",
+                "## 仅当 __tables__ 中 read_schema_from_file=false 时才需要在此定义",
                 "## 示例：Reward,Reward奖励结构",
             });
 
             WriteCsv(datasDir, "__enums__.csv", new[]
             {
-                "##var:name,comment",
+                "##var:full_name,comment",
                 "##type:string,string",
                 "##",
                 "## 在此定义枚举类型",
@@ -210,9 +220,7 @@ namespace CFramework.Editor.Utilities
             {
                 "##var:id,name,desc,count",
                 "##type:int,string,string,int",
-                "##",
-                "## 示例物品表",
-                "## 可在 __tables__.csv 中添加 TbDemoItem,DemoItem,id,示例物品表 来启用",
+                "##,物品ID,物品名称,物品描述,数量",
                 "1,木剑,初始武器,1",
                 "2,治疗药水,恢复生命值,5",
                 "3,铁盾,基础防御装备,1",
@@ -234,25 +242,26 @@ namespace CFramework.Editor.Utilities
         {
             WriteXlsx(datasDir, "__tables__.xlsx", new[]
             {
-                new[] { "##var:name", "##var:value_type", "##var:index", "##var:comment" },
-                new[] { "##type:string", "##type:string", "##type:string", "##type:string" },
-                new[] { "##", "", "", "" },
-                new[] { "## 在此注册数据表，每行一个表定义", "", "", "" },
-                new[] { "## 示例：TbDemoItem,DemoItem,id,示例物品表", "", "", "" },
+                new[] { "##var:full_name", "##var:value_type", "##var:input", "##var:read_schema_from_file", "##var:index", "##var:comment", "##var:output" },
+                new[] { "##type:string", "##type:string", "##type:string", "##type:bool", "##type:string", "##type:string", "##type:string" },
+                new[] { "##", "", "", "", "", "", "" },
+                new[] { "## 在此注册数据表，每行一个表定义", "", "", "", "", "", "" },
+                new[] { "## read_schema_from_file=true 时从数据文件标题行读取类型定义", "", "", "", "", "", "" },
+                new[] { "TbDemoItem", "DemoItem", "TbDemoItem", "true", "id", "示例物品表", "TbDemoItem" },
             });
 
             WriteXlsx(datasDir, "__beans__.xlsx", new[]
             {
-                new[] { "##var:name", "##var:comment" },
+                new[] { "##var:full_name", "##var:comment" },
                 new[] { "##type:string", "##type:string" },
                 new[] { "##", "" },
-                new[] { "## 在此定义 Bean（复合数据结构），供数据表引用", "" },
+                new[] { "## 在此定义 Bean，仅当 read_schema_from_file=false 时需要", "" },
                 new[] { "## 示例：Reward,Reward奖励结构", "" },
             });
 
             WriteXlsx(datasDir, "__enums__.xlsx", new[]
             {
-                new[] { "##var:name", "##var:comment" },
+                new[] { "##var:full_name", "##var:comment" },
                 new[] { "##type:string", "##type:string" },
                 new[] { "##", "" },
                 new[] { "## 在此定义枚举类型", "" },
@@ -436,29 +445,19 @@ LubanConfig/
 │   └── builtin.xml         内置类型（vector2/vector3/vector4）
 └── Datas/                  数据目录
     ├── __tables__." + ext + @"     表注册（定义有哪些数据表）
-    ├── __beans__." + ext + @"      Bean 定义（复合数据结构）
+    ├── __beans__." + ext + @"      Bean 定义（可选，read_schema_from_file=true 时不需要）
     ├── __enums__." + ext + @"      枚举定义
     └── *." + ext + @"              数据表文件（每个表一个文件）
 ```
 
 ## 快速上手
 
-### 1. 注册数据表
-在 `__tables__." + ext + @"` 中添加行：
-```
-TbItem,Item,id,物品表
-```
-- name: 表名（Tb 前缀 + PascalCase）
-- value_type: 对应的 Bean 类型名
-- index: 主键字段名
-- comment: 表描述
+### 方式一：简单模式（推荐，read_schema_from_file=true）
 
-### 2. 定义数据结构
-在 `__beans__." + ext + @"` 中添加行：
-```
-Item,物品数据结构
-```
-然后创建 `Item." + ext + @"` 定义字段：
+类型定义直接写在数据文件的标题行中，无需单独定义 Bean。
+
+#### 1. 创建数据文件
+创建 `TbItem." + ext + @"`：
 ```
 ##var:id,name,desc,quality
 ##type:int,string,string,int
@@ -466,15 +465,40 @@ Item,物品数据结构
 1,木剑,初始武器,1
 ```
 
-### 3. 创建数据文件
-在与 Bean 同名的文件中填写数据：
+#### 2. 注册表
+在 `__tables__." + ext + @"` 中添加行：
+```
+TbItem,Item,TbItem,true,id,物品表,TbItem
+```
+字段说明：full_name, value_type, input, read_schema_from_file, index, comment, output
+
+### 方式二：标准模式（read_schema_from_file=false）
+
+Bean 类型在 `__beans__` 中统一定义，适合复杂项目。
+
+### 生成代码和数据
+在 Unity 中：`CFramework → Luban → 一键生成`
+
+## __tables__ 字段说明
+
+| 字段 | 必填 | 类型 | 说明 |
+|------|------|------|------|
+| full_name | 是 | string | 表全名（如 TbItem） |
+| value_type | 是 | string | 记录类型名（如 Item） |
+| input | 是 | string | 数据文件路径（相对 dataDir） |
+| read_schema_from_file | 否 | bool | true=从数据文件标题行读取类型定义 |
+| index | 否 | string | 主键字段名，联合主键用+，独立主键用, |
+| mode | 否 | string | one(单例)/map(默认)/list |
+| comment | 否 | string | 注释 |
+| group | 否 | string | 分组 |
+| output | 否 | string | 输出文件名 |
+
+## 数据文件格式
+
 - 第 1 行 `##var:` — 字段名
 - 第 2 行 `##type:` — 类型（int, long, float, double, bool, string 等）
 - 第 3 行 `##` — 注释行（可选）
 - 第 4 行起 — 数据
-
-### 4. 生成代码和数据
-在 Unity 中：`CFramework → Luban → 一键生成`
 
 ## 类型说明
 
@@ -515,6 +539,7 @@ Item,物品数据结构
 ## 注意事项
 - luban.conf 中的 schemaFiles 后缀必须与实际文件一致
 - 如需切换格式，需同时更新 luban.conf 后缀和 Datas 目录中的文件
+- 使用 read_schema_from_file=true 时，不要在 __beans__ 中重复定义同名 Bean
 ";
             File.WriteAllText(Path.Combine(root, "README.md"), readme, Encoding.UTF8);
         }
