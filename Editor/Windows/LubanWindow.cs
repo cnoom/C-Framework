@@ -283,7 +283,16 @@ namespace CFramework.Editor.Windows
 
         private void DrawLogPanel()
         {
+            // 日志标题栏 + 复制按钮
+            EditorGUILayout.BeginHorizontal();
             GUILayout.Label("生成日志", EditorStyles.boldLabel);
+            if (_logs.Count > 0 && GUILayout.Button("复制全部日志", GUILayout.Width(100), GUILayout.Height(18)))
+            {
+                GUIUtility.systemCopyBuffer = string.Join(Environment.NewLine, _logs);
+                _statusText = "日志已复制到剪贴板";
+                _statusColor = new Color(0.4f, 0.8f, 1f);
+            }
+            EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.BeginVertical(EditorStyles.textArea, GUILayout.ExpandHeight(true));
             _logScrollPos = EditorGUILayout.BeginScrollView(_logScrollPos, GUILayout.ExpandHeight(true));
@@ -294,21 +303,15 @@ namespace CFramework.Editor.Windows
             }
             else
             {
-                foreach (var log in _logs)
+                // 使用 TextArea 渲染日志，支持选中复制
+                var logText = string.Join(Environment.NewLine, _logs);
+                var style = new GUIStyle(EditorStyles.textArea)
                 {
-                    if (log.StartsWith("[ERROR]") || log.StartsWith("[异常]"))
-                    {
-                        GUILayout.Label(log, _logErrorStyle);
-                    }
-                    else if (log.StartsWith("[Luban]") || log.StartsWith("[信息]"))
-                    {
-                        GUILayout.Label(log, _logInfoStyle);
-                    }
-                    else
-                    {
-                        GUILayout.Label(log, _logLabelStyle);
-                    }
-                }
+                    fontSize = 11,
+                    wordWrap = true,
+                    richText = false
+                };
+                EditorGUILayout.TextArea(logText, style, GUILayout.ExpandHeight(true));
 
                 if (Event.current.type == EventType.Repaint)
                 {
