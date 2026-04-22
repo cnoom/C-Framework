@@ -1,5 +1,3 @@
-using System.IO;
-using CFramework.Editor.Configs;
 using CFramework.Editor.Utilities;
 using CFramework.Editor.Windows;
 using UnityEditor;
@@ -56,58 +54,6 @@ namespace CFramework.Editor
         public static void InitializeProject()
         {
             LubanProjectInitializer.Initialize();
-        }
-
-        [MenuItem(MenuBase + "创建默认 luban.conf", priority = 500)]
-        public static void CreateDefaultLubanConf()
-        {
-            var path = EditorUtility.SaveFilePanel(
-                "保存 luban.conf",
-                "Assets",
-                "luban.conf",
-                "conf");
-
-            if (string.IsNullOrEmpty(path)) return;
-
-            var projectRoot = Path.GetDirectoryName(Application.dataPath);
-            var relativePath = path.StartsWith(projectRoot)
-                ? path.Substring(projectRoot.Length + 1).Replace('\\', '/')
-                : path;
-
-            var dir = Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-            {
-                Directory.CreateDirectory(dir);
-            }
-
-            var conf = @"{
-    ""groups"":
-    [
-        {""names"":[""c""], ""default"":true},
-        {""names"":[""s""], ""default"":true}
-    ],
-    ""schemaFiles"":
-    [
-        {""fileName"":""Defines"", ""type"":""""},
-        {""fileName"":""Datas/__tables__.xlsx"", ""type"":""table""},
-        {""fileName"":""Datas/__beans__.xlsx"", ""type"":""bean""},
-        {""fileName"":""Datas/__enums__.xlsx"", ""type"":""enum""}
-    ],
-    ""dataDir"": ""Datas"",
-    ""targets"":
-    [
-        {""name"":""client"", ""manager"":""Tables"", ""groups"":[""c""], ""topModule"":""cfg""},
-        {""name"":""server"", ""manager"":""Tables"", ""groups"":[""s""], ""topModule"":""cfg""},
-        {""name"":""all"", ""manager"":""Tables"", ""groups"":[""c"",""s""], ""topModule"":""cfg""}
-    ],
-    ""xargs"":
-    [
-    ]
-}";
-            File.WriteAllText(path, conf);
-            AssetDatabase.Refresh();
-
-            Debug.Log($"[Luban] 已创建 luban.conf: {relativePath}");
         }
     }
 }
