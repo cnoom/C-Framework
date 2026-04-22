@@ -182,15 +182,7 @@ namespace CFramework.Editor.Utilities
             {
                 "##var:full_name,value_type,input,read_schema_from_file,index,comment,output",
                 "##type:string,string,string,bool,string,string,string",
-                "##",
-                "## 在此注册数据表，每行一个表定义",
-                "## full_name: 表全名（如 TbItem）",
-                "## value_type: 记录类型名（如 Item）",
-                "## input: 数据文件路径（相对 dataDir）",
-                "## read_schema_from_file: true=从数据文件标题行读取类型定义，无需在 __beans__ 重复定义",
-                "## index: 主键字段名",
-                "## comment: 表描述",
-                "## output: 输出文件名",
+                "##,记录类型,数据文件,从文件读Schema,主键,注释,输出文件名",
                 "TbDemoItem,DemoItem,TbDemoItem,true,id,示例物品表,TbDemoItem",
             });
 
@@ -198,19 +190,14 @@ namespace CFramework.Editor.Utilities
             {
                 "##var:full_name,comment",
                 "##type:string,string",
-                "##",
-                "## 在此定义 Bean（复合数据结构），供数据表引用",
-                "## 仅当 __tables__ 中 read_schema_from_file=false 时才需要在此定义",
-                "## 示例：Reward,Reward奖励结构",
+                "##,注释",
             });
 
             WriteCsv(datasDir, "__enums__.csv", new[]
             {
                 "##var:full_name,comment",
                 "##type:string,string",
-                "##",
-                "## 在此定义枚举类型",
-                "## 示例：ItemType,物品类型枚举",
+                "##,注释",
             });
         }
 
@@ -242,30 +229,24 @@ namespace CFramework.Editor.Utilities
         {
             WriteXlsx(datasDir, "__tables__.xlsx", new[]
             {
-                new[] { "##var:full_name", "##var:value_type", "##var:input", "##var:read_schema_from_file", "##var:index", "##var:comment", "##var:output" },
-                new[] { "##type:string", "##type:string", "##type:string", "##type:bool", "##type:string", "##type:string", "##type:string" },
-                new[] { "##", "", "", "", "", "", "" },
-                new[] { "## 在此注册数据表，每行一个表定义", "", "", "", "", "", "" },
-                new[] { "## read_schema_from_file=true 时从数据文件标题行读取类型定义", "", "", "", "", "", "" },
+                new[] { "##var:full_name", "value_type", "input", "read_schema_from_file", "index", "comment", "output" },
+                new[] { "##type:string", "string", "string", "bool", "string", "string", "string" },
+                new[] { "##", "记录类型", "数据文件", "从文件读Schema", "主键", "注释", "输出文件名" },
                 new[] { "TbDemoItem", "DemoItem", "TbDemoItem", "true", "id", "示例物品表", "TbDemoItem" },
             });
 
             WriteXlsx(datasDir, "__beans__.xlsx", new[]
             {
-                new[] { "##var:full_name", "##var:comment" },
-                new[] { "##type:string", "##type:string" },
-                new[] { "##", "" },
-                new[] { "## 在此定义 Bean，仅当 read_schema_from_file=false 时需要", "" },
-                new[] { "## 示例：Reward,Reward奖励结构", "" },
+                new[] { "##var:full_name", "comment" },
+                new[] { "##type:string", "string" },
+                new[] { "##", "注释" },
             });
 
             WriteXlsx(datasDir, "__enums__.xlsx", new[]
             {
-                new[] { "##var:full_name", "##var:comment" },
-                new[] { "##type:string", "##type:string" },
-                new[] { "##", "" },
-                new[] { "## 在此定义枚举类型", "" },
-                new[] { "## 示例：ItemType,物品类型枚举", "" },
+                new[] { "##var:full_name", "comment" },
+                new[] { "##type:string", "string" },
+                new[] { "##", "注释" },
             });
         }
 
@@ -273,9 +254,9 @@ namespace CFramework.Editor.Utilities
         {
             WriteXlsx(datasDir, "TbDemoItem.xlsx", new[]
             {
-                new[] { "##var:id", "##var:name", "##var:desc", "##var:count" },
-                new[] { "##type:int", "##type:string", "##type:string", "##type:int" },
-                new[] { "##", "", "", "" },
+                new[] { "##var:id", "name", "desc", "count" },
+                new[] { "##type:int", "string", "string", "int" },
+                new[] { "##", "物品名称", "物品描述", "数量" },
                 new[] { "1", "木剑", "初始武器", "1" },
                 new[] { "2", "治疗药水", "恢复生命值", "5" },
                 new[] { "3", "铁盾", "基础防御装备", "1" },
