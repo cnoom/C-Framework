@@ -148,25 +148,36 @@ namespace CFramework.Editor.Utilities
 
         /// <summary>
         ///     创建 Defines 目录下的内置类型定义
-        ///     <para>定义常用值类型（vector2/vector3/vector4），与官方 luban_examples 保持一致</para>
+        ///     <para>定义常用值类型（vector2/vector3/vector4），并通过 typeMapper 映射到 UnityEngine.Vector2/3/4</para>
+        ///     <para>生成代码时不再生成自定义 vector 类，直接使用 Unity 内置类型</para>
         /// </summary>
         private static void CreateBuiltinDefines(string definesDir)
         {
             var xml = @"<module name="""">
+    <!-- 通过 typeMapper 映射到 UnityEngine.Vector2/3/4，避免生成重复类型 -->
     <bean name=""vector2"" valueType=""1"" sep="","">
         <var name=""x"" type=""float""/>
         <var name=""y"" type=""float""/>
+        <mapper target=""All"" codeTarget=""cs-bin"">
+            <option name=""type"" value=""UnityEngine.Vector2""/>
+        </mapper>
     </bean>
     <bean name=""vector3"" valueType=""1"" sep="","">
         <var name=""x"" type=""float""/>
         <var name=""y"" type=""float""/>
         <var name=""z"" type=""float""/>
+        <mapper target=""All"" codeTarget=""cs-bin"">
+            <option name=""type"" value=""UnityEngine.Vector3""/>
+        </mapper>
     </bean>
     <bean name=""vector4"" valueType=""1"" sep="","">
         <var name=""x"" type=""float""/>
         <var name=""y"" type=""float""/>
         <var name=""z"" type=""float""/>
         <var name=""w"" type=""float""/>
+        <mapper target=""All"" codeTarget=""cs-bin"">
+            <option name=""type"" value=""UnityEngine.Vector4""/>
+        </mapper>
     </bean>
 </module>";
             File.WriteAllText(Path.Combine(definesDir, "builtin.xml"), xml, Encoding.UTF8);
@@ -431,7 +442,7 @@ LubanConfig/
 ├── luban.conf              主配置文件（定义生成目标、分组等）
 ├── README.md               本文档
 ├── Defines/                类型定义目录（XML 格式）
-│   └── builtin.xml         内置类型（vector2/vector3/vector4）
+│   └── builtin.xml         内置类型（vector2/3/4 → UnityEngine.Vector2/3/4）
 └── Datas/                  数据目录
     ├── __tables__." + ext + @"     表注册（定义有哪些数据表）
     ├── __beans__." + ext + @"      Bean 定义（可选，read_schema_from_file=true 时不需要）
@@ -547,7 +558,7 @@ Bean 类型在 `__beans__` 中统一定义，适合复杂项目。
             sb.AppendLine();
             sb.AppendLine("已创建文件:");
             sb.AppendLine("  ✓ luban.conf");
-            sb.AppendLine("  ✓ Defines/builtin.xml（内置类型：vector2/vector3/vector4）");
+            sb.AppendLine("  ✓ Defines/builtin.xml（内置类型：vector2/3/4 → UnityEngine.Vector2/3/4）");
             sb.AppendLine($"  ✓ Datas/__tables__{ext}");
             sb.AppendLine($"  ✓ Datas/__beans__{ext}");
             sb.AppendLine($"  ✓ Datas/__enums__{ext}");
