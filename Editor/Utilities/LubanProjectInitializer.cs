@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using CFramework.Editor.Configs;
 using UnityEditor;
@@ -14,10 +16,31 @@ namespace CFramework.Editor.Utilities
     public static class LubanProjectInitializer
     {
         /// <summary>
+        ///     配置文件格式
+        /// </summary>
+        private enum DataFormat
+        {
+            Xlsx,
+            Csv
+        }
+
+        /// <summary>
         ///     初始化 Luban 配置工程
         /// </summary>
         public static void Initialize()
         {
+            // 选择配置文件格式
+            var format = DataFormat.Xlsx;
+            var options = new[] { "xlsx（推荐，Excel 原生格式）", "csv（纯文本格式）" };
+            var selected = EditorUtility.DisplayDialogComplex("选择配置文件格式",
+                "请选择 Luban 配置文件的数据格式：\n\n" +
+                "• xlsx — 推荐，Excel 原生编辑体验好\n" +
+                "• csv — 纯文本格式，适合版本控制 diff",
+                options[0], options[1], "取消");
+
+            if (selected == 2) return; // 取消
+            format = selected == 0 ? DataFormat.Xlsx : DataFormat.Csv;
+
             // 让用户选择输出目录（可在项目外部）
             var selectedPath = EditorUtility.OpenFolderPanel("选择 Luban 配置工程目录", "", "");
             if (string.IsNullOrEmpty(selectedPath)) return;
@@ -51,12 +74,12 @@ namespace CFramework.Editor.Utilities
 
             try
             {
-                var createdFiles = CreateProjectStructure(selectedPath);
-                CreateReadme(selectedPath);
+                CreateProjectStructure(selectedPath, format);
+                CreateReadme(selectedPath, format);
 
                 // 询问是否更新 LubanConfig
                 if (EditorUtility.DisplayDialog("初始化完成",
-                    BuildSummary(selectedPath, createdFiles) +
+                    BuildSummary(selectedPath, format) +
                     "\n\n是否更新 Luban 设置指向此配置文件？\n" +
                     "（将在 CFramework → Luban → 设置 中生效）",
                     "更新设置", "稍后手动设置"))
@@ -77,29 +100,33 @@ namespace CFramework.Editor.Utilities
         /// <summary>
         ///     创建完整的 Luban 配置工程结构
         /// </summary>
-        /// <returns>创建的文件数量</returns>
-        private static int CreateProjectStructure(string root)
+        private static void CreateProjectStructure(string root, DataFormat format)
         {
             var datasDir = Path.Combine(root, "Datas");
             Directory.CreateDirectory(datasDir);
 
             // 创建 luban.conf
-            CreateLubanConf(root);
+            CreateLubanConf(root, format);
 
             // 创建模板文件
-            CreateSchemaTemplates(datasDir);
-
-            // 创建示例数据表
-            CreateDemoTable(datasDir);
-
-            return 6; // conf + 4 schema files + 1 demo table
+            if (format == DataFormat.Xlsx)
+            {
+                CreateXlsxSchemaTemplates(datasDir);
+                CreateXlsxDemoTable(datasDir);
+            }
+            else
+            {
+                CreateCsvSchemaTemplates(datasDir);
+                CreateCsvDemoTable(datasDir);
+            }
         }
 
         /// <summary>
         ///     创建 luban.conf 主配置文件
         /// </summary>
-        private static void CreateLubanConf(string root)
+        private static void CreateLubanConf(string root, DataFormat format)
         {
+            var ext = format == DataFormat.Xlsx ? ".xlsx" : ".csv";
             var conf = @"{
     ""groups"":
     [
@@ -108,10 +135,10 @@ namespace CFramework.Editor.Utilities
     ],
     ""schemaFiles"":
     [
-        {""fileName"":""Datas/Defines.csv"", ""type"":""""},
-        {""fileName"":""Datas/__tables__.csv"", ""type"":""table""},
-        {""fileName"":""Datas/__beans__.csv"", ""type"":""bean""},
-        {""fileName"":""Datas/__enums__.csv"", ""type"":""enum""}
+        {""fileName"":""Datas/Defines" + ext + @""", ""type"":""""},
+        {""fileName"":""Datas/__tables__" + ext + @""", ""type"":""table""},
+        {""fileName"":""Datas/__beans__" + ext + @""", ""type"":""bean""},
+        {""fileName"":""Datas/__enums__" + ext + @""", ""type"":""enum""}
     ],
     ""dataDir"": ""Datas"",
     ""targets"":
@@ -128,13 +155,10 @@ namespace CFramework.Editor.Utilities
             File.WriteAllText(confPath, conf, Encoding.UTF8);
         }
 
-        /// <summary>
-        ///     创建 Schema 定义模板文件（CSV 格式，Luban 原生支持）
-        /// </summary>
-        private static void CreateSchemaTemplates(string datasDir)
+        #region CSV 模板
+
+        private static void CreateCsvSchemaTemplates(string datasDir)
         {
-            // __tables__.csv - 表注册文件
-            // Luban 的 table schema 文件格式：name,value_type,comment 等列
             WriteCsv(datasDir, "__tables__.csv", new[]
             {
                 "##var:name,value_type,index,comment",
@@ -144,7 +168,6 @@ namespace CFramework.Editor.Utilities
                 "## 示例：TbDemoItem,DemoItem,id,示例物品表",
             });
 
-            // __beans__.csv - Bean（复合数据结构）定义文件
             WriteCsv(datasDir, "__beans__.csv", new[]
             {
                 "##var:name,comment",
@@ -154,7 +177,6 @@ namespace CFramework.Editor.Utilities
                 "## 示例：Reward,Reward奖励结构",
             });
 
-            // __enums__.csv - 枚举定义文件
             WriteCsv(datasDir, "__enums__.csv", new[]
             {
                 "##var:name,comment",
@@ -164,7 +186,6 @@ namespace CFramework.Editor.Utilities
                 "## 示例：ItemType,物品类型枚举",
             });
 
-            // Defines.csv - 常量定义文件
             WriteCsv(datasDir, "Defines.csv", new[]
             {
                 "##var:name,value,comment",
@@ -174,10 +195,7 @@ namespace CFramework.Editor.Utilities
             });
         }
 
-        /// <summary>
-        ///     创建一个示例数据表，帮助用户理解格式
-        /// </summary>
-        private static void CreateDemoTable(string datasDir)
+        private static void CreateCsvDemoTable(string datasDir)
         {
             WriteCsv(datasDir, "TbDemoItem.csv", new[]
             {
@@ -192,22 +210,233 @@ namespace CFramework.Editor.Utilities
             });
         }
 
-        /// <summary>
-        ///     写入 CSV 文件（UTF-8 with BOM，兼容 Excel 中文显示）
-        /// </summary>
         private static void WriteCsv(string directory, string fileName, string[] lines)
         {
             var filePath = Path.Combine(directory, fileName);
-            // UTF-8 with BOM，确保 Excel 正确识别中文
             var bom = new UTF8Encoding(true);
             File.WriteAllLines(filePath, lines, bom);
         }
 
+        #endregion
+
+        #region XLSX 模板
+
+        private static void CreateXlsxSchemaTemplates(string datasDir)
+        {
+            // __tables__.xlsx - 表注册文件
+            WriteXlsx(datasDir, "__tables__.xlsx", new[]
+            {
+                new[] { "##var:name", "##var:value_type", "##var:index", "##var:comment" },
+                new[] { "##type:string", "##type:string", "##type:string", "##type:string" },
+                new[] { "##", "", "", "" },
+                new[] { "## 在此注册数据表，每行一个表定义", "", "", "" },
+                new[] { "## 示例：TbDemoItem,DemoItem,id,示例物品表", "", "", "" },
+            });
+
+            // __beans__.xlsx - Bean 定义文件
+            WriteXlsx(datasDir, "__beans__.xlsx", new[]
+            {
+                new[] { "##var:name", "##var:comment" },
+                new[] { "##type:string", "##type:string" },
+                new[] { "##", "" },
+                new[] { "## 在此定义 Bean（复合数据结构），供数据表引用", "" },
+                new[] { "## 示例：Reward,Reward奖励结构", "" },
+            });
+
+            // __enums__.xlsx - 枚举定义文件
+            WriteXlsx(datasDir, "__enums__.xlsx", new[]
+            {
+                new[] { "##var:name", "##var:comment" },
+                new[] { "##type:string", "##type:string" },
+                new[] { "##", "" },
+                new[] { "## 在此定义枚举类型", "" },
+                new[] { "## 示例：ItemType,物品类型枚举", "" },
+            });
+
+            // Defines.xlsx - 常量定义文件
+            WriteXlsx(datasDir, "Defines.xlsx", new[]
+            {
+                new[] { "##var:name", "##var:value", "##var:comment" },
+                new[] { "##type:string", "##type:string", "##type:string" },
+                new[] { "##", "", "" },
+                new[] { "## 在此定义常量，可跨表引用", "", "" },
+            });
+        }
+
+        private static void CreateXlsxDemoTable(string datasDir)
+        {
+            WriteXlsx(datasDir, "TbDemoItem.xlsx", new[]
+            {
+                new[] { "##var:id", "##var:name", "##var:desc", "##var:count" },
+                new[] { "##type:int", "##type:string", "##type:string", "##type:int" },
+                new[] { "##", "", "", "" },
+                new[] { "1", "木剑", "初始武器", "1" },
+                new[] { "2", "治疗药水", "恢复生命值", "5" },
+                new[] { "3", "铁盾", "基础防御装备", "1" },
+            });
+        }
+
+        /// <summary>
+        ///     写入 xlsx 文件（最小化 Open XML 格式，无需第三方依赖）
+        /// </summary>
+        private static void WriteXlsx(string directory, string fileName, string[][] rows)
+        {
+            var filePath = Path.Combine(directory, fileName);
+
+            // 构建共享字符串表
+            var sharedStrings = new List<string>();
+            var sharedStringMap = new Dictionary<string, int>();
+
+            foreach (var row in rows)
+            {
+                foreach (var cell in row)
+                {
+                    if (!sharedStringMap.TryGetValue(cell, out _))
+                    {
+                        sharedStringMap[cell] = sharedStrings.Count;
+                        sharedStrings.Add(cell);
+                    }
+                }
+            }
+
+            using var stream = new FileStream(filePath, FileMode.Create);
+            using var archive = new ZipArchive(stream, ZipArchiveMode.Create);
+
+            // [Content_Types].xml
+            WriteEntry(archive, "[Content_Types].xml",
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+                "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
+                "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>" +
+                "<Default Extension=\"xml\" ContentType=\"application/xml\"/>" +
+                "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>" +
+                "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>" +
+                "<Override PartName=\"/xl/sharedStrings.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml\"/>" +
+                "<Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>" +
+                "</Types>");
+
+            // _rels/.rels
+            WriteEntry(archive, "_rels/.rels",
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+                "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
+                "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>" +
+                "</Relationships>");
+
+            // xl/workbook.xml
+            WriteEntry(archive, "xl/workbook.xml",
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+                "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
+                "<sheets><sheet name=\"Sheet1\" sheetId=\"1\" r:id=\"rId1\"/></sheets>" +
+                "</workbook>");
+
+            // xl/_rels/workbook.xml.rels
+            WriteEntry(archive, "xl/_rels/workbook.xml.rels",
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+                "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
+                "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>" +
+                "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings\" Target=\"sharedStrings.xml\"/>" +
+                "<Relationship Id=\"rId3\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>" +
+                "</Relationships>");
+
+            // xl/worksheets/sheet1.xml
+            var sheetBuilder = new StringBuilder();
+            sheetBuilder.Append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+            sheetBuilder.Append(
+                "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">");
+            sheetBuilder.Append($"<sheetData>");
+
+            for (var i = 0; i < rows.Length; i++)
+            {
+                sheetBuilder.Append($"<row r=\"{i + 1}\">");
+                for (var j = 0; j < rows[i].Length; j++)
+                {
+                    var colName = ColumnIndexToName(j);
+                    var cellValue = rows[i][j];
+                    var sharedIndex = sharedStringMap[cellValue];
+                    sheetBuilder.Append(
+                        $"<c r=\"{colName}{i + 1}\" t=\"s\"><v>{sharedIndex}</v></c>");
+                }
+
+                sheetBuilder.Append("</row>");
+            }
+
+            sheetBuilder.Append("</sheetData></worksheet>");
+            WriteEntry(archive, "xl/worksheets/sheet1.xml", sheetBuilder.ToString());
+
+            // xl/sharedStrings.xml
+            var ssBuilder = new StringBuilder();
+            ssBuilder.Append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+            ssBuilder.Append(
+                $"<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"{sharedStrings.Count}\" uniqueCount=\"{sharedStrings.Count}\">");
+
+            foreach (var s in sharedStrings)
+            {
+                ssBuilder.Append($"<si><t>{EscapeXml(s)}</t></si>");
+            }
+
+            ssBuilder.Append("</sst>");
+            WriteEntry(archive, "xl/sharedStrings.xml", ssBuilder.ToString());
+
+            // xl/styles.xml（最小化样式表）
+            WriteEntry(archive, "xl/styles.xml",
+                "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+                "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">" +
+                "<fonts count=\"1\"><font><sz val=\"11\"/><name val=\"Calibri\"/></font></fonts>" +
+                "<fills count=\"1\"><fill><patternFill patternType=\"none\"/></fill></fills>" +
+                "<borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders>" +
+                "<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>" +
+                "<cellXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\"/></cellXfs>" +
+                "</styleSheet>");
+        }
+
+        /// <summary>
+        ///     列索引转 Excel 列名（0→A, 1→B, ... 25→Z, 26→AA）
+        /// </summary>
+        private static string ColumnIndexToName(int index)
+        {
+            var name = "";
+            var i = index;
+            while (i >= 0)
+            {
+                name = (char)('A' + i % 26) + name;
+                i = i / 26 - 1;
+            }
+
+            return name;
+        }
+
+        /// <summary>
+        ///     XML 特殊字符转义
+        /// </summary>
+        private static string EscapeXml(string text)
+        {
+            return text.Replace("&", "&amp;")
+                .Replace("<", "&lt;")
+                .Replace(">", "&gt;")
+                .Replace("\"", "&quot;")
+                .Replace("'", "&apos;");
+        }
+
+        /// <summary>
+        ///     向 zip 中写入文本条目
+        /// </summary>
+        private static void WriteEntry(ZipArchive archive, string entryName, string content)
+        {
+            var entry = archive.CreateEntry(entryName, CompressionLevel.Optimal);
+            using var entryStream = entry.Open();
+            var bytes = Encoding.UTF8.GetBytes(content);
+            entryStream.Write(bytes, 0, bytes.Length);
+        }
+
+        #endregion
+
         /// <summary>
         ///     创建 README 说明文档
         /// </summary>
-        private static void CreateReadme(string root)
+        private static void CreateReadme(string root, DataFormat format)
         {
+            var ext = format == DataFormat.Xlsx ? ".xlsx" : ".csv";
+            var editorName = format == DataFormat.Xlsx ? "Excel" : "Excel 或专业编辑器";
+
             var readme = @"# Luban 配置工程
 
 ## 目录结构
@@ -217,17 +446,17 @@ LubanConfig/
 ├── luban.conf          主配置文件（定义生成目标、分组等）
 ├── README.md           本文档
 └── Datas/              数据目录
-    ├── __tables__.csv  表注册（定义有哪些数据表）
-    ├── __beans__.csv   Bean 定义（复合数据结构）
-    ├── __enums__.csv   枚举定义
-    ├── Defines.csv     常量定义
-    └── *.csv           数据表文件（每个表一个文件）
+    ├── __tables__." + ext + @"  表注册（定义有哪些数据表）
+    ├── __beans__." + ext + @"   Bean 定义（复合数据结构）
+    ├── __enums__." + ext + @"   枚举定义
+    ├── Defines." + ext + @"     常量定义
+    └── *." + ext + @"           数据表文件（每个表一个文件）
 ```
 
 ## 快速上手
 
 ### 1. 注册数据表
-在 `__tables__.csv` 中添加行：
+在 `__tables__." + ext + @"` 中添加行：
 ```
 TbItem,Item,id,物品表
 ```
@@ -237,11 +466,11 @@ TbItem,Item,id,物品表
 - comment: 表描述
 
 ### 2. 定义数据结构
-在 `__beans__.csv` 中添加行：
+在 `__beans__." + ext + @"` 中添加行：
 ```
 Item,物品数据结构
 ```
-然后创建 `Item.csv` 定义字段：
+然后创建 `Item." + ext + @"` 定义字段：
 ```
 ##var:id,name,desc,quality
 ##type:int,string,string,int
@@ -250,7 +479,7 @@ Item,物品数据结构
 ```
 
 ### 3. 创建数据文件
-在与 Bean 同名的 CSV 文件中填写数据：
+在与 Bean 同名的文件中填写数据：
 - 第 1 行 `##var:` — 字段名
 - 第 2 行 `##type:` — 类型（int, long, float, double, bool, string 等）
 - 第 3 行 `##` — 注释行（可选）
@@ -259,7 +488,7 @@ Item,物品数据结构
 ### 4. 生成代码和数据
 在 Unity 中：`CFramework → Luban → 一键生成`
 
-## CSV 格式说明
+## 类型说明
 
 ### 基本类型
 | 类型 | 说明 | 示例 |
@@ -274,10 +503,10 @@ Item,物品数据结构
 ### 容器类型
 | 类型 | 说明 | 示例 |
 |------|------|------|
-| list<T> | 列表 | list<int> |
-| array<T> | 数组 | array<string> |
-| map<K,V> | 字典 | map<int,string> |
-| set<T> | 集合 | set<int> |
+| list&lt;T&gt; | 列表 | list&lt;int&gt; |
+| array&lt;T&gt; | 数组 | array&lt;string&gt; |
+| map&lt;K,V&gt; | 字典 | map&lt;int,string&gt; |
+| set&lt;T&gt; | 集合 | set&lt;int&gt; |
 
 ### 特殊标记
 - `##group:` 行指定分组（c=客户端, s=服务器, 空=全部）
@@ -287,7 +516,7 @@ Item,物品数据结构
 ## 进阶用法
 
 ### 多态 Bean
-在 __beans__.csv 中定义父类后，可在子 Bean 文件中定义继承关系。
+在 __beans__." + ext + @" 中定义父类后，可在子 Bean 文件中定义继承关系。
 
 ### 引用校验
 使用 `ref` 类型可校验字段值是否引用了其他表的合法 key。
@@ -296,9 +525,9 @@ Item,物品数据结构
 使用 `path` 类型可校验资源路径是否存在。
 
 ## 注意事项
-- CSV 文件建议用 Excel 或专业编辑器打开，避免记事本修改导致编码问题
-- 本模板使用 CSV 格式（Luban 原生支持），也可以改用 xlsx 格式
-- 如改用 xlsx，需在 luban.conf 的 schemaFiles 中更新 fileName 添加 .xlsx 后缀
+- 数据文件使用 " + editorName + @" 编辑
+- 当前格式为 " + ext.ToUpper().TrimStart('.') + @"
+- 如需切换格式，需在 luban.conf 的 schemaFiles 中更新 fileName 后缀并重新创建 Datas 目录
 ";
             File.WriteAllText(Path.Combine(root, "README.md"), readme, Encoding.UTF8);
         }
@@ -306,19 +535,22 @@ Item,物品数据结构
         /// <summary>
         ///     构建初始化结果摘要
         /// </summary>
-        private static string BuildSummary(string root, int fileCount)
+        private static string BuildSummary(string root, DataFormat format)
         {
+            var ext = format == DataFormat.Xlsx ? ".xlsx" : ".csv";
             var sb = new StringBuilder();
             sb.AppendLine($"Luban 配置工程已创建于:");
             sb.AppendLine(root);
             sb.AppendLine();
-            sb.AppendLine($"已创建 {fileCount} 个文件:");
+            sb.AppendLine($"格式: {ext.TrimStart('.').ToUpper()}");
+            sb.AppendLine();
+            sb.AppendLine("已创建文件:");
             sb.AppendLine("  ✓ luban.conf");
-            sb.AppendLine("  ✓ Datas/__tables__.csv");
-            sb.AppendLine("  ✓ Datas/__beans__.csv");
-            sb.AppendLine("  ✓ Datas/__enums__.csv");
-            sb.AppendLine("  ✓ Datas/Defines.csv");
-            sb.AppendLine("  ✓ Datas/TbDemoItem.csv（示例表）");
+            sb.AppendLine($"  ✓ Datas/__tables__{ext}");
+            sb.AppendLine($"  ✓ Datas/__beans__{ext}");
+            sb.AppendLine($"  ✓ Datas/__enums__{ext}");
+            sb.AppendLine($"  ✓ Datas/Defines{ext}");
+            sb.AppendLine($"  ✓ Datas/TbDemoItem{ext}（示例表）");
             sb.AppendLine("  ✓ README.md");
             return sb.ToString();
         }
