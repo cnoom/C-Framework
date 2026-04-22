@@ -180,10 +180,10 @@ namespace CFramework.Editor.Utilities
             //         read_schema_from_file, index, mode, comment, group, tags
             WriteCsv(datasDir, "__tables__.csv", new[]
             {
-                "##var:full_name,value_type,input,read_schema_from_file,index,comment,output",
-                "##type:string,string,string,bool,string,string,string",
-                "##,记录类型,数据文件,从文件读Schema,主键,注释,输出文件名",
-                "TbDemoItem,DemoItem,TbDemoItem.csv,true,id,示例物品表,TbDemoItem",
+                "##var:full_name,value_type,read_schema_from_file,input,index,mode,group,comment,tags,output",
+                "##type:string,string,bool,string,string,string,string,string,string,string",
+                "##,全名,记录类型,从文件读Schema,数据文件,主键,模式,分组,注释,标签,输出文件名",
+                "TbDemoItem,DemoItem,true,TbDemoItem.csv,id,,,,示例物品表,,TbDemoItem",
             });
 
             WriteCsv(datasDir, "__beans__.csv", new[]
@@ -233,9 +233,9 @@ namespace CFramework.Editor.Utilities
             // - 没有 ##type 行（Luban 内置知道每个字段的类型）
             WriteXlsx(datasDir, "__tables__.xlsx", new[]
             {
-                new[] { "##var", "full_name", "value_type", "input", "read_schema_from_file", "index", "comment", "output" },
-                new[] { "##", "全名", "记录类型", "数据文件", "从文件读Schema", "主键", "注释", "输出文件名" },
-                new[] { "", "TbDemoItem", "DemoItem", "TbDemoItem.xlsx", "true", "id", "示例物品表", "TbDemoItem" },
+                new[] { "##var", "full_name", "value_type", "read_schema_from_file", "input", "index", "mode", "group", "comment", "tags", "output" },
+                new[] { "##", "全名", "记录类型", "从文件读Schema", "数据文件", "主键", "模式", "分组", "注释", "标签", "输出文件名" },
+                new[] { "", "TbDemoItem", "DemoItem", "true", "TbDemoItem.xlsx", "id", "", "", "示例物品表", "", "TbDemoItem" },
             });
 
             WriteXlsx(datasDir, "__beans__.xlsx", new[]
