@@ -108,10 +108,10 @@ namespace CFramework.Editor.Utilities
     ],
     ""schemaFiles"":
     [
-        {""fileName"":""Datas/Defines"", ""type"":""""},
-        {""fileName"":""Datas/__tables__"", ""type"":""table""},
-        {""fileName"":""Datas/__beans__"", ""type"":""bean""},
-        {""fileName"":""Datas/__enums__"", ""type"":""enum""}
+        {""fileName"":""Datas/Defines.csv"", ""type"":""""},
+        {""fileName"":""Datas/__tables__.csv"", ""type"":""table""},
+        {""fileName"":""Datas/__beans__.csv"", ""type"":""bean""},
+        {""fileName"":""Datas/__enums__.csv"", ""type"":""enum""}
     ],
     ""dataDir"": ""Datas"",
     ""targets"":
