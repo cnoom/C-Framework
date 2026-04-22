@@ -2,7 +2,8 @@ namespace CFramework
 {
     /// <summary>
     ///     存档序列化器接口
-    ///     <para>默认使用 Newtonsoft.Json 实现，支持 Dictionary、多态等复杂类型</para>
+    ///     <para>默认使用 JsonUtility 实现，不支持 Dictionary 等复杂嵌套类型</para>
+    ///     <para>如需更强大的序列化能力，可替换为 Newtonsoft.Json 等实现</para>
     /// </summary>
     public interface ISaveSerializer
     {
