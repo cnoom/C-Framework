@@ -227,39 +227,43 @@ namespace CFramework.Editor.Utilities
 
         private static void CreateXlsxSchemaTemplates(string datasDir)
         {
+            // Schema 表格式（__tables__/__beans__/__enums__）：
+            // - 第一列(A列)为行标记：##var、##
+            // - 字段名/数据从第二列(B列)开始
+            // - 没有 ##type 行（Luban 内置知道每个字段的类型）
             WriteXlsx(datasDir, "__tables__.xlsx", new[]
             {
-                new[] { "##var:full_name", "value_type", "input", "read_schema_from_file", "index", "comment", "output" },
-                new[] { "##type:string", "string", "string", "bool", "string", "string", "string" },
-                new[] { "##", "记录类型", "数据文件", "从文件读Schema", "主键", "注释", "输出文件名" },
-                new[] { "TbDemoItem", "DemoItem", "TbDemoItem", "true", "id", "示例物品表", "TbDemoItem" },
+                new[] { "##var", "full_name", "value_type", "input", "read_schema_from_file", "index", "comment", "output" },
+                new[] { "##", "全名", "记录类型", "数据文件", "从文件读Schema", "主键", "注释", "输出文件名" },
+                new[] { "", "TbDemoItem", "DemoItem", "TbDemoItem", "true", "id", "示例物品表", "TbDemoItem" },
             });
 
             WriteXlsx(datasDir, "__beans__.xlsx", new[]
             {
-                new[] { "##var:full_name", "comment" },
-                new[] { "##type:string", "string" },
-                new[] { "##", "注释" },
+                new[] { "##var", "full_name", "comment" },
+                new[] { "##", "全名", "注释" },
             });
 
             WriteXlsx(datasDir, "__enums__.xlsx", new[]
             {
-                new[] { "##var:full_name", "comment" },
-                new[] { "##type:string", "string" },
-                new[] { "##", "注释" },
+                new[] { "##var", "full_name", "comment" },
+                new[] { "##", "全名", "注释" },
             });
         }
 
         private static void CreateXlsxDemoTable(string datasDir)
         {
+            // 数据表格式：
+            // - 第一列(A列)为行标记：##var、##type、##
+            // - 字段名/类型/数据从第二列(B列)开始
             WriteXlsx(datasDir, "TbDemoItem.xlsx", new[]
             {
-                new[] { "##var:id", "name", "desc", "count" },
-                new[] { "##type:int", "string", "string", "int" },
-                new[] { "##", "物品名称", "物品描述", "数量" },
-                new[] { "1", "木剑", "初始武器", "1" },
-                new[] { "2", "治疗药水", "恢复生命值", "5" },
-                new[] { "3", "铁盾", "基础防御装备", "1" },
+                new[] { "##var", "id", "name", "desc", "count" },
+                new[] { "##type", "int", "string", "string", "int" },
+                new[] { "##", "物品ID", "物品名称", "物品描述", "数量" },
+                new[] { "", "1", "木剑", "初始武器", "1" },
+                new[] { "", "2", "治疗药水", "恢复生命值", "5" },
+                new[] { "", "3", "铁盾", "基础防御装备", "1" },
             });
         }
 
