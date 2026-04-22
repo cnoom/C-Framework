@@ -119,6 +119,7 @@ namespace CFramework
             AudioService = Container.Resolve<IAudioService>();
 #endif
             SceneService = Container.Resolve<ISceneService>();
+            ConfigService = Container.Resolve<IConfigService>();
             SaveService = Container.Resolve<ISaveService>();
             UIService = Container.Resolve<IUIService>();
         }
@@ -147,6 +148,7 @@ namespace CFramework
         public IAudioService AudioService { get; private set; }
 #endif
         public ISceneService SceneService { get; private set; }
+        public IConfigService ConfigService { get; private set; }
         public ISaveService SaveService { get; private set; }
         public IUIService UIService { get; private set; }
 
