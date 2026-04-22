@@ -183,7 +183,7 @@ namespace CFramework.Editor.Utilities
                 "##var:full_name,value_type,input,read_schema_from_file,index,comment,output",
                 "##type:string,string,string,bool,string,string,string",
                 "##,记录类型,数据文件,从文件读Schema,主键,注释,输出文件名",
-                "TbDemoItem,DemoItem,TbDemoItem,true,id,示例物品表,TbDemoItem",
+                "TbDemoItem,DemoItem,TbDemoItem.csv,true,id,示例物品表,TbDemoItem",
             });
 
             WriteCsv(datasDir, "__beans__.csv", new[]
@@ -235,7 +235,7 @@ namespace CFramework.Editor.Utilities
             {
                 new[] { "##var", "full_name", "value_type", "input", "read_schema_from_file", "index", "comment", "output" },
                 new[] { "##", "全名", "记录类型", "数据文件", "从文件读Schema", "主键", "注释", "输出文件名" },
-                new[] { "", "TbDemoItem", "DemoItem", "TbDemoItem", "true", "id", "示例物品表", "TbDemoItem" },
+                new[] { "", "TbDemoItem", "DemoItem", "TbDemoItem.xlsx", "true", "id", "示例物品表", "TbDemoItem" },
             });
 
             WriteXlsx(datasDir, "__beans__.xlsx", new[]
