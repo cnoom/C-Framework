@@ -52,7 +52,13 @@ namespace CFramework.Editor
             };
         }
 
-        [MenuItem(MenuBase + "创建默认 luban.conf", priority = 400)]
+        [MenuItem(MenuBase + "初始化配置工程", priority = 400)]
+        public static void InitializeProject()
+        {
+            LubanProjectInitializer.Initialize();
+        }
+
+        [MenuItem(MenuBase + "创建默认 luban.conf", priority = 500)]
         public static void CreateDefaultLubanConf()
         {
             var path = EditorUtility.SaveFilePanel(
