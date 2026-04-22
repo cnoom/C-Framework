@@ -256,62 +256,56 @@ if (blackboard.TryGet<int>("Health", out var hp))
 }
 ```
 
-### 8. 配置表（Luban）
+### 8. 配置表
 
-框架使用 [Luban](https://luban.docable.cn/) 作为配置解决方案。游戏项目需继承 `LubanConfigService` 并注册到 DI 容器。
+框架提供基于 ScriptableObject 的配置表系统，支持多数据源（SO、JSON、Resources、内存）和热重载。
 
-#### 定义配置服务
+#### 定义配置数据项
 
 ```csharp
-// GameConfigService.cs - 游戏项目实现
-public class GameConfigService : LubanConfigService
+// ItemData.cs - 配置数据行
+public class ItemData : IConfigItem<int>
 {
-    private readonly ILubanDataLoader _loader;
-    private cfg.Tables _tables;
+    public int Id { get; set; }          // 主键
+    public string Name { get; set; }
+    public int Price { get; set; }
+}
+```
 
-    public GameConfigService(ILubanDataLoader loader)
+#### 加载配置表
+
+```csharp
+public class GameEntry : MonoBehaviour
+{
+    private async UniTaskVoid Start()
     {
-        _loader = loader;
-    }
+        var configService = container.Resolve<IConfigService>();
 
-    public cfg.Tables Tables => _tables;
+        // 加载单个配置表
+        await configService.LoadAsync<ItemData>("Assets/Config/ItemConfig.asset");
 
-    protected override async UniTask OnLoadConfigAsync(CancellationToken ct)
-    {
-        // 预加载配置表 bytes 数据
-        await _loader.PreloadAsync(new[] { "TbItem", "TbSkill", "TbGlobal" }, ct);
-        // 创建 Luban Tables（同步）
-        _tables = new cfg.Tables(file => new ByteBuf(_loader.GetData(file)));
-    }
-
-    public override void UnloadAll()
-    {
-        _tables = null;
-        _loader.UnloadAll();
+        // 查询数据
+        var item = configService.Get<int, ItemData>(1001);
+        Debug.Log($"物品名称: {item.Name}");
     }
 }
 ```
 
-#### 注册到 DI 容器
+#### 使用不同的数据源
+
+框架提供四种 `IConfigProvider` 实现：
+
+| Provider | 数据源 | 适用场景 |
+|----------|--------|----------|
+| `SOConfigProvider` | Addressables + ScriptableObject | 生产环境，支持热更新 |
+| `JsonConfigProvider` | Addressables + JSON 文件 | 外部工具导出的配置 |
+| `ResourcesConfigProvider` | Resources 目录 | 小型项目，无需 Addressables |
+| `MemoryConfigProvider` | 内存注入 | 单元测试、快速原型 |
 
 ```csharp
-// 在游戏安装器中注册
-GameScope.AddInstaller(builder =>
-{
-    builder.Register<ILubanDataLoader, AddressablesLubanDataLoader>(Lifetime.Singleton);
-    builder.Register<IConfigService, GameConfigService>(Lifetime.Singleton);
-});
-```
-
-#### 使用配置数据
-
-```csharp
-var configService = container.Resolve<IConfigService>();
-await configService.LoadAllAsync();
-
-var gameConfig = (GameConfigService)configService;
-var itemData = gameConfig.Tables.TbItem.Get(1001);
-Debug.Log($"物品名称: {itemData.Name}");
+// 使用 JSON 数据源
+var jsonProvider = new JsonConfigProvider(assetService);
+var configService = new ConfigService(jsonProvider, settings);
 ```
 
 ## 模块详情
@@ -357,11 +351,14 @@ Core 模块是框架的基础，提供以下能力：
 
 ### Config 模块
 
-- **LubanConfigService**：配置服务抽象基类，游戏项目继承并实现 Luban Tables 创建
-- **ILubanDataLoader**：数据加载器接口，抽象 bytes 数据加载方式
-- **AddressablesLubanDataLoader**：基于 Addressables 的默认数据加载器实现
-- 多数据源支持：通过实现 `ILubanDataLoader` 支持不同加载方式（Addressables、Resources、文件系统等）
-- DI 集成：通过 `GameScope.AddInstaller` 注册游戏项目的配置服务
+- **IConfigItem<TKey>**：配置数据项接口，定义主键
+- **ConfigTable<TKey, TValue>**：纯 C# 数据容器，支持 `Get()` / `TryGet()` / `All` / `Contains()` 查询
+- **IConfigService**：配置服务接口，提供加载、查询、重载、卸载功能
+- **ConfigService**：配置服务实现，通过反射推断 TKey，管理 ConfigTable 生命周期
+- **IConfigProvider**：数据加载策略接口，抽象数据来源
+- 四种 Provider 实现：`SOConfigProvider`、`JsonConfigProvider`、`ResourcesConfigProvider`、`MemoryConfigProvider`
+- 热重载支持：`ReloadAsync()` 重新加载配置表
+- 地址自动解析：未指定地址时按 `{ConfigAddressPrefix}/{TypeName}` 自动构建
 
 ### Save 模块
 
@@ -395,8 +392,9 @@ Core 模块是框架的基础，提供以下能力：
 | UIPanelGenerator | `CFramework → 生成UI绑定代码` | UI 面板绑定代码生成器 |
 | UIPanelGeneratorWindow | `CFramework → UI → UI面板生成器` | 代码生成器配置窗口 |
 | AddressableConstantsGenerator | — | Addressable 资源常量代码生成器 |
-| ConfigTableEditor | — | 配置表自定义 Inspector（已移除，改用 Luban 工具链） |
-| ConfigCreatorWindow | — | 配置表创建窗口（已移除，改用 Luban 工具链） |
+| ConfigEditorWindow | `CFramework → Config → 配置表编辑器` | 配置表可视化编辑窗口 |
+| ConfigCreatorWindow | `CFramework → Config → 配置表创建器` | 配置表创建和代码生成窗口 |
+| ConfigTableAssetEditor | — | 配置表资产自定义 Inspector |
 | ExceptionViewerWindow | `CFramework → Tools → 异常查看器` | 运行时异常查看窗口 |
 
 ## FrameworkSettings 配置项
@@ -465,7 +463,7 @@ MIT License
 - [R3](https://github.com/Cysharp/R3) — Unity 响应式扩展库
 - [Odin Inspector](https://odininspector.com/) — 序列化与 Inspector 增强
 - [Addressables](https://docs.unity3d.com/Packages/com.unity.addressables@latest) — Unity 资源管理系统
-- [Luban](https://luban.docable.cn/) — 强大、易用、优雅、稳定的游戏配置解决方案
+
 
 ---
 

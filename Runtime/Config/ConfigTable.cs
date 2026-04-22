@@ -12,7 +12,8 @@ namespace CFramework
     /// </summary>
     /// <typeparam name="TKey">主键类型</typeparam>
     /// <typeparam name="TValue">数据行类型</typeparam>
-    public class ConfigTable<TKey, TValue> where TValue : class, IConfigItem<TKey>
+    [Serializable]
+    public class ConfigTable<TKey, TValue> where TValue :  IConfigItem<TKey>
     {
         private List<TValue> _dataList;
         private Dictionary<TKey, TValue> _cache;
@@ -79,7 +80,7 @@ namespace CFramework
         /// </summary>
         public TValue Get(TKey key)
         {
-            if (_cache == null) return null;
+            if (_cache == null) return default;
             _cache.TryGetValue(key, out var value);
             return value;
         }
@@ -91,7 +92,7 @@ namespace CFramework
         {
             if (_cache == null)
             {
-                value = null;
+                value = default;
                 return false;
             }
 

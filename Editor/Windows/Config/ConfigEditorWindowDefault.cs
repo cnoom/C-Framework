@@ -1,4 +1,5 @@
 #if !ODIN_INSPECTOR
+using CFramework;
 using System;
 using System.Collections.Generic;
 using CFramework.Editor.Utilities;
