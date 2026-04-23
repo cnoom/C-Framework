@@ -63,5 +63,13 @@ namespace CFramework
         ///     注册数据类型到地址的映射
         /// </summary>
         void RegisterAddress<TValue>(string address) where TValue : class;
+
+        /// <summary>
+        ///     为指定数据类型注册专用 Provider（覆盖默认 Provider）
+        ///     <para>适用于不同配置表需要从不同数据源加载的场景（如部分 SO、部分 JSON）</para>
+        /// </summary>
+        /// <typeparam name="TValue">数据行类型</typeparam>
+        /// <param name="provider">专用 Provider 实例</param>
+        void RegisterProvider<TValue>(IConfigProvider provider) where TValue : class;
     }
 }
