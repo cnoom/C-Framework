@@ -24,7 +24,7 @@ namespace CFramework.Editor.Inspectors
         /// <summary>
         ///     FrameworkSettings 创建工具（菜单入口）
         /// </summary>
-        [MenuItem("CFramework/CreateSettings")]
+        [MenuItem("CFramework/创建框架设置", priority = 400)]
         public static void CreateFrameworkSettings()
         {
             var settings = ScriptableObject.CreateInstance<FrameworkSettings>();

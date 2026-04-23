@@ -16,7 +16,7 @@ namespace CFramework.Editor
     {
         private const string USS_FILE_NAME = "AudioDebuggerWindow.uss";
 
-        [MenuItem("Tools/CFramework/Audio Debugger")]
+        [MenuItem("CFramework/Audio/Audio Debugger", priority = 100)]
         private static void Open()
         {
             var window = GetWindow<AudioDebuggerWindow>("Audio Debugger");

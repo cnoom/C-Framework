@@ -24,7 +24,7 @@ namespace CFramework.Editor
                                                "/// {0}\n" +
                                                "/// AudioMixer：{1}\n";
 
-        [MenuItem("CFramework/Generate/AudioGroup Enum", priority = 100)]
+        [MenuItem("CFramework/生成/AudioGroup 枚举", priority = 100)]
         public static void ShowWindow()
         {
             var window = GetWindow<AudioGroupGeneratorWindow>("AudioGroup 生成器");

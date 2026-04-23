@@ -16,7 +16,7 @@ namespace CFramework.Editor.Windows.Config
     {
         #region 菜单项
 
-        [MenuItem("CFramework/配置管理", false, 100)]
+        [MenuItem("CFramework/配置管理", priority = 100)]
         public static void OpenWindow()
         {
             var window = GetWindow<ConfigEditorWindow>("配置管理");

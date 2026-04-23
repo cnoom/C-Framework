@@ -72,10 +72,10 @@ namespace CFramework.Editor.Windows.Tools
             RefreshExceptionList();
         }
 
-        [MenuItem("CFramework/Exception Viewer")]
+        [MenuItem("CFramework/异常查看器", priority = 300)]
         public static void ShowWindow()
         {
-            GetWindow<ExceptionViewerWindow>("Exception Viewer");
+            GetWindow<ExceptionViewerWindow>("异常查看器");
         }
 
         private void OnException(Exception ex)

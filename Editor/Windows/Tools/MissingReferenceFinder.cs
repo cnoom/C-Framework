@@ -33,7 +33,7 @@ namespace CFramework.Editor.Windows.Tools
             { MissingType.MissingFieldReference, true }
         };
 
-        [MenuItem("CFramework/查找丢失引用物体")]
+        [MenuItem("CFramework/查找丢失引用物体", priority = 200)]
         public static void ShowWindow()
         {
             var window = GetWindow<MissingReferenceFinder>("丢失引用查找器");

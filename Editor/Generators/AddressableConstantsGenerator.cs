@@ -31,7 +31,7 @@ namespace CFramework.Editor.Generators
         /// <summary>
         ///     使用默认配置生成常量文件
         /// </summary>
-        [MenuItem("CFramework/Addressables/生成资源常量", false, 101)]
+        [MenuItem("CFramework/Addressables/生成资源常量", priority = 101)]
         public static void Generate()
         {
             var config = AddressableConfig.GetOrCreateInstance();
