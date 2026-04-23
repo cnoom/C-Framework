@@ -108,7 +108,7 @@ namespace CFramework
         public TValue Get<TKey, TValue>(TKey key) where TValue : IConfigItem<TKey>
         {
             var table = GetTable<TKey, TValue>();
-            return table?.Get(key);
+            return table != null ? table.Get(key) : default;
         }
 
         public async UniTask ReloadAsync<TValue>(string address = null, CancellationToken ct = default)
