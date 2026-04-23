@@ -351,10 +351,10 @@ namespace CFramework
             {
                 var marker = Encoding.UTF8.GetBytes("PLAIN:");
                 var content = Encoding.UTF8.GetBytes(data);
-                var result = new byte[marker.Length + content.Length];
-                Buffer.BlockCopy(marker, 0, result, 0, marker.Length);
-                Buffer.BlockCopy(content, 0, result, marker.Length, content.Length);
-                return result;
+                var plainResult = new byte[marker.Length + content.Length];
+                Buffer.BlockCopy(marker, 0, plainResult, 0, marker.Length);
+                Buffer.BlockCopy(content, 0, plainResult, marker.Length, content.Length);
+                return plainResult;
             }
 
             using var aes = Aes.Create();
