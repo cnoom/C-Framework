@@ -29,7 +29,7 @@ namespace CFramework
             builder.InstallModule<ISceneService, SceneService>();
 
             // 配置模块：默认使用 CompositeConfigProvider 包裹 SOConfigProvider
-            // 游戏可通过 GameScope.AddInstaller 追加 Provider（如 Luban、JSON）
+            // 游戏可通过 GameScope.AddInstaller 追加额外 Provider（如 JSON、Memory）
             builder.Register<IConfigProvider>(container =>
             {
                 var soProvider = new SOConfigProvider(container.Resolve<IAssetService>());

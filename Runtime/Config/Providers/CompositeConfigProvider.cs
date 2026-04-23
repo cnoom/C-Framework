@@ -12,11 +12,11 @@ namespace CFramework
     ///     <para>使用示例：</para>
     ///     <code>
     ///     var composite = new CompositeConfigProvider(soProvider);
-    ///     composite.AddProvider("luban", lubanProvider);
     ///     composite.AddProvider("json", jsonProvider);
+    ///     composite.AddProvider("memory", memoryProvider);
     ///     
-    ///     // 地址 "luban/TbItem" → lubanProvider，实际传入 "TbItem"
-    ///     // 地址 "Items" → soProvider（默认）
+    ///     // 地址 "json/Items" → jsonProvider，实际传入 "Items"
+    ///     // 地址 "Config/Table" → soProvider（默认）
     ///     </code>
     /// </summary>
     public class CompositeConfigProvider : IConfigProvider
