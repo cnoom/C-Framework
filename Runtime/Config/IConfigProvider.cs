@@ -19,7 +19,7 @@ namespace CFramework
         /// <param name="ct">取消令牌</param>
         /// <returns>填充好数据的 ConfigTable 实例</returns>
         UniTask<ConfigTable<TKey, TValue>> LoadAsync<TKey, TValue>(string address, CancellationToken ct = default)
-            where TValue : class, IConfigItem<TKey>;
+            where TValue : IConfigItem<TKey>;
 
         /// <summary>
         ///     释放指定地址的资源

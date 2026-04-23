@@ -56,7 +56,7 @@ namespace CFramework
 
         public async UniTask<ConfigTable<TKey, TValue>> LoadAsync<TKey, TValue>(string address,
             CancellationToken ct = default)
-            where TValue : class, IConfigItem<TKey>
+            where TValue : IConfigItem<TKey>
         {
             var (provider, resolvedAddress) = ResolveProvider(address);
             return await provider.LoadAsync<TKey, TValue>(resolvedAddress, ct);

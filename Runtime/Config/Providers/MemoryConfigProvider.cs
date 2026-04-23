@@ -21,7 +21,7 @@ namespace CFramework
         /// <param name="address">资源地址（需与 ConfigService.LoadAsync 传入的地址一致）</param>
         /// <param name="data">配置数据列表</param>
         public void Register<TKey, TValue>(string address, List<TValue> data)
-            where TValue : class, IConfigItem<TKey>
+            where TValue : IConfigItem<TKey>
         {
             var table = new ConfigTable<TKey, TValue>();
             table.Load(data);
@@ -32,14 +32,14 @@ namespace CFramework
         ///     注册已构建好的 ConfigTable
         /// </summary>
         public void Register<TKey, TValue>(string address, ConfigTable<TKey, TValue> table)
-            where TValue : class, IConfigItem<TKey>
+            where TValue : IConfigItem<TKey>
         {
             _registeredTables[address] = table;
         }
 
         public UniTask<ConfigTable<TKey, TValue>> LoadAsync<TKey, TValue>(string address,
             CancellationToken ct = default)
-            where TValue : class, IConfigItem<TKey>
+            where TValue : IConfigItem<TKey>
         {
             if (_registeredTables.TryGetValue(address, out var table)
                 && table is ConfigTable<TKey, TValue> typedTable)

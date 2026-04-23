@@ -42,9 +42,10 @@ namespace CFramework
     /// <summary>
     ///     泛型配置表资产
     ///     <para>持有序列化数据列表，运行时通过 PopulateTable 注入 ConfigTable</para>
+    ///     <para>注意：由于 [SerializeReference] 限制，ScriptableObject 路径仅支持引用类型 TValue</para>
     /// </summary>
     public abstract class ConfigTableAsset<TKey, TValue> : ConfigTableAsset
-        where TValue : class, IConfigItem<TKey>
+        where TValue : IConfigItem<TKey>
     {
         [Header("配置数据")]
         [Tooltip("配置数据行列表")]
@@ -88,7 +89,7 @@ namespace CFramework
             var result = new List<TValue>(source.Count);
             foreach (var item in source)
             {
-                if (item == null) continue;
+                if (item is null) continue;
                 var value = item is ICloneable cloneable
                     ? (TValue)cloneable.Clone()
                     : item;

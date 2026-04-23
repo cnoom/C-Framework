@@ -38,7 +38,7 @@ namespace CFramework
         }
 
         public async UniTask LoadAsync<TValue>(string address = null, CancellationToken ct = default)
-            where TValue : class
+            where TValue : IConfigItem
         {
             ct.ThrowIfCancellationRequested();
 
@@ -91,7 +91,7 @@ namespace CFramework
         }
 
         public ConfigTable<TKey, TValue> GetTable<TKey, TValue>()
-            where TValue : class, IConfigItem<TKey>
+            where TValue : IConfigItem<TKey>
         {
             if (_tables.TryGetValue(typeof(TValue), out var table))
                 return table as ConfigTable<TKey, TValue>;
@@ -99,26 +99,26 @@ namespace CFramework
         }
 
         public bool TryGetTable<TKey, TValue>(out ConfigTable<TKey, TValue> table)
-            where TValue : class, IConfigItem<TKey>
+            where TValue : IConfigItem<TKey>
         {
             table = GetTable<TKey, TValue>();
             return table != null;
         }
 
-        public TValue Get<TKey, TValue>(TKey key) where TValue : class, IConfigItem<TKey>
+        public TValue Get<TKey, TValue>(TKey key) where TValue : IConfigItem<TKey>
         {
             var table = GetTable<TKey, TValue>();
             return table?.Get(key);
         }
 
         public async UniTask ReloadAsync<TValue>(string address = null, CancellationToken ct = default)
-            where TValue : class
+            where TValue : IConfigItem
         {
             Unload<TValue>();
             await LoadAsync<TValue>(address, ct);
         }
 
-        public void Unload<TValue>() where TValue : class
+        public void Unload<TValue>() where TValue : IConfigItem
         {
             var valueType = typeof(TValue);
 
@@ -139,7 +139,7 @@ namespace CFramework
             _tables.Clear();
         }
 
-        public void RegisterAddress<TValue>(string address) where TValue : class
+        public void RegisterAddress<TValue>(string address) where TValue : IConfigItem
         {
             _addresses[typeof(TValue)] = address;
         }
@@ -196,7 +196,7 @@ namespace CFramework
         /// </summary>
         [Preserve]
         private async UniTask InvokeLoadInternal<TKey, TValue>(string address, CancellationToken ct)
-            where TValue : class, IConfigItem<TKey>
+            where TValue : IConfigItem<TKey>
         {
             var table = await _provider.LoadAsync<TKey, TValue>(address, ct);
             if (table != null)

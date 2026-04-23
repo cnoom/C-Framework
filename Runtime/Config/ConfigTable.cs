@@ -61,7 +61,8 @@ namespace CFramework
             {
                 foreach (var item in data)
                 {
-                    if (item == null) continue;
+                    // 跳过 null 项（引用类型）；值类型永远不为 null，此检查无开销
+                    if (item is null) continue;
 
                     if (_cache.ContainsKey(item.Key))
                         Debug.LogWarning($"[ConfigTable] 重复主键: {item.Key}，后值覆盖前值");

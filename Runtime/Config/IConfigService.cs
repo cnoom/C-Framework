@@ -18,7 +18,7 @@ namespace CFramework
         /// <param name="address">资源地址（为空时自动从映射表查找）</param>
         /// <param name="ct">取消令牌</param>
         UniTask LoadAsync<TValue>(string address = null, CancellationToken ct = default)
-            where TValue : class;
+            where TValue : IConfigItem;
 
         /// <summary>
         ///     加载所有已注册的配置表
@@ -30,29 +30,29 @@ namespace CFramework
         /// </summary>
         /// <typeparam name="TValue">数据行类型</typeparam>
         ConfigTable<TKey, TValue> GetTable<TKey, TValue>()
-            where TValue : class, IConfigItem<TKey>;
+            where TValue : IConfigItem<TKey>;
 
         /// <summary>
         ///     尝试获取配置表
         /// </summary>
         bool TryGetTable<TKey, TValue>(out ConfigTable<TKey, TValue> table)
-            where TValue : class, IConfigItem<TKey>;
+            where TValue : IConfigItem<TKey>;
 
         /// <summary>
         ///     通过主键快速获取配置数据
         /// </summary>
-        TValue Get<TKey, TValue>(TKey key) where TValue : class, IConfigItem<TKey>;
+        TValue Get<TKey, TValue>(TKey key) where TValue : IConfigItem<TKey>;
 
         /// <summary>
         ///     重新加载指定配置表
         /// </summary>
         UniTask ReloadAsync<TValue>(string address = null, CancellationToken ct = default)
-            where TValue : class;
+            where TValue : IConfigItem;
 
         /// <summary>
         ///     卸载指定配置表
         /// </summary>
-        void Unload<TValue>() where TValue : class;
+        void Unload<TValue>() where TValue : IConfigItem;
 
         /// <summary>
         ///     卸载所有配置表
@@ -62,6 +62,6 @@ namespace CFramework
         /// <summary>
         ///     注册数据类型到地址的映射
         /// </summary>
-        void RegisterAddress<TValue>(string address) where TValue : class;
+        void RegisterAddress<TValue>(string address) where TValue : IConfigItem;
     }
 }
