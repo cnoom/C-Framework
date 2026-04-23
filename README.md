@@ -315,7 +315,7 @@ var configService = new ConfigService(jsonProvider, settings);
 Core 模块是框架的基础，提供以下能力：
 
 - **ScopeServiceBase**：服务基类，提供统一的初始化和释放生命周期管理
-- **GameScope / SceneScope**：VContainer 作用域集成，管理全局和场景级别的依赖注入
+- **GameScope**：VContainer 作用域集成，管理全局级别的依赖注入，场景级作用域直接使用 VContainer 的 LifetimeScope
 - **IEventBus**：事件总线，支持同步/异步发布订阅，支持优先级和 R3 响应式订阅
 - **IExceptionDispatcher**：全局异常分发器，统一捕获 UniTask 和 R3 中的未处理异常
 - **Blackboard**：黑板系统，键值对数据共享，支持泛型存取
