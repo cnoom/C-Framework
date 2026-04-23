@@ -12,8 +12,8 @@ namespace CFramework
     /// <summary>
     ///     游戏全局作用域，管理整个游戏的生命周期
     ///     <para>支持通过 IInstaller 在任意时刻动态注册服务模块</para>
-    ///     <para>Awake 前：安装器在 Configure 中执行</para>
-    ///     <para>Awake 后：添加安装器会自动重建容器（ReBuild）</para>
+    ///     <para>使用流程：AddInstaller → Create → Initialize（手动触发 Build）</para>
+    ///     <para>不使用 AutoRun，用户需显式调用 Initialize() 以完成容器构建</para>
     /// </summary>
     public sealed class GameScope : LifetimeScope
     {
@@ -37,6 +37,11 @@ namespace CFramework
         /// </summary>
         private bool _isBuilt;
 
+        /// <summary>
+        ///     是否已初始化（调用过 Initialize）
+        /// </summary>
+        private bool _isInitialized;
+
         public static GameScope Instance { get; private set; }
 
         protected override void Awake()
@@ -50,9 +55,27 @@ namespace CFramework
             Instance = this;
             DontDestroyOnLoad(gameObject);
 
-            base.Awake();
+            // 不调用 base.Awake()，不自动 Build
+            // 用户需显式调用 Initialize() 以完成容器构建
+        }
+
+        /// <summary>
+        ///     初始化框架：构建 DI 容器并解析所有框架服务
+        ///     <para>必须在所有 AddInstaller 调用之后、使用框架服务之前调用</para>
+        ///     <para>典型调用位置：GameBoot.Start() 中 AddInstaller 之后</para>
+        /// </summary>
+        public void Initialize()
+        {
+            if (_isInitialized)
+            {
+                LogUtility.Warning("GameScope", "Initialize 已被调用，忽略重复调用");
+                return;
+            }
+
+            Build();
             ResolveFrameworkServices();
             _isBuilt = true;
+            _isInitialized = true;
         }
 
         protected override void OnDestroy()
@@ -61,9 +84,12 @@ namespace CFramework
             {
                 Instance = null;
                 _isBuilt = false;
+                _isInitialized = false;
             }
 
-            base.OnDestroy();
+            // 仅在已初始化时执行 base.OnDestroy（DisposeCore 需要 Container 存在）
+            if (_isInitialized)
+                base.OnDestroy();
         }
 
         /// <summary>
@@ -126,8 +152,12 @@ namespace CFramework
         }
 
         /// <summary>
-        ///     创建游戏作用域
+        ///     创建游戏作用域（不自动构建）
+        ///     <para>创建后需调用 Initialize() 以构建容器并解析服务</para>
+        ///     <para>典型用法：GameScope.Create().Initialize()</para>
         /// </summary>
+        /// <param name="settings">框架设置，为 null 时加载默认设置</param>
+        /// <returns>未初始化的 GameScope 实例</returns>
         public static GameScope Create(FrameworkSettings settings = null)
         {
             settings ??= FrameworkSettings.LoadDefault();
@@ -135,6 +165,7 @@ namespace CFramework
             go.SetActive(false);
             var scope = go.AddComponent<GameScope>();
             scope._settings = settings;
+            scope.autoRun = false;
             go.SetActive(true);
             return scope;
         }
@@ -161,7 +192,8 @@ namespace CFramework
 
         /// <summary>
         ///     添加动态安装器
-        ///     <para>可在任意时刻调用：Awake 前会排队等待首次构建，Awake 后自动触发容器重建</para>
+        ///     <para>Initialize 前：排队等待首次构建</para>
+        ///     <para>Initialize 后：自动触发容器重建</para>
         ///     <para>示例：GameScope.AddInstaller(new ActionInstaller(b => b.Register&lt;IFoo, Foo&gt;()))</para>
         /// </summary>
         /// <param name="installer">安装器实例</param>
@@ -177,13 +209,14 @@ namespace CFramework
                 }
             }
 
-            // 如果 GameScope 已构建，触发容器重建
-            if (Instance != null && Instance._isBuilt) Instance.RebuildContainer();
+            // 如果 GameScope 已初始化，触发容器重建
+            if (Instance != null && Instance._isInitialized) Instance.RebuildContainer();
         }
 
         /// <summary>
         ///     添加委托式安装器
-        ///     <para>可在任意时刻调用：Awake 前会排队等待首次构建，Awake 后自动触发容器重建</para>
+        ///     <para>Initialize 前：排队等待首次构建</para>
+        ///     <para>Initialize 后：自动触发容器重建</para>
         /// </summary>
         /// <param name="installAction">注册动作</param>
         public static void AddInstaller(Action<IContainerBuilder> installAction)
@@ -195,8 +228,8 @@ namespace CFramework
                 _additionalInstallers.Add(new ActionInstaller(installAction));
             }
 
-            // 如果 GameScope 已构建，触发容器重建
-            if (Instance != null && Instance._isBuilt) Instance.RebuildContainer();
+            // 如果 GameScope 已初始化，触发容器重建
+            if (Instance != null && Instance._isInitialized) Instance.RebuildContainer();
         }
 
         /// <summary>
