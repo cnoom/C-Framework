@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
-using CFramework.Runtime.UI;
 using UnityEngine;
+#if CFRAMEWORK_UI
+using CFramework.Runtime.UI;
+#endif
 using VContainer;
 using VContainer.Unity;
 
@@ -49,12 +51,8 @@ namespace CFramework
             DontDestroyOnLoad(gameObject);
 
             base.Awake();
-            _isBuilt = true;
-        }
-
-        private void Start()
-        {
             ResolveFrameworkServices();
+            _isBuilt = true;
         }
 
         protected override void OnDestroy()
@@ -121,7 +119,9 @@ namespace CFramework
             SceneService = Container.Resolve<ISceneService>();
             ConfigService = Container.Resolve<IConfigService>();
             SaveService = Container.Resolve<ISaveService>();
+#if CFRAMEWORK_UI
             UIService = Container.Resolve<IUIService>();
+#endif
         }
 
         /// <summary>
@@ -150,7 +150,9 @@ namespace CFramework
         public ISceneService SceneService { get; private set; }
         public IConfigService ConfigService { get; private set; }
         public ISaveService SaveService { get; private set; }
+#if CFRAMEWORK_UI
         public IUIService UIService { get; private set; }
+#endif
 
         #endregion
 

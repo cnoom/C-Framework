@@ -3,9 +3,17 @@ using UnityEngine;
 
 namespace CFramework.Utility.String
 {
+    /// <summary>
+    ///     字符串工具类
+    ///     <para>提供常用的字符串操作扩展方法</para>
+    /// </summary>
     public static class StringUtility
     {
-        // 反转字符串（使用 StringBuilder）
+        /// <summary>
+        ///     反转字符串
+        /// </summary>
+        /// <param name="str">要反转的字符串</param>
+        /// <returns>反转后的字符串</returns>
         public static string Reverse(string str)
         {
             if (string.IsNullOrEmpty(str)) return str;
@@ -15,7 +23,11 @@ namespace CFramework.Utility.String
             return sb.ToString();
         }
 
-        // 移除所有空白字符（包括换行、制表）
+        /// <summary>
+        ///     移除所有空白字符（包括换行、制表）
+        /// </summary>
+        /// <param name="str">源字符串</param>
+        /// <returns>移除空白后的字符串</returns>
         public static string RemoveWhitespace(string str)
         {
             if (string.IsNullOrEmpty(str)) return str;
@@ -26,14 +38,26 @@ namespace CFramework.Utility.String
             return sb.ToString();
         }
 
-        // 截取并添加省略号（支持中英文混合）
+        /// <summary>
+        ///     截取字符串并添加省略号（支持中英文混合）
+        /// </summary>
+        /// <param name="str">源字符串</param>
+        /// <param name="maxLength">最大长度</param>
+        /// <param name="ellipsis">省略号字符串，默认 "..."</param>
+        /// <returns>截取后的字符串</returns>
         public static string TruncateWithEllipsis(string str, int maxLength, string ellipsis = "...")
         {
             if (string.IsNullOrEmpty(str) || str.Length <= maxLength) return str;
             return str.Substring(0, maxLength - ellipsis.Length) + ellipsis;
         }
 
-        // 安全 Substring（避免越界）
+        /// <summary>
+        ///     安全 Substring（避免越界异常）
+        /// </summary>
+        /// <param name="str">源字符串</param>
+        /// <param name="startIndex">起始索引</param>
+        /// <param name="length">截取长度</param>
+        /// <returns>截取的子字符串</returns>
         public static string SafeSubstring(string str, int startIndex, int length)
         {
             if (string.IsNullOrEmpty(str)) return string.Empty;
