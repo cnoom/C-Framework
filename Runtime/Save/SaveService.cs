@@ -22,7 +22,7 @@ namespace CFramework
         private readonly ISaveSerializer _serializer;
         private CancellationTokenSource _autoSaveCts;
 
-        public SaveService(FrameworkSettings settings) : this(settings, new JsonUtilitySerializer())
+        public SaveService(FrameworkSettings settings) : this(settings, new NewtonsoftJsonSerializer())
         {
         }
 

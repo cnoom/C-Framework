@@ -1,7 +1,7 @@
-using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace CFramework
@@ -34,19 +34,17 @@ namespace CFramework
                 return null;
             }
 
-            // JsonUtility 不支持直接反序列化顶层数组，需要包装
-            var json = textAsset.text;
-            var wrapperJson = $"{{\"Items\":{json}}}";
-            var wrapper = JsonUtility.FromJson<ConfigDataWrapper<TValue>>(wrapperJson);
+            // Newtonsoft.Json 直接支持顶层数组反序列化
+            var items = JsonConvert.DeserializeObject<List<TValue>>(textAsset.text);
 
-            if (wrapper?.Items == null)
+            if (items == null)
             {
                 Debug.LogError($"[JsonConfigProvider] JSON 反序列化失败: {address}");
                 return null;
             }
 
             var table = new ConfigTable<TKey, TValue>();
-            table.Load(wrapper.Items);
+            table.Load(items);
             _loadedAddresses.Add(address);
 
             return table;
@@ -67,16 +65,6 @@ namespace CFramework
                 _assetService?.Release(address);
 
             _loadedAddresses.Clear();
-        }
-
-        /// <summary>
-        ///     JSON 反序列化包装类
-        ///     <para>JsonUtility 不支持顶层数组，需要用对象包裹</para>
-        /// </summary>
-        [Serializable]
-        private class ConfigDataWrapper<T>
-        {
-            public List<T> Items;
         }
     }
 }
