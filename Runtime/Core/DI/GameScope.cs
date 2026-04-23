@@ -110,6 +110,7 @@ namespace CFramework
         private void ResolveFrameworkServices()
         {
             Logger = Container.Resolve<ILogger>();
+            LogUtility.Logger = Logger;
             EventBus = Container.Resolve<IEventBus>();
             ExceptionDispatcher = Container.Resolve<IExceptionDispatcher>();
             AssetService = Container.Resolve<IAssetService>();

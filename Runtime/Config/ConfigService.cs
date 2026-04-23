@@ -174,7 +174,7 @@ namespace CFramework
         }
 
         /// <summary>
-        ///     通过反射调用 IConfigProvider.LoadAsync&lt;TKey, TValue&gt;(address)
+        ///     通过反射调用 IConfigProvider.LoadAsync&lt;TKey, TValue&gt;(address, ct)
         /// </summary>
         private async UniTask<object> InvokeProviderLoad(Type keyType, Type valueType, string address,
             CancellationToken ct)
@@ -184,7 +184,7 @@ namespace CFramework
                 var loadMethod = typeof(ConfigService).GetMethod(nameof(InvokeLoadInternal),
                     BindingFlags.Instance | BindingFlags.NonPublic);
                 var genericMethod = loadMethod.MakeGenericMethod(keyType, valueType);
-                var task = (UniTask)genericMethod.Invoke(this, new object[] { address });
+                var task = (UniTask)genericMethod.Invoke(this, new object[] { address, ct });
                 await task;
 
                 return _tables.TryGetValue(valueType, out var table) ? table : null;
@@ -200,7 +200,7 @@ namespace CFramework
         ///     泛型加载辅助（供反射调用）
         /// </summary>
         [Preserve]
-        private async UniTask InvokeLoadInternal<TKey, TValue>(string address)
+        private async UniTask InvokeLoadInternal<TKey, TValue>(string address, CancellationToken ct)
             where TValue : class, IConfigItem<TKey>
         {
             var table = await _provider.LoadAsync<TKey, TValue>(address);

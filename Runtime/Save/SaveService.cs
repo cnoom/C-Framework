@@ -300,11 +300,11 @@ namespace CFramework
                     try
                     {
                         await SaveAsync(ct);
-                        Debug.Log("[SaveService] Auto save completed");
+                        LogUtility.Debug("SaveService", "Auto save completed");
                     }
                     catch (Exception ex)
                     {
-                        Debug.LogWarning($"[SaveService] Auto save failed: {ex.Message}");
+                        LogUtility.Warning("SaveService", $"Auto save failed: {ex.Message}");
                     }
             }
         }
@@ -318,8 +318,7 @@ namespace CFramework
         private byte[] GetEncryptionKeyBytes()
         {
             var keyStr = _settings.EncryptionKey;
-            if (string.IsNullOrEmpty(keyStr))
-                keyStr = "CFramework_DefaultKey";
+            if (string.IsNullOrEmpty(keyStr)) return null;
 
             // 按 UTF-8 编码，截取或填充到恰好 16 字节（AES-128）
             var bytes = Encoding.UTF8.GetBytes(keyStr);
@@ -347,6 +346,17 @@ namespace CFramework
         {
             var key = GetEncryptionKeyBytes();
 
+            // 空密钥：明文存储（UTF-8 编码，前缀标记用于 Decrypt 识别）
+            if (key == null)
+            {
+                var marker = Encoding.UTF8.GetBytes("PLAIN:");
+                var content = Encoding.UTF8.GetBytes(data);
+                var result = new byte[marker.Length + content.Length];
+                Buffer.BlockCopy(marker, 0, result, 0, marker.Length);
+                Buffer.BlockCopy(content, 0, result, marker.Length, content.Length);
+                return result;
+            }
+
             using var aes = Aes.Create();
             aes.Key = key;
             aes.GenerateIV();
@@ -373,6 +383,14 @@ namespace CFramework
 
         private string Decrypt(byte[] data)
         {
+            // 检查明文标记 "PLAIN:"
+            if (data.Length >= 6
+                && data[0] == 'P' && data[1] == 'L' && data[2] == 'A'
+                && data[3] == 'I' && data[4] == 'N' && data[5] == ':')
+            {
+                return Encoding.UTF8.GetString(data, 6, data.Length - 6);
+            }
+
             if (data.Length < HmacSize + 16)
                 throw new FormatException("[SaveService] 存档数据格式错误（数据过短）");
 

@@ -31,6 +31,15 @@ namespace CFramework
 
         public async UniTask<AssetHandle> LoadAsync<T>(object key, CancellationToken ct = default) where T : Object
         {
+            return await LoadAsyncCore<T>(key, ct, 0);
+        }
+
+        /// <summary>
+        ///     加载核心逻辑（含递归重试保护）
+        /// </summary>
+        /// <param name="retryCount">当前重试次数</param>
+        private async UniTask<AssetHandle> LoadAsyncCore<T>(object key, CancellationToken ct, int retryCount) where T : Object
+        {
             UniTaskCompletionSource<Object> loadingTcs = null;
             bool isLoader;
 
@@ -78,8 +87,11 @@ namespace CFramework
                     }
                 }
 
-                // 资源已被释放，静默重新加载
-                return await LoadAsync<T>(key, ct);
+                // 资源已被释放，静默重新加载（最多重试3次）
+                if (retryCount >= 3)
+                    throw new InvalidOperationException($"Asset load retry limit exceeded for key: {key}");
+
+                return await LoadAsyncCore<T>(key, ct, retryCount + 1);
             }
 
             // 当前请求是加载发起者，执行实际加载

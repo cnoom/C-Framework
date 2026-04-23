@@ -19,10 +19,11 @@ namespace CFramework
             _assetService = assetService;
         }
 
-        public async UniTask<ConfigTable<TKey, TValue>> LoadAsync<TKey, TValue>(string address)
+        public async UniTask<ConfigTable<TKey, TValue>> LoadAsync<TKey, TValue>(string address,
+            CancellationToken ct = default)
             where TValue : class, IConfigItem<TKey>
         {
-            var handle = await _assetService.LoadAsync<ConfigTableAsset>(address);
+            var handle = await _assetService.LoadAsync<ConfigTableAsset>(address, ct);
 
             if (handle.Asset is ConfigTableAsset<TKey, TValue> typedAsset)
             {

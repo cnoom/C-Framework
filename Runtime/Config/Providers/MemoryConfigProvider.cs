@@ -36,7 +36,8 @@ namespace CFramework
             _registeredTables[address] = table;
         }
 
-        public UniTask<ConfigTable<TKey, TValue>> LoadAsync<TKey, TValue>(string address)
+        public UniTask<ConfigTable<TKey, TValue>> LoadAsync<TKey, TValue>(string address,
+            CancellationToken ct = default)
             where TValue : class, IConfigItem<TKey>
         {
             if (_registeredTables.TryGetValue(address, out var table)

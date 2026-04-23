@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 
 namespace CFramework
@@ -15,8 +16,9 @@ namespace CFramework
         /// <typeparam name="TKey">主键类型</typeparam>
         /// <typeparam name="TValue">数据行类型</typeparam>
         /// <param name="address">资源地址</param>
+        /// <param name="ct">取消令牌</param>
         /// <returns>填充好数据的 ConfigTable 实例</returns>
-        UniTask<ConfigTable<TKey, TValue>> LoadAsync<TKey, TValue>(string address)
+        UniTask<ConfigTable<TKey, TValue>> LoadAsync<TKey, TValue>(string address, CancellationToken ct = default)
             where TValue : class, IConfigItem<TKey>;
 
         /// <summary>

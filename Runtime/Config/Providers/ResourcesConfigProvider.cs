@@ -16,7 +16,8 @@ namespace CFramework
         private readonly HashSet<string> _loadedAddresses = new();
         private bool _disposed;
 
-        public UniTask<ConfigTable<TKey, TValue>> LoadAsync<TKey, TValue>(string address)
+        public UniTask<ConfigTable<TKey, TValue>> LoadAsync<TKey, TValue>(string address,
+            CancellationToken ct = default)
             where TValue : class, IConfigItem<TKey>
         {
             var asset = Resources.Load<ConfigTableAsset>(address);

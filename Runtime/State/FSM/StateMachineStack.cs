@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace CFramework
 {
@@ -137,7 +136,8 @@ namespace CFramework
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[StateMachineStack] TryChangeState failed: {key}, Error: {ex.Message}");
+                LogUtility.Warning("StateMachineStack",
+                    $"TryChangeState failed: {key}, Error: {ex.Message}");
                 return false;
             }
         }

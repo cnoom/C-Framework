@@ -138,18 +138,21 @@ namespace CFramework
 
             if (removed)
             {
-                // 触发响应式通知（发送 default 值表示已移除）
+                // 在锁外触发通知，与 Set<T> 和 Clear() 保持一致
+                Subject<T> subject = null;
                 _lock.EnterReadLock();
                 try
                 {
-                    if (_subjects.TryGetValue(compositeKey, out var subject))
-                        ((Subject<T>)subject).OnNext(default);
+                    _subjects.TryGetValue(compositeKey, out var s);
+                    subject = (Subject<T>)s;
                 }
                 finally
                 {
                     _lock.ExitReadLock();
                 }
 
+                // 触发响应式通知（发送 default 值表示已移除）
+                subject?.OnNext(default);
                 _keyChangedSubject.OnNext(new BlackboardChange(key.Name, typeof(T)));
             }
 
@@ -163,12 +166,17 @@ namespace CFramework
         {
             ThrowIfDisposed();
 
+            List<(string name, Type type)> keysToNotify = null;
+
             _lock.EnterWriteLock();
             try
             {
-                // 触发所有 Subject 的通知
-                foreach (var kvp in _subjects)
-                    _keyChangedSubject.OnNext(new BlackboardChange(kvp.Key.name, kvp.Key.type));
+                if (_subjects.Count > 0)
+                {
+                    keysToNotify = new List<(string, Type)>(_subjects.Count);
+                    foreach (var kvp in _subjects)
+                        keysToNotify.Add(kvp.Key);
+                }
 
                 _values.Clear();
             }
@@ -176,6 +184,11 @@ namespace CFramework
             {
                 _lock.ExitWriteLock();
             }
+
+            // 在锁外触发通知，与 Set<T> 保持一致，避免在锁内触发订阅者回调导致死锁
+            if (keysToNotify != null)
+                foreach (var key in keysToNotify)
+                    _keyChangedSubject.OnNext(new BlackboardChange(key.name, key.type));
         }
 
         /// <summary>
