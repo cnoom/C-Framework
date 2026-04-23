@@ -3,7 +3,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using UnityEngine.Rendering;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using Object = UnityEngine.Object;
 
@@ -101,22 +100,58 @@ namespace CFramework
 
         /// <summary>
         ///     估算纹理内存占用（字节）
-        ///     <para>压缩格式按块大小计算，非压缩格式按每像素字节数计算</para>
+        ///     <para>Texture2D 按 TextureFormat 精确计算，其他类型按 RGBA32 估算</para>
         /// </summary>
         private static long EstimateTextureMemorySize(Texture tex)
         {
-            var format = tex.graphicsFormat;
+            if (tex is Texture2D tex2d)
+                return (long)tex.width * tex.height * GetBytesPerPixel(tex2d.format);
 
-            if (GraphicsFormatUtility.IsCompressedFormat(format))
+            // RenderTexture 等其他类型，默认按 RGBA32 估算
+            return (long)tex.width * tex.height * 4L;
+        }
+
+        /// <summary>
+        ///     根据 TextureFormat 获取每像素字节数
+        ///     <para>压缩格式按等效字节/像素返回（基于 4x4 块大小折算）</para>
+        /// </summary>
+        private static int GetBytesPerPixel(TextureFormat format)
+        {
+            return format switch
             {
-                // 压缩格式：按块计算（通常 4×4 像素/块）
-                var blockSize = GraphicsFormatUtility.GetBlockSize(format);
-                return (long)((tex.width + 3) / 4) * ((tex.height + 3) / 4) * blockSize;
-            }
-
-            // 非压缩格式：每像素字节数 = GetBlockSize
-            var bytesPerPixel = GraphicsFormatUtility.GetBlockSize(format);
-            return (long)tex.width * tex.height * bytesPerPixel;
+                // 非压缩格式
+                TextureFormat.R8 => 1,
+                TextureFormat.R16 => 2,
+                TextureFormat.RG16 => 2,
+                TextureFormat.RGB24 => 3,
+                TextureFormat.RGBA32 => 4,
+                TextureFormat.ARGB32 => 4,
+                TextureFormat.RHalf => 2,
+                TextureFormat.RGHalf => 4,
+                TextureFormat.RGBAHalf => 8,
+                TextureFormat.RFloat => 4,
+                TextureFormat.RGFloat => 8,
+                TextureFormat.RGBAFloat => 16,
+                // 压缩格式：DXT1/BC4/ETC_RGB4 ≈ 0.5 byte/px，向上取整为 1
+                TextureFormat.DXT1 or TextureFormat.DXT1Crunched or TextureFormat.BC4
+                    or TextureFormat.BC4S or TextureFormat.EAC_R or TextureFormat.EAC_R_SIGNED
+                    or TextureFormat.ETC_RGB4 or TextureFormat.ETC_RGB4_3DS
+                    or TextureFormat.ETC_RGB4Crunched or TextureFormat.PVRTC_RGB2
+                    or TextureFormat.PVRTC_RGBA2 or TextureFormat.ATC_RGB4 => 1,
+                // 压缩格式：DXT5/BC5/BC6H/BC7/ETC2/ASTC4x4 ≈ 1 byte/px
+                TextureFormat.DXT5 or TextureFormat.DXT5Crunched or TextureFormat.BC5
+                    or TextureFormat.BC5S or TextureFormat.BC6H or TextureFormat.BC6HS
+                    or TextureFormat.BC7 or TextureFormat.EAC_RG or TextureFormat.EAC_RG_SIGNED
+                    or TextureFormat.ETC2_RGB or TextureFormat.ETC2_RGBA1
+                    or TextureFormat.ETC2_RGBA8 or TextureFormat.ETC2_RGBA8Crunched
+                    or TextureFormat.PVRTC_RGB4 or TextureFormat.PVRTC_RGBA4
+                    or TextureFormat.ATC_RGBA8 or TextureFormat.ASTC_4x4 => 1,
+                // ASTC 高压缩率格式：< 1 byte/px，估算为 1
+                TextureFormat.ASTC_5x5 or TextureFormat.ASTC_6x6 or TextureFormat.ASTC_8x8
+                    or TextureFormat.ASTC_10x10 or TextureFormat.ASTC_12x12 => 1,
+                // 未知格式默认 4 字节/像素
+                _ => 4
+            };
         }
     }
 }
