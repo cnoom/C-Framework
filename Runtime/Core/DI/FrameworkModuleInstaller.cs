@@ -27,8 +27,17 @@ namespace CFramework
             builder.InstallModule<IAudioService, AudioService>();
 #endif
             builder.InstallModule<ISceneService, SceneService>();
-            builder.InstallModule<IConfigProvider, SOConfigProvider>();
+
+            // 配置模块：默认使用 CompositeConfigProvider 包裹 SOConfigProvider
+            // 游戏可通过 GameScope.AddInstaller 追加 Provider（如 Luban、JSON）
+            builder.Register<IConfigProvider>(container =>
+            {
+                var soProvider = new SOConfigProvider(container.Resolve<IAssetService>());
+                var composite = new CompositeConfigProvider(soProvider);
+                return composite;
+            }, Lifetime.Singleton);
             builder.InstallModule<IConfigService, ConfigService>();
+
             builder.InstallModule<ISaveService, SaveService>();
         }
     }

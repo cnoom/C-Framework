@@ -12,11 +12,11 @@ namespace CFramework
     /// <summary>
     ///     配置服务实现
     ///     <para>通过 IConfigProvider 加载配置数据，管理 ConfigTable 实例的生命周期</para>
-    ///     <para>支持多个 Provider：默认 Provider 处理未指定 Provider 的类型，也可按数据类型注册专用 Provider</para>
+    ///     <para>支持多 Provider：通过 CompositeConfigProvider 按地址前缀自动路由</para>
     /// </summary>
     public sealed class ConfigService : IConfigService
     {
-        private readonly IConfigProvider _defaultProvider;
+        private readonly IConfigProvider _provider;
         private readonly FrameworkSettings _settings;
 
         /// <summary>
@@ -29,25 +29,12 @@ namespace CFramework
         /// </summary>
         private readonly Dictionary<Type, string> _addresses = new();
 
-        /// <summary>
-        ///     数据类型 → 专用 Provider（未注册的类型使用默认 Provider）
-        /// </summary>
-        private readonly Dictionary<Type, IConfigProvider> _providers = new();
-
         private bool _disposed;
 
         public ConfigService(IConfigProvider provider, FrameworkSettings settings)
         {
-            _defaultProvider = provider;
+            _provider = provider;
             _settings = settings;
-        }
-
-        /// <summary>
-        ///     获取指定数据类型应使用的 Provider
-        /// </summary>
-        private IConfigProvider GetProvider(Type valueType)
-        {
-            return _providers.TryGetValue(valueType, out var provider) ? provider : _defaultProvider;
         }
 
         public async UniTask LoadAsync<TValue>(string address = null, CancellationToken ct = default)
@@ -137,9 +124,8 @@ namespace CFramework
 
             if (_tables.TryGetValue(valueType, out var table))
             {
-                // 释放对应 Provider 的资源
                 if (_addresses.TryGetValue(valueType, out var address))
-                    GetProvider(valueType).Release(address);
+                    _provider.Release(address);
 
                 _tables.Remove(valueType);
             }
@@ -148,7 +134,7 @@ namespace CFramework
         public void UnloadAll()
         {
             foreach (var kvp in _addresses)
-                GetProvider(kvp.Key).Release(kvp.Value);
+                _provider.Release(kvp.Value);
 
             _tables.Clear();
         }
@@ -158,26 +144,12 @@ namespace CFramework
             _addresses[typeof(TValue)] = address;
         }
 
-        public void RegisterProvider<TValue>(IConfigProvider provider) where TValue : class
-        {
-            if (provider == null)
-            {
-                Debug.LogWarning("[ConfigService] RegisterProvider: provider 为空，已忽略");
-                return;
-            }
-
-            _providers[typeof(TValue)] = provider;
-        }
-
         public void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
             UnloadAll();
-
-            _defaultProvider?.Dispose();
-            foreach (var provider in _providers.Values)
-                provider?.Dispose();
+            _provider?.Dispose();
         }
 
         #region 反射辅助
@@ -204,11 +176,10 @@ namespace CFramework
         {
             try
             {
-                var provider = GetProvider(valueType);
                 var loadMethod = typeof(ConfigService).GetMethod(nameof(InvokeLoadInternal),
                     BindingFlags.Instance | BindingFlags.NonPublic);
                 var genericMethod = loadMethod.MakeGenericMethod(keyType, valueType);
-                var task = (UniTask)genericMethod.Invoke(this, new object[] { provider, address, ct });
+                var task = (UniTask)genericMethod.Invoke(this, new object[] { address, ct });
                 await task;
 
                 return _tables.TryGetValue(valueType, out var table) ? table : null;
@@ -224,11 +195,10 @@ namespace CFramework
         ///     泛型加载辅助（供反射调用）
         /// </summary>
         [Preserve]
-        private async UniTask InvokeLoadInternal<TKey, TValue>(IConfigProvider provider, string address,
-            CancellationToken ct)
+        private async UniTask InvokeLoadInternal<TKey, TValue>(string address, CancellationToken ct)
             where TValue : class, IConfigItem<TKey>
         {
-            var table = await provider.LoadAsync<TKey, TValue>(address, ct);
+            var table = await _provider.LoadAsync<TKey, TValue>(address, ct);
             if (table != null)
             {
                 _tables[typeof(TValue)] = table;
