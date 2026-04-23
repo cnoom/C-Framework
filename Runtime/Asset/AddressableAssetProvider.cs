@@ -132,20 +132,20 @@ namespace CFramework
                 TextureFormat.RFloat => 4,
                 TextureFormat.RGFloat => 8,
                 TextureFormat.RGBAFloat => 16,
-                // 压缩格式：DXT1/BC4/ETC_RGB4 ≈ 0.5 byte/px，向上取整为 1
+                // 压缩格式：≈ 0.5 byte/px，向上取整为 1
                 TextureFormat.DXT1 or TextureFormat.DXT1Crunched or TextureFormat.BC4
-                    or TextureFormat.BC4S or TextureFormat.EAC_R or TextureFormat.EAC_R_SIGNED
+                    or TextureFormat.EAC_R or TextureFormat.EAC_R_SIGNED
                     or TextureFormat.ETC_RGB4 or TextureFormat.ETC_RGB4_3DS
                     or TextureFormat.ETC_RGB4Crunched or TextureFormat.PVRTC_RGB2
-                    or TextureFormat.PVRTC_RGBA2 or TextureFormat.ATC_RGB4 => 1,
-                // 压缩格式：DXT5/BC5/BC6H/BC7/ETC2/ASTC4x4 ≈ 1 byte/px
+                    or TextureFormat.PVRTC_RGBA2 => 1,
+                // 压缩格式：≈ 1 byte/px
                 TextureFormat.DXT5 or TextureFormat.DXT5Crunched or TextureFormat.BC5
-                    or TextureFormat.BC5S or TextureFormat.BC6H or TextureFormat.BC6HS
-                    or TextureFormat.BC7 or TextureFormat.EAC_RG or TextureFormat.EAC_RG_SIGNED
+                    or TextureFormat.BC6H or TextureFormat.BC7
+                    or TextureFormat.EAC_RG or TextureFormat.EAC_RG_SIGNED
                     or TextureFormat.ETC2_RGB or TextureFormat.ETC2_RGBA1
                     or TextureFormat.ETC2_RGBA8 or TextureFormat.ETC2_RGBA8Crunched
                     or TextureFormat.PVRTC_RGB4 or TextureFormat.PVRTC_RGBA4
-                    or TextureFormat.ATC_RGBA8 or TextureFormat.ASTC_4x4 => 1,
+                    or TextureFormat.ASTC_4x4 => 1,
                 // ASTC 高压缩率格式：< 1 byte/px，估算为 1
                 TextureFormat.ASTC_5x5 or TextureFormat.ASTC_6x6 or TextureFormat.ASTC_8x8
                     or TextureFormat.ASTC_10x10 or TextureFormat.ASTC_12x12 => 1,
