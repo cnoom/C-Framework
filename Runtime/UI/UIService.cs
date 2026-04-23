@@ -145,12 +145,18 @@ namespace CFramework.Runtime.UI
         /// </summary>
         public async UniTask<T> OpenAsync<T>() where T : IUI, new()
         {
-            // 等待 UIRoot 初始化完成（事件信号，无轮询），超时保护 30 秒
+            // 等待 UIRoot 初始化完成（事件信号，无轮询）
             var readyTask = _uiRootReady.Task;
-            var timeout = UniTask.Delay(TimeSpan.FromSeconds(30));
-            if (await UniTask.WhenAny(readyTask, timeout) == 1)
+            if (readyTask.Status != UniTaskStatus.Pending)
             {
-                throw new InvalidOperationException("[UIService] 等待 UIRoot 初始化超时（30秒），请检查 UIRoot 配置");
+                // UIRoot 已初始化完成，直接跳过等待
+            }
+            else
+            {
+                // UIRoot 尚未就绪，等待（超时保护 30 秒）
+                var timeout = UniTask.Delay(TimeSpan.FromSeconds(30));
+                if (await UniTask.WhenAny(readyTask, timeout) == 1)
+                    throw new InvalidOperationException("[UIService] 等待 UIRoot 初始化超时（30秒），请检查 UIRoot 配置");
             }
             var panelKey = typeof(T).Name;
 

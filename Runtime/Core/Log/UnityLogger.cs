@@ -127,8 +127,7 @@ namespace CFramework
         {
             if (!IsEnabled(LogLevel.Exception)) return;
             if (exception == null) return;
-            Debug.LogError(FormatMessage(tag, exception.Message));
-            Debug.LogException(exception);
+            Debug.LogError(FormatMessage(tag, exception.ToString()));
         }
 
         /// <summary>

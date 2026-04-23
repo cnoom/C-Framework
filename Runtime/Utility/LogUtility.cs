@@ -9,7 +9,7 @@ namespace CFramework
     /// </summary>
     public static class LogUtility
     {
-        private static ILogger _staticLogger;
+        private static volatile ILogger _staticLogger;
 
         /// <summary>
         ///     静态日志器实例，由 GameScope 初始化时设置

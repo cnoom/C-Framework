@@ -34,7 +34,7 @@ namespace CFramework
         /// <summary>
         ///     资源释放标记
         /// </summary>
-        private bool _disposed;
+        private volatile bool _disposed;
 
         /// <summary>
         ///     任意键变化事件
@@ -188,7 +188,22 @@ namespace CFramework
             // 在锁外触发通知，与 Set<T> 保持一致，避免在锁内触发订阅者回调导致死锁
             if (keysToNotify != null)
                 foreach (var key in keysToNotify)
+                {
+                    // 通知每个 key 的响应式订阅者（与 Remove<T> 行为一致）
+                    _lock.EnterReadLock();
+                    try
+                    {
+                        if (_subjects.TryGetValue(key, out var subject))
+                            NotifySubject(subject, key.type);
+                    }
+                    finally
+                    {
+                        _lock.ExitReadLock();
+                    }
+
+                    // 通知全局订阅者
                     _keyChangedSubject.OnNext(new BlackboardChange(key.name, key.type));
+                }
         }
 
         /// <summary>
@@ -250,6 +265,17 @@ namespace CFramework
         private void ThrowIfDisposed()
         {
             if (_disposed) throw new ObjectDisposedException(nameof(Blackboard));
+        }
+
+        /// <summary>
+        ///     通过反射通知 Subject 的 OnNext(default)
+        ///     <para>仅在 Clear() 中使用（非热路径），反射开销可接受</para>
+        /// </summary>
+        private static void NotifySubject(object subject, Type valueType)
+        {
+            var method = subject.GetType().GetMethod("OnNext");
+            var defaultValue = valueType.IsValueType ? Activator.CreateInstance(valueType) : null;
+            method.Invoke(subject, new[] { defaultValue });
         }
 
         /// <summary>

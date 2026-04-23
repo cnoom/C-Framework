@@ -3,6 +3,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using UnityEngine.Rendering;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using Object = UnityEngine.Object;
 
@@ -90,12 +91,32 @@ namespace CFramework
             {
                 if (!_handles.TryGetValue(key, out var handle)) return 0L;
                 if (handle.Result is Texture tex)
-                    return tex.width * tex.height * (tex.graphicsFormat != 0 ? 4 : 4);
+                    return EstimateTextureMemorySize(tex);
                 if (handle.Result is AudioClip clip)
                     // 估算：采样数 × 声道数 × 2字节（假设16位PCM）
                     return clip.samples * clip.channels * 2L;
                 return 1024L;
             }
+        }
+
+        /// <summary>
+        ///     估算纹理内存占用（字节）
+        ///     <para>压缩格式按块大小计算，非压缩格式按每像素字节数计算</para>
+        /// </summary>
+        private static long EstimateTextureMemorySize(Texture tex)
+        {
+            var format = tex.graphicsFormat;
+
+            if (GraphicsFormatUtility.IsCompressedFormat(format))
+            {
+                // 压缩格式：按块计算（通常 4×4 像素/块）
+                var blockSize = GraphicsFormatUtility.GetBlockSize(format);
+                return (long)((tex.width + 3) / 4) * ((tex.height + 3) / 4) * blockSize;
+            }
+
+            // 非压缩格式：每像素字节数 = GetBlockSize
+            var bytesPerPixel = GraphicsFormatUtility.GetBlockSize(format);
+            return (long)tex.width * tex.height * bytesPerPixel;
         }
     }
 }

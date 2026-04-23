@@ -54,7 +54,7 @@ namespace CFramework
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[Audio] Initialization failed: {ex.Message}");
+                LogUtility.Error("Audio", $"Initialization failed: {ex.Message}");
             }
         }
 
@@ -66,15 +66,15 @@ namespace CFramework
         {
             if (_initialized)
             {
-                Debug.LogWarning("[Audio] Already initialized, disposing old resources first.");
+                LogUtility.Warning("Audio", "Already initialized, disposing old resources first.");
                 DisposeInternal();
             }
 
             _mixer = _settings.AudioMixerRef;
             if (_mixer == null)
             {
-                Debug.LogError("[Audio] AudioMixerRef is null in FrameworkSettings. " +
-                               "Please assign an AudioMixer in FrameworkSettings.");
+                LogUtility.Error("Audio",
+                    "AudioMixerRef is null in FrameworkSettings. Please assign an AudioMixer in FrameworkSettings.");
                 return UniTask.CompletedTask;
             }
 
@@ -85,14 +85,14 @@ namespace CFramework
         {
             if (_initialized)
             {
-                Debug.LogWarning("[Audio] Already initialized, disposing old resources first.");
+                LogUtility.Warning("Audio", "Already initialized, disposing old resources first.");
                 DisposeInternal();
             }
 
             _mixer = mixer;
             if (_mixer == null)
             {
-                Debug.LogError("[Audio] AudioMixer is null.");
+                LogUtility.Error("Audio", "AudioMixer is null.");
                 return UniTask.CompletedTask;
             }
 
@@ -116,8 +116,8 @@ namespace CFramework
             _snapshotCtrl = new AudioSnapshotController(_mixer, snapshots);
 
             _initialized = true;
-            Debug.Log($"[Audio] Initialized. Groups: {_tree.GetAllPaths().Count}, " +
-                      $"Snapshots: {_snapshotCtrl.SnapshotNames.Count}");
+            LogUtility.Debug("Audio", $"Initialized. Groups: {_tree.GetAllPaths().Count}, " +
+                       $"Snapshots: {_snapshotCtrl.SnapshotNames.Count}");
             return UniTask.CompletedTask;
         }
 
