@@ -18,6 +18,11 @@ namespace CFramework.Runtime.UI
         /// </summary>
         [SerializeField] [HideInInspector] private string _typeName;
 
+        /// <summary>
+        ///     缓存的组件类型，避免每次 getter 调用 Type.GetType 反射
+        /// </summary>
+        private Type _cachedType;
+
         [Required] [LabelText("目标物体")] public GameObject gameObject;
 
         /// <summary>
@@ -29,15 +34,25 @@ namespace CFramework.Runtime.UI
         public string Name => gameObject != null ? gameObject.name : string.Empty;
 
         /// <summary>
-        ///     组件类型（运行时从 _typeName 解析）
+        ///     组件类型（运行时从 _typeName 解析，结果已缓存）
         /// </summary>
         [ShowInInspector]
         [LabelText("组件类型")]
         [ValueDropdown(nameof(AvailableComponentTypes))]
         public Type ComponentType
         {
-            get => string.IsNullOrEmpty(_typeName) ? null : Type.GetType(_typeName);
-            set => _typeName = value?.AssemblyQualifiedName;
+            get
+            {
+                if (string.IsNullOrEmpty(_typeName)) return null;
+                if (_cachedType == null)
+                    _cachedType = Type.GetType(_typeName);
+                return _cachedType;
+            }
+            set
+            {
+                _typeName = value?.AssemblyQualifiedName;
+                _cachedType = value;
+            }
         }
 
         /// <summary>

@@ -203,7 +203,7 @@ namespace CFramework
         private async UniTask InvokeLoadInternal<TKey, TValue>(string address, CancellationToken ct)
             where TValue : class, IConfigItem<TKey>
         {
-            var table = await _provider.LoadAsync<TKey, TValue>(address);
+            var table = await _provider.LoadAsync<TKey, TValue>(address, ct);
             if (table != null)
             {
                 _tables[typeof(TValue)] = table;
