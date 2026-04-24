@@ -41,6 +41,13 @@ namespace CFramework
         [Tooltip("存档加密密钥（AES-128 需要 16 字符，AES-256 需要 32 字符）\n留空则不加密，以明文存储")]
         public string EncryptionKey = "";
 
+        [Header("Pool")]
+        [Tooltip("对象池默认初始容量")]
+        public int PoolDefaultCapacity = 10;
+
+        [Tooltip("对象池默认最大容量（0=不限）")]
+        public int PoolMaxSize = 100;
+
         [Header("Log")] [Tooltip("日志级别")] public LogLevel LogLevel = LogLevel.Debug;
 
         [Header("Config")] [Tooltip("配置表地址前缀")]

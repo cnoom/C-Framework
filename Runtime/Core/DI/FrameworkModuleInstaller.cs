@@ -39,6 +39,7 @@ namespace CFramework
             builder.InstallModule<IConfigService, ConfigService>();
 
             builder.InstallModule<ISaveService, SaveService>();
+            builder.InstallModule<IPoolService, PoolService>();
         }
     }
 }
