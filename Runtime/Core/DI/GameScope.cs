@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-#if CFRAMEWORK_UI
 using CFramework.Runtime.UI;
-#endif
 using VContainer;
 using VContainer.Unity;
 
@@ -147,9 +145,7 @@ namespace CFramework
             ConfigService = Container.Resolve<IConfigService>();
             SaveService = Container.Resolve<ISaveService>();
             PoolService = Container.Resolve<IPoolService>();
-#if CFRAMEWORK_UI
             UIService = Container.Resolve<IUIService>();
-#endif
         }
 
         /// <summary>
@@ -184,9 +180,7 @@ namespace CFramework
         public IConfigService ConfigService { get; private set; }
         public ISaveService SaveService { get; private set; }
         public IPoolService PoolService { get; private set; }
-#if CFRAMEWORK_UI
         public IUIService UIService { get; private set; }
-#endif
 
         #endregion
 
