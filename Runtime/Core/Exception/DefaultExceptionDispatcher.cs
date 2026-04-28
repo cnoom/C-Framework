@@ -28,7 +28,7 @@ namespace CFramework
 
             var contextMessage = string.IsNullOrEmpty(context) ? "" : $" Context: {context}";
             var exceptionMessage = $"{exception.GetType().Name}: {exception.Message}";
-            Debug.LogError($"[CFramework Exception]{contextMessage}\n{exceptionMessage}\n{exception.StackTrace}");
+            LogUtility.Error("Exception", $"{contextMessage}\n{exceptionMessage}\n{exception.StackTrace}");
 
             _errorStream.OnNext(exception);
         }

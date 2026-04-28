@@ -73,8 +73,8 @@ namespace CFramework
             }
             else
             {
-                Debug.LogError(
-                    $"[ConfigTableAsset] PopulateTable 类型不匹配：期望 ConfigTable<{typeof(TKey).Name}, {typeof(TValue).Name}>，实际 {table?.GetType().Name}");
+                LogUtility.Error("ConfigTableAsset",
+                    $"PopulateTable 类型不匹配：期望 ConfigTable<{typeof(TKey).Name}, {typeof(TValue).Name}>，实际 {table?.GetType().Name}");
             }
         }
 

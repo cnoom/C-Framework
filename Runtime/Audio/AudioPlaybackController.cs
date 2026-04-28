@@ -30,7 +30,7 @@ namespace CFramework
             var node = _tree.GetNode(groupPath);
             if (node == null)
             {
-                Debug.LogWarning($"[Audio] Group not found: {groupPath}");
+                LogUtility.Warning("Audio", $"Group not found: {groupPath}");
                 return null;
             }
 
@@ -38,7 +38,7 @@ namespace CFramework
             var clip = handle.As<AudioClip>();
             if (clip == null)
             {
-                Debug.LogWarning($"[Audio] Failed to load clip: {clipKey}");
+                LogUtility.Warning("Audio", $"Failed to load clip: {clipKey}");
                 return null;
             }
 
@@ -48,7 +48,7 @@ namespace CFramework
 
             if (slot == null)
             {
-                Debug.LogWarning($"[Audio] No available slot in group {groupPath}");
+                LogUtility.Warning("Audio", $"No available slot in group {groupPath}");
                 return null;
             }
 

@@ -215,7 +215,7 @@ namespace CFramework
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogWarning($"[AssetService] Failed to preload: {key}, Error: {ex.Message}");
+                    LogUtility.Warning("AssetService", $"Failed to preload: {key}, Error: {ex.Message}");
                 }
 
                 // 每处理一个资源就更新进度

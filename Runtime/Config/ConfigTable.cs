@@ -65,7 +65,7 @@ namespace CFramework
                     if (item is null) continue;
 
                     if (_cache.ContainsKey(item.Key))
-                        Debug.LogWarning($"[ConfigTable] 重复主键: {item.Key}，后值覆盖前值");
+                        LogUtility.Warning("ConfigTable", $"重复主键: {item.Key}，后值覆盖前值");
 
                     _cache[item.Key] = item;
                     _dataList.Add(item);

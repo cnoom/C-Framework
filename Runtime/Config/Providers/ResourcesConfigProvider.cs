@@ -25,7 +25,7 @@ namespace CFramework
 
             if (asset == null)
             {
-                Debug.LogError($"[ResourcesConfigProvider] 加载失败，Resources 中未找到: {address}");
+                LogUtility.Error("ResourcesConfigProvider", $"加载失败，Resources 中未找到: {address}");
                 return UniTask.FromResult<ConfigTable<TKey, TValue>>(null);
             }
 
@@ -38,8 +38,8 @@ namespace CFramework
                 return UniTask.FromResult(table);
             }
 
-            Debug.LogError(
-                $"[ResourcesConfigProvider] 类型不匹配: {address}，" +
+            LogUtility.Error("ResourcesConfigProvider",
+                $"类型不匹配: {address}，" +
                 $"期望 ConfigTableAsset<{typeof(TKey).Name}, {typeof(TValue).Name}>，" +
                 $"实际 {asset.GetType().Name}");
             return UniTask.FromResult<ConfigTable<TKey, TValue>>(null);

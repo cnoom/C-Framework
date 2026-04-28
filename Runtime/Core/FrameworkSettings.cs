@@ -62,8 +62,8 @@ namespace CFramework
             if (settings == null)
             {
                 settings = CreateInstance<FrameworkSettings>();
-                Debug.LogWarning(
-                    $"[CFramework] FrameworkSettings not found at Resources/{DefaultPath}, using default values.");
+                LogUtility.Warning("CFramework",
+                    $"FrameworkSettings not found at Resources/{DefaultPath}, using default values.");
             }
 
             return settings;

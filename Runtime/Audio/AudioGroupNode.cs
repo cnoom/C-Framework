@@ -63,7 +63,7 @@ namespace CFramework
 
             if (_slots.Count >= _maxSlots)
             {
-                Debug.LogWarning($"[Audio] Slot pool exhausted for {Path}, max={_maxSlots}");
+                LogUtility.Warning("Audio", $"Slot pool exhausted for {Path}, max={_maxSlots}");
                 return null;
             }
 

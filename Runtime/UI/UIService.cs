@@ -66,7 +66,7 @@ namespace CFramework
                             Canvas = rootGo.GetComponent<Canvas>();
 
                             if (Canvas == null)
-                                Debug.LogWarning("[UIService] UIRoot Prefab 上未找到 Canvas 组件，UI 可能无法正确渲染");
+                                LogUtility.Warning("UIService", "UIRoot Prefab 上未找到 Canvas 组件，UI 可能无法正确渲染");
 
                             _uiRootReady.TrySetResult();
                             return;
@@ -270,7 +270,7 @@ namespace CFramework
             // 添加 GraphicRaycaster（接收点击事件）
             rootGo.AddComponent<GraphicRaycaster>();
 
-            Debug.Log("[UIService] 已创建代码兜底 UIRoot（Canvas + CanvasScaler + GraphicRaycaster）");
+            LogUtility.Info("UIService", "已创建代码兜底 UIRoot（Canvas + CanvasScaler + GraphicRaycaster）");
         }
 
         /// <summary>

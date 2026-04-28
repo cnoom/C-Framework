@@ -31,7 +31,7 @@ namespace CFramework
 
             if (textAsset == null)
             {
-                Debug.LogError($"[JsonConfigProvider] 加载失败，资源不是 TextAsset: {address}");
+                LogUtility.Error("JsonConfigProvider", $"加载失败，资源不是 TextAsset: {address}");
                 return null;
             }
 
@@ -40,7 +40,7 @@ namespace CFramework
 
             if (items == null)
             {
-                Debug.LogError($"[JsonConfigProvider] JSON 反序列化失败: {address}");
+                LogUtility.Error("JsonConfigProvider", $"JSON 反序列化失败: {address}");
                 return null;
             }
 

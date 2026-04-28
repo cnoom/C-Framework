@@ -32,7 +32,7 @@ namespace CFramework
                 return table;
             }
 
-            Debug.LogError($"[SOConfigProvider] 加载失败，类型不匹配: {address}，" +
+            LogUtility.Error("SOConfigProvider", $"加载失败，类型不匹配: {address}，" +
                            $"期望 ConfigTableAsset<{typeof(TKey).Name}, {typeof(TValue).Name}>，" +
                            $"实际 {handle.Asset?.GetType().Name ?? "null"}");
             return null;

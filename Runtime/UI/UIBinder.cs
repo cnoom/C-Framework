@@ -112,7 +112,7 @@ namespace CFramework
             }
             else
             {
-                Debug.LogError("[UIBinder] 未找到 UIPanelGenerator 类型，请确认 Editor 程序集已编译");
+                LogUtility.Error("UIBinder", "未找到 UIPanelGenerator 类型，请确认 Editor 程序集已编译");
             }
         }
 

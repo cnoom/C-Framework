@@ -41,13 +41,13 @@ namespace CFramework
         {
             if (string.IsNullOrEmpty(prefix))
             {
-                Debug.LogWarning("[CompositeConfigProvider] 前缀为空，已忽略");
+                LogUtility.Warning("CompositeConfigProvider", "前缀为空，已忽略");
                 return;
             }
 
             if (provider == null)
             {
-                Debug.LogWarning("[CompositeConfigProvider] provider 为空，已忽略");
+                LogUtility.Warning("CompositeConfigProvider", "provider 为空，已忽略");
                 return;
             }
 

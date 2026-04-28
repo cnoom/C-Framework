@@ -75,8 +75,8 @@ namespace CFramework.Utility.Serialization
 
                 if (_dictionary.ContainsKey(pair.Key))
                 {
-                    Debug.LogWarning(
-                        $"[SerializableDictionary] 反序列化时发现重复键：{pair.Key}，保留最后一个值");
+                    LogUtility.Warning("SerializableDictionary",
+                        $"反序列化时发现重复键：{pair.Key}，保留最后一个值");
                 }
 
                 _dictionary[pair.Key] = pair.Value;

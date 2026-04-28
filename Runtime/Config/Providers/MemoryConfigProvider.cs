@@ -47,8 +47,8 @@ namespace CFramework
                 return UniTask.FromResult(typedTable);
             }
 
-            UnityEngine.Debug.LogError(
-                $"[MemoryConfigProvider] 未注册的配置地址: {address}，" +
+            LogUtility.Error("MemoryConfigProvider",
+                $"未注册的配置地址: {address}，" +
                 $"请先调用 Register<{typeof(TKey).Name}, {typeof(TValue).Name}>(\"{address}\", data)");
             return UniTask.FromResult<ConfigTable<TKey, TValue>>(null);
         }

@@ -60,7 +60,7 @@ namespace CFramework
 
                 var paramName = ExposedParamName(path);
                 if (!_mixer.GetFloat(paramName, out _))
-                    Debug.LogWarning($"[Audio] Exposed Parameter '{paramName}' not found. " +
+                    LogUtility.Warning("Audio", $"Exposed Parameter '{paramName}' not found. " +
                                      $"Group '{path}' volume control will not work.");
             }
         }
