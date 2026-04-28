@@ -4,7 +4,7 @@ using System.Linq;
 using Sirenix.OdinInspector;
 using UnityEngine;
 
-namespace CFramework.Runtime.UI
+namespace CFramework
 {
     /// <summary>
     ///     UI 组件绑定数据

@@ -10,7 +10,7 @@ using UnityEngine;
 using UnityEditor.SceneManagement;
 #endif
 
-namespace CFramework.Runtime.UI
+namespace CFramework
 {
     /// <summary>
     ///     UI 绑定器，挂载在 UI Prefab 根节点上

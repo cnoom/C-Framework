@@ -2,7 +2,7 @@ using Cysharp.Threading.Tasks;
 using R3;
 using UnityEngine;
 
-namespace CFramework.Runtime.UI
+namespace CFramework
 {
     /// <summary>
     ///     UI 服务接口

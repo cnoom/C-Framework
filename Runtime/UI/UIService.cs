@@ -10,7 +10,7 @@ using VContainer;
 using VContainer.Unity;
 using Object = UnityEngine.Object;
 
-namespace CFramework.Runtime.UI
+namespace CFramework
 {
     /// <summary>
     ///     UI 服务实现

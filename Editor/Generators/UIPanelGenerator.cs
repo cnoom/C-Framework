@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using CFramework.Editor.Configs;
-using CFramework.Runtime.UI;
 using UnityEditor;
 using UnityEngine;
 
@@ -130,7 +129,7 @@ namespace CFramework.Editor.Generators
         {
             // 收集组件信息
             var fields = new List<FieldInfo>();
-            var usings = new HashSet<string> { "using CFramework.Runtime.UI;" };
+            var usings = new HashSet<string> { "using CFramework;" };
 
             for (var i = 0; i < components.Length; i++)
             {
@@ -215,7 +214,7 @@ namespace CFramework.Editor.Generators
             if (File.Exists(filePath)) return;
 
             var sb = new StringBuilder();
-            sb.AppendLine("using CFramework.Runtime.UI;");
+            sb.AppendLine("using CFramework;");
             sb.AppendLine("using UnityEngine;");
             sb.AppendLine();
             sb.AppendLine($"namespace {UIPanelGeneratorConfig.Namespace}");
