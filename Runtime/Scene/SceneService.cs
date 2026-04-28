@@ -3,14 +3,13 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using R3;
 using UnityEngine.SceneManagement;
-using VContainer.Unity;
 
 namespace CFramework
 {
     /// <summary>
     ///     场景服务实现
     /// </summary>
-    public sealed class SceneService : ISceneService, IStartable, IDisposable
+    public sealed class SceneService : ISceneService, IAsyncInitializable, IDisposable
     {
         private readonly Subject<float> _loadProgress = new();
         private readonly Subject<string> _sceneLoaded = new();
@@ -86,9 +85,10 @@ namespace CFramework
             _sceneUnloaded.OnNext(sceneName);
         }
 
-        public void Start()
+        public UniTask InitializeAsync()
         {
             CurrentScene = SceneManager.GetActiveScene().name;
+            return UniTask.CompletedTask;
         }
 
         /// <summary>

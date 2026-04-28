@@ -33,7 +33,13 @@ namespace CFramework
             where TImplementation : class, TInterface
             where TInterface : class
         {
-            return builder.RegisterEntryPoint<TImplementation>(lifetime).As<TInterface>();
+            var registration = builder.RegisterEntryPoint<TImplementation>(lifetime).As<TInterface>();
+
+            // 自动注册 IAsyncInitializable 接口，供 GameScope.InitializeAsync() 统一等待
+            if (typeof(IAsyncInitializable).IsAssignableFrom(typeof(TImplementation)))
+                registration.As<IAsyncInitializable>();
+
+            return registration;
         }
     }
 }

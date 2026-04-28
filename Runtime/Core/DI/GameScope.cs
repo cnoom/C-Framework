@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 using VContainer;
@@ -74,6 +76,21 @@ namespace CFramework
             ResolveFrameworkServices();
             _isBuilt = true;
             _isInitialized = true;
+        }
+
+        /// <summary>
+        ///     异步初始化框架：构建 DI 容器、解析服务，并等待所有异步服务就绪
+        ///     <para>推荐使用此方法替代 Initialize()，确保所有异步服务（UI、Audio 等）完全就绪后才返回</para>
+        ///     <para>典型用法：await GameScope.Create(settings).InitializeAsync()</para>
+        /// </summary>
+        public async UniTask InitializeAsync()
+        {
+            Initialize();
+
+            // 等待所有实现 IAsyncInitializable 的服务完成异步初始化
+            var asyncServices = Container.Resolve<IEnumerable<IAsyncInitializable>>();
+            if (asyncServices.Any())
+                await UniTask.WhenAll(asyncServices.Select(s => s.InitializeAsync()));
         }
 
         protected override void OnDestroy()

@@ -7,7 +7,6 @@ using R3;
 using UnityEngine;
 using UnityEngine.UI;
 using VContainer;
-using VContainer.Unity;
 using Object = UnityEngine.Object;
 
 namespace CFramework
@@ -17,7 +16,7 @@ namespace CFramework
     ///     <para>管理 UI 面板的加载、缓存、生命周期和导航栈</para>
     ///     <para>约定：Prefab 名称 = 类名（typeof(T).Name），自动推导 Addressable Key</para>
     /// </summary>
-    public sealed class UIService : IUIService, IStartable, IDisposable
+    public sealed class UIService : IUIService, IAsyncInitializable, IDisposable
     {
         private readonly IAssetService _assetService;
         private readonly LinkedList<string> _navigationStack = new();
@@ -43,15 +42,10 @@ namespace CFramework
             _cancellationTokenSource = new CancellationTokenSource();
         }
 
-        public void Start()
-        {
-            InitializeAsync().Forget();
-        }
-
         /// <summary>
-        ///     异步初始化 UIRoot
+        ///     异步初始化 UIRoot（IAsyncInitializable 实现）
         /// </summary>
-        private async UniTaskVoid InitializeAsync()
+        public async UniTask InitializeAsync()
         {
             try
             {

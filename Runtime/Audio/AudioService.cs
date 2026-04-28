@@ -5,7 +5,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Audio;
-using VContainer.Unity;
 
 namespace CFramework
 {
@@ -15,7 +14,7 @@ namespace CFramework
     ///     <para>使用 FrameworkSettings 中指定的 AudioMixer 自动初始化</para>
     ///     <para>分组寻址通过字符串路径（如 "Master/BGM"），与用户生成的 AudioGroup 枚举完全解耦</para>
     /// </summary>
-    public sealed class AudioService : IAudioService, IStartable
+    public sealed class AudioService : IAudioService, IAsyncInitializable
     {
         private readonly IAssetService _assetService;
         private readonly FrameworkSettings _settings;
@@ -34,31 +33,6 @@ namespace CFramework
             _assetService = assetService;
             _settings = settings;
         }
-
-        #region IStartable
-
-        public void Start()
-        {
-            if (!_initialized)
-                SafeInitializeAsync().Forget();
-        }
-
-        /// <summary>
-        ///     安全初始化包装，捕获异步异常并输出日志
-        /// </summary>
-        private async UniTaskVoid SafeInitializeAsync()
-        {
-            try
-            {
-                await InitializeAsync();
-            }
-            catch (Exception ex)
-            {
-                LogUtility.Error("Audio", $"Initialization failed: {ex.Message}");
-            }
-        }
-
-        #endregion
 
         #region 初始化
 
