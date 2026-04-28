@@ -37,6 +37,35 @@ namespace CFramework
             _settings = settings;
         }
 
+        public async UniTask LoadAsync<TKey, TValue>(string address = null, CancellationToken ct = default)
+            where TValue : IConfigItem<TKey>
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var valueType = typeof(TValue);
+            if (_tables.ContainsKey(valueType)) return;
+
+            // 解析地址
+            if (string.IsNullOrEmpty(address))
+            {
+                if (!_addresses.TryGetValue(valueType, out address))
+                {
+                    var prefix = _settings?.ConfigAddressPrefix;
+                    address = string.IsNullOrEmpty(prefix)
+                        ? valueType.Name
+                        : $"{prefix}/{valueType.Name}";
+                }
+            }
+
+            // 直接调用，无反射
+            var table = await _provider.LoadAsync<TKey, TValue>(address, ct);
+            if (table != null)
+            {
+                _tables[valueType] = table;
+                _addresses[valueType] = address;
+            }
+        }
+
         public async UniTask LoadAsync<TValue>(string address = null, CancellationToken ct = default)
             where TValue : IConfigItem
         {
@@ -62,7 +91,7 @@ namespace CFramework
             var keyType = GetKeyType(valueType);
             if (keyType == null)
             {
-                Debug.LogError($"[ConfigService] 无法解析 {valueType.Name} 的主键类型，确保实现了 IConfigItem<TKey>");
+                LogUtility.Error("ConfigService", $"无法解析 {valueType.Name} 的主键类型，确保实现了 IConfigItem<TKey>");
                 return;
             }
 
@@ -109,6 +138,13 @@ namespace CFramework
         {
             var table = GetTable<TKey, TValue>();
             return table != null ? table.Get(key) : default;
+        }
+
+        public async UniTask ReloadAsync<TKey, TValue>(string address = null, CancellationToken ct = default)
+            where TValue : IConfigItem<TKey>
+        {
+            Unload<TValue>();
+            await LoadAsync<TKey, TValue>(address, ct);
         }
 
         public async UniTask ReloadAsync<TValue>(string address = null, CancellationToken ct = default)
@@ -186,7 +222,7 @@ namespace CFramework
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[ConfigService] 加载配置失败: {address}, 错误: {ex.InnerException?.Message ?? ex.Message}");
+                LogUtility.Error("ConfigService", $"加载配置失败: {address}, 错误: {ex.InnerException?.Message ?? ex.Message}");
                 return null;
             }
         }

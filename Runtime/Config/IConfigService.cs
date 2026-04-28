@@ -12,7 +12,17 @@ namespace CFramework
     public interface IConfigService : IDisposable
     {
         /// <summary>
-        ///     加载指定数据类型的配置表
+        ///     加载指定数据类型的配置表（非反射，推荐使用）
+        /// </summary>
+        /// <typeparam name="TKey">主键类型</typeparam>
+        /// <typeparam name="TValue">数据行类型（如 ItemData）</typeparam>
+        /// <param name="address">资源地址（为空时自动从映射表查找）</param>
+        /// <param name="ct">取消令牌</param>
+        UniTask LoadAsync<TKey, TValue>(string address = null, CancellationToken ct = default)
+            where TValue : IConfigItem<TKey>;
+
+        /// <summary>
+        ///     加载指定数据类型的配置表（通过反射推断 TKey，性能略低）
         /// </summary>
         /// <typeparam name="TValue">数据行类型（如 ItemData）</typeparam>
         /// <param name="address">资源地址（为空时自动从映射表查找）</param>
@@ -44,7 +54,13 @@ namespace CFramework
         TValue Get<TKey, TValue>(TKey key) where TValue : IConfigItem<TKey>;
 
         /// <summary>
-        ///     重新加载指定配置表
+        ///     重新加载指定配置表（非反射，推荐使用）
+        /// </summary>
+        UniTask ReloadAsync<TKey, TValue>(string address = null, CancellationToken ct = default)
+            where TValue : IConfigItem<TKey>;
+
+        /// <summary>
+        ///     重新加载指定配置表（通过反射推断 TKey）
         /// </summary>
         UniTask ReloadAsync<TValue>(string address = null, CancellationToken ct = default)
             where TValue : IConfigItem;
