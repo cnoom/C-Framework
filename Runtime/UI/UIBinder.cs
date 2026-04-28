@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+#if ODIN_INSPECTOR
 using Sirenix.OdinInspector;
+#endif
 using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor.SceneManagement;
@@ -16,7 +18,11 @@ namespace CFramework.Runtime.UI
     /// </summary>
     public class UIBinder : MonoBehaviour
     {
+#if ODIN_INSPECTOR
         [SerializeField] [LabelText("组件列表")] private UIComponent[] _components;
+#else
+        [SerializeField, Header("组件列表")] private UIComponent[] _components;
+#endif
 
         /// <summary>
         ///     组件列表
@@ -72,7 +78,7 @@ namespace CFramework.Runtime.UI
             _components = components;
         }
 
-#if UNITY_EDITOR
+#if UNITY_EDITOR && ODIN_INSPECTOR
         [Button("生成绑定代码", ButtonSizes.Large)]
         [PropertyOrder(100)]
         [ShowIf(nameof(HasValidComponents))]
