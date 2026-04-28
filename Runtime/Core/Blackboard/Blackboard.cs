@@ -268,14 +268,27 @@ namespace CFramework
         }
 
         /// <summary>
-        ///     通过反射通知 Subject 的 OnNext(default)
-        ///     <para>仅在 Clear() 中使用（非热路径），反射开销可接受</para>
+        ///     通知 Subject 的 OnNext(default)
+        ///     <para>使用泛型辅助方法避免反射调用</para>
         /// </summary>
         private static void NotifySubject(object subject, Type valueType)
         {
-            var method = subject.GetType().GetMethod("OnNext");
-            var defaultValue = valueType.IsValueType ? Activator.CreateInstance(valueType) : null;
-            method.Invoke(subject, new[] { defaultValue });
+            // 使用泛型辅助方法，避免每次反射调用 GetMethod/Invoke
+            var helperType = typeof(SubjectHelper<>).MakeGenericType(valueType);
+            var action = helperType.GetMethod(nameof(SubjectHelper<object>.NotifyDefault));
+            action.Invoke(null, new[] { subject });
+        }
+
+        /// <summary>
+        ///     泛型辅助类，用于无反射地通知 Subject
+        /// </summary>
+        private static class SubjectHelper<T>
+        {
+            public static void NotifyDefault(object subject)
+            {
+                if (subject is Subject<T> s)
+                    s.OnNext(default);
+            }
         }
 
         /// <summary>
