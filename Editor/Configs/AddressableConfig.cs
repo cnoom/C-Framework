@@ -289,7 +289,7 @@ namespace CFramework.Editor.Configs
             #region 过滤规则
 
             [FoldoutGroup("过滤规则")] [LabelText("包含的文件类型")] [Tooltip("留空表示包含所有类型")]
-            public List<string> includeExtensions = new() { ".prefab", ".asset", ".mat", ".png", ".wav", ".mp3" };
+            public List<string> includeExtensions = new() { ".prefab", ".asset", ".mat", ".png", ".wav", ".mp3", ".json" };
 
             [FoldoutGroup("过滤规则")] [LabelText("排除的文件")] [ListDrawerSettings(ShowPaging = false)]
             public List<string> excludeFiles = new();
