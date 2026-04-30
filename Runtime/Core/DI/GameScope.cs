@@ -60,11 +60,10 @@ namespace CFramework
         }
 
         /// <summary>
-        ///     初始化框架：构建 DI 容器并解析所有框架服务
-        ///     <para>必须在所有 AddInstaller 调用之后、使用框架服务之前调用</para>
-        ///     <para>典型调用位置：GameBoot.Start() 中 AddInstaller 之后</para>
+        ///     核心初始化：构建 DI 容器并解析所有框架服务
+        ///     <para>仅供 InitializeAsync 内部调用，不对外暴露</para>
         /// </summary>
-        public void Initialize()
+        private void InitializeCore()
         {
             if (_isInitialized)
             {
@@ -80,12 +79,12 @@ namespace CFramework
 
         /// <summary>
         ///     异步初始化框架：构建 DI 容器、解析服务，并等待所有异步服务就绪
-        ///     <para>推荐使用此方法替代 Initialize()，确保所有异步服务（UI、Audio 等）完全就绪后才返回</para>
+        ///     <para>确保所有异步服务（UI、Audio 等）完全就绪后才返回</para>
         ///     <para>典型用法：await GameScope.Create(settings).InitializeAsync()</para>
         /// </summary>
         public async UniTask InitializeAsync()
         {
-            Initialize();
+            InitializeCore();
 
             // 等待所有实现 IAsyncInitializable 的服务完成异步初始化
             var asyncServices = Container.Resolve<IEnumerable<IAsyncInitializable>>();
@@ -167,8 +166,8 @@ namespace CFramework
 
         /// <summary>
         ///     创建游戏作用域（不自动构建）
-        ///     <para>创建后需调用 Initialize() 以构建容器并解析服务</para>
-        ///     <para>典型用法：GameScope.Create().Initialize()</para>
+        ///     <para>创建后需调用 InitializeAsync() 以构建容器并解析服务</para>
+        ///     <para>典型用法：await GameScope.Create().InitializeAsync()</para>
         /// </summary>
         /// <param name="settings">框架设置，为 null 时加载默认设置</param>
         /// <returns>未初始化的 GameScope 实例</returns>
