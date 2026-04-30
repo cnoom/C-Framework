@@ -1,13 +1,14 @@
 {
   "name": "CFramework.Editor",
   "rootNamespace": "CFramework.Editor",
-  "references": [
-    "CFramework.Runtime",
-    "VContainer",
-    "UniTask",
-    "R3.Unity",
-    "Unity.Addressables.Editor"
-  ],
+    "references": [
+        "CFramework.Runtime",
+        "UnityTool.Editor",
+        "VContainer",
+        "UniTask",
+        "R3.Unity",
+        "Unity.Addressables.Editor"
+    ],
   "includePlatforms": [
     "Editor"
   ],

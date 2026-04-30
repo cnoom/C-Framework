@@ -2,6 +2,7 @@
     "name": "CFramework.Runtime",
     "rootNamespace": "CFramework",
     "references": [
+        "UnityTool.Runtime",
         "VContainer",
         "UniTask",
         "R3.Unity",

@@ -1,7 +1,7 @@
 #if UNITY_EDITOR && CFRAMEWORK_AUDIO
 using System.Collections.Generic;
 using CFramework;
-using CFramework.Editor.Utilities;
+using CNoom.UnityTool.Editor;
 using Cysharp.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;

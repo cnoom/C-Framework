@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using CNoom.UnityTool;
 using UnityEngine;
 
 namespace CFramework.Utility.Serialization
