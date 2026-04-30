@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 
 namespace CFramework
@@ -32,8 +33,11 @@ namespace CFramework
                 var callback = Delegate.CreateDelegate(delegateType, subscriber, info.Method);
 
                 var subscribeMethod = typeof(IEventBus)
-                    .GetMethod(nameof(IEventBus.Subscribe),
-                        new[] { typeof(Action<>).MakeGenericType(info.EventType), typeof(int) })
+                    .GetMethods()
+                    .First(m => m.Name == nameof(IEventBus.Subscribe)
+                                && m.IsGenericMethod
+                                && m.GetParameters().Length == 2
+                                && m.GetParameters()[1].ParameterType == typeof(int))
                     .MakeGenericMethod(info.EventType);
 
                 var disposable =
