@@ -25,6 +25,8 @@ namespace CFramework.Editor.Windows
         private Button _saveButton;
 
         private IAudioService _cachedAudioService;
+        private GameScope _cachedGameScope;
+        private bool _serviceLookupFailed;
 
         #endregion
 
@@ -94,10 +96,12 @@ namespace CFramework.Editor.Windows
                 _statusLabel.text = "Audio Debugger 仅在运行时可用。";
                 _statusLabel.style.display = DisplayStyle.Flex;
                 _rootContainer.style.display = DisplayStyle.None;
+                InvalidateServiceCache();
                 return;
             }
 
-            var audioService = GetAudioService();
+            // 尝试使用缓存的服务引用，仅在缓存失效时重新查找
+            var audioService = ResolveAudioService();
             if (audioService == null)
             {
                 _statusLabel.text = "AudioService 未初始化。";
@@ -111,6 +115,56 @@ namespace CFramework.Editor.Windows
             _rootContainer.style.display = DisplayStyle.Flex;
 
             RefreshUI(audioService);
+        }
+
+        /// <summary>
+        ///     Play Mode 退出时清理缓存（由 Dashboard 的 OnPlayModeStateChanged 调用）
+        /// </summary>
+        public void OnExitingPlayMode()
+        {
+            InvalidateServiceCache();
+        }
+
+        private void InvalidateServiceCache()
+        {
+            _cachedGameScope = null;
+            _cachedAudioService = null;
+            _serviceLookupFailed = false;
+        }
+
+        /// <summary>
+        ///     解析 AudioService 实例（优先使用缓存，避免每帧 FindObjectOfType）
+        /// </summary>
+        private IAudioService ResolveAudioService()
+        {
+            // 快速路径：缓存仍然有效
+            if (_cachedGameScope != null && _cachedAudioService != null)
+                return _cachedAudioService;
+
+            // 跳过本轮已确认失败的查找，下一帧重试
+            if (_serviceLookupFailed)
+                return null;
+
+            var gameScope = UnityEngine.Object.FindObjectOfType<GameScope>();
+            if (gameScope == null)
+            {
+                _serviceLookupFailed = true;
+                return null;
+            }
+
+            _cachedGameScope = gameScope;
+            var components = gameScope.GetComponents<Component>();
+            foreach (var comp in components)
+            {
+                if (comp is IAudioService audioService)
+                {
+                    _cachedAudioService = audioService;
+                    return audioService;
+                }
+            }
+
+            _serviceLookupFailed = true;
+            return null;
         }
 
         #endregion
@@ -208,24 +262,6 @@ namespace CFramework.Editor.Windows
         private void OnSaveClicked()
         {
             _cachedAudioService?.SaveVolumes();
-        }
-
-        #endregion
-
-        #region 服务获取
-
-        private static IAudioService GetAudioService()
-        {
-            var gameScope = UnityEngine.Object.FindObjectOfType<GameScope>();
-            if (gameScope == null) return null;
-            var components = gameScope.GetComponents<Component>();
-            foreach (var comp in components)
-            {
-                if (comp is IAudioService audioService)
-                    return audioService;
-            }
-
-            return null;
         }
 
         #endregion

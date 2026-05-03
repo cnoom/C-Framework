@@ -229,10 +229,13 @@ namespace CFramework.Editor.Windows
             }
 
 #if CFRAMEWORK_AUDIO
-            // 音频调试 Tab 在进入 Play Mode 时需要激活
-            if (state == PlayModeStateChange.EnteredPlayMode && _audioDebuggerTab != null)
+            // 音频调试 Tab 在进入 Play Mode 时需要激活，退出时清理缓存
+            if (_audioDebuggerTab != null)
             {
-                _audioDebuggerTab.Update();
+                if (state == PlayModeStateChange.EnteredPlayMode)
+                    _audioDebuggerTab.Update();
+                else if (state == PlayModeStateChange.ExitingPlayMode)
+                    _audioDebuggerTab.OnExitingPlayMode();
             }
 #endif
         }

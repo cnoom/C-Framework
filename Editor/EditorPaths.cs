@@ -19,12 +19,12 @@ namespace CFramework.Editor
         /// <summary>
         ///     CFramework 库根路径
         /// </summary>
-        public const string CFrameworkRoot = "Assets/CFramework";
+        public const string CFrameworkRoot = "Assets/Plugins/CFramework";
 
         /// <summary>
         ///     CFramework 编辑器路径
         /// </summary>
-        public const string CFrameworkEditor = "Assets/CFramework/Editor";
+        public const string CFrameworkEditor = "Assets/Plugins/CFramework/Editor";
 
         #endregion
 
