@@ -27,7 +27,7 @@ namespace CFramework
 
         public override int GetHashCode()
         {
-            return (Name, typeof(T)).GetHashCode();
+            return Name?.GetHashCode() ?? 0;
         }
 
         public override bool Equals(object obj)

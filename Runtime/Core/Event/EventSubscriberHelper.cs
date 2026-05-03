@@ -27,19 +27,20 @@ namespace CFramework
 
             var subscribeInfos = GetOrBuildSubscribeInfos(subscriber.GetType());
 
+            // 缓存 Subscribe 方法的基础 MethodInfo，避免每次循环迭代都反射查找
+            var subscribeMethodBase = typeof(IEventBus)
+                .GetMethods()
+                .First(m => m.Name == nameof(IEventBus.Subscribe)
+                            && m.IsGenericMethod
+                            && m.GetParameters().Length == 2
+                            && m.GetParameters()[1].ParameterType == typeof(int));
+
             foreach (var info in subscribeInfos)
             {
                 var delegateType = typeof(Action<>).MakeGenericType(info.EventType);
                 var callback = Delegate.CreateDelegate(delegateType, subscriber, info.Method);
 
-                var subscribeMethod = typeof(IEventBus)
-                    .GetMethods()
-                    .First(m => m.Name == nameof(IEventBus.Subscribe)
-                                && m.IsGenericMethod
-                                && m.GetParameters().Length == 2
-                                && m.GetParameters()[1].ParameterType == typeof(int))
-                    .MakeGenericMethod(info.EventType);
-
+                var subscribeMethod = subscribeMethodBase.MakeGenericMethod(info.EventType);
                 var disposable =
                     (IDisposable)subscribeMethod.Invoke(eventBus, new object[] { callback, info.Priority });
                 subscriber.EventSubscriptions.Add(disposable);

@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+#if ODIN_INSPECTOR
 using Sirenix.OdinInspector;
+#endif
 using UnityEngine;
 
 namespace CFramework
@@ -23,22 +25,31 @@ namespace CFramework
         /// </summary>
         private Type _cachedType;
 
-        [Required] [LabelText("目标物体")] public GameObject gameObject;
+#if ODIN_INSPECTOR
+        [Required] [LabelText("目标物体")]
+#else
+        [Tooltip("目标物体")]
+#endif
+        public GameObject gameObject;
 
         /// <summary>
         ///     名称（自动取目标物体名称）
         /// </summary>
+#if ODIN_INSPECTOR
         [ShowInInspector]
         [LabelText("名称")]
         [ReadOnly]
+#endif
         public string Name => gameObject != null ? gameObject.name : string.Empty;
 
         /// <summary>
         ///     组件类型（运行时从 _typeName 解析，结果已缓存）
         /// </summary>
+#if ODIN_INSPECTOR
         [ShowInInspector]
         [LabelText("组件类型")]
         [ValueDropdown(nameof(AvailableComponentTypes))]
+#endif
         public Type ComponentType
         {
             get

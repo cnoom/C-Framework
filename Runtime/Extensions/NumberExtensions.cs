@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace CFramework.Runtime.Extensions
+namespace CFramework
 {
     /// <summary>
     ///     数值类型扩展方法

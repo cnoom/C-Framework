@@ -100,9 +100,16 @@ namespace CFramework
             // 销毁所有缓存的面板
             foreach (var kvp in _panels)
             {
-                kvp.Value.UI.OnDestroy();
-                if (kvp.Value.GameObject != null) Object.Destroy(kvp.Value.GameObject);
+                try
+                {
+                    kvp.Value.UI.OnDestroy();
+                }
+                catch (Exception e)
+                {
+                    LogUtility.Warning("UIService", $"OnDestroy 异常: {kvp.Key}, {e.Message}");
+                }
 
+                if (kvp.Value.GameObject != null) Object.Destroy(kvp.Value.GameObject);
                 kvp.Value.Handle.Dispose();
             }
 

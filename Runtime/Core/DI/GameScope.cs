@@ -280,6 +280,7 @@ namespace CFramework
             DisposeCore();
             Build();
             ResolveFrameworkServices();
+            _isBuilt = true;
         }
 
         #endregion

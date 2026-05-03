@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace CFramework.Runtime.Extensions
+namespace CFramework
 {
     /// <summary>
     /// Transform 常用拓展方法
