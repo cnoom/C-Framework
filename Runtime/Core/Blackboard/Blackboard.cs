@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using R3;
@@ -269,8 +270,9 @@ namespace CFramework
 
         /// <summary>
         ///     Action 委托缓存（Type -> Action），避免每次 Clear 调用反射
+        ///     <para>跨实例共享，使用 ConcurrentDictionary 保证线程安全</para>
         /// </summary>
-        private static readonly Dictionary<Type, Action<object>> _notifyActions = new();
+        private static readonly ConcurrentDictionary<Type, Action<object>> _notifyActions = new();
 
         /// <summary>
         ///     通知 Subject 的 OnNext(default)
@@ -278,12 +280,7 @@ namespace CFramework
         /// </summary>
         private static void NotifySubject(object subject, Type valueType)
         {
-            if (!_notifyActions.TryGetValue(valueType, out var action))
-            {
-                action = SubjectHelper.CreateNotifyAction(valueType);
-                _notifyActions[valueType] = action;
-            }
-
+            var action = _notifyActions.GetOrAdd(valueType, SubjectHelper.CreateNotifyAction);
             action(subject);
         }
 
