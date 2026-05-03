@@ -88,8 +88,11 @@ namespace CFramework
 
         protected override void OnDestroy()
         {
+            var wasInitialized = false;
+
             if (Instance == this)
             {
+                wasInitialized = _isInitialized;
                 Instance = null;
                 _isInitialized = false;
 
@@ -100,7 +103,7 @@ namespace CFramework
             }
 
             // 仅在已初始化时执行 base.OnDestroy（DisposeCore 需要 Container 存在）
-            if (_isInitialized)
+            if (wasInitialized)
                 base.OnDestroy();
         }
 
