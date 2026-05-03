@@ -33,11 +33,6 @@ namespace CFramework
         [SerializeField] private FrameworkSettings _settings;
 
         /// <summary>
-        ///     是否已完成首次构建
-        /// </summary>
-        private bool _isBuilt;
-
-        /// <summary>
         ///     是否已初始化（调用过 Initialize）
         /// </summary>
         private bool _isInitialized;
@@ -73,7 +68,6 @@ namespace CFramework
 
             Build();
             ResolveFrameworkServices();
-            _isBuilt = true;
             _isInitialized = true;
         }
 
@@ -97,7 +91,6 @@ namespace CFramework
             if (Instance == this)
             {
                 Instance = null;
-                _isBuilt = false;
                 _isInitialized = false;
 
                 // 清理静态缓存，防止关机阶段访问已释放服务
@@ -269,7 +262,6 @@ namespace CFramework
             DisposeCore();
             Build();
             ResolveFrameworkServices();
-            _isBuilt = true;
         }
 
         #endregion

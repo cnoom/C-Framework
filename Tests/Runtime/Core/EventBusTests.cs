@@ -94,6 +94,7 @@ namespace CFramework.Tests
 
                 // Assert
                 Assert.IsTrue(handlerCalled, "处理器应该被调用");
+                Assert.IsTrue(timeoutOccurred, "应该触发超时错误回调");
             }
             finally
             {

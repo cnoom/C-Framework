@@ -135,7 +135,7 @@ namespace CFramework
                 // 压缩格式：≈ 0.5 byte/px，向上取整为 1
                 TextureFormat.DXT1 or TextureFormat.DXT1Crunched or TextureFormat.BC4
                     or TextureFormat.EAC_R or TextureFormat.EAC_R_SIGNED
-                    or TextureFormat.ETC_RGB4 or TextureFormat.ETC_RGB4_3DS
+                    or TextureFormat.ETC_RGB4
                     or TextureFormat.ETC_RGB4Crunched or TextureFormat.PVRTC_RGB2
                     or TextureFormat.PVRTC_RGBA2 => 1,
                 // 压缩格式：≈ 1 byte/px

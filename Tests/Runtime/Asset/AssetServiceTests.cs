@@ -427,6 +427,7 @@ namespace CFramework.Tests
             // Assert
             Assert.IsNotNull(service.MemoryBudget);
             Assert.AreEqual(0, service.MemoryBudget.UsedBytes, "初始使用量应为0");
+            Assert.IsFalse(eventTriggered, "未超出预算时不应触发事件");
 
             // Cleanup
             service.Dispose();
