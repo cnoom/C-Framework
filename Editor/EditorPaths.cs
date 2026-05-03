@@ -100,6 +100,17 @@ namespace CFramework.Editor
         #region 资源路径
 
         /// <summary>
+        ///     Resources 目录（运行时加载根）
+        /// </summary>
+        public const string Resources = "Assets/Resources";
+
+        /// <summary>
+        ///     框架 Settings 默认输出目录
+        ///     <para>FrameworkSettings 及各模块 Settings 默认存放在此</para>
+        /// </summary>
+        public const string FrameworkSettings = "Assets/Resources";
+
+        /// <summary>
         ///     预制体目录
         /// </summary>
         public const string Prefabs = "Assets/Prefabs";
