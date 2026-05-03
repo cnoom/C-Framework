@@ -38,6 +38,7 @@ namespace CFramework
             var clip = handle.As<AudioClip>();
             if (clip == null)
             {
+                handle.Dispose();
                 LogUtility.Warning("Audio", $"音频片段加载失败: {clipKey}");
                 return null;
             }
@@ -48,6 +49,7 @@ namespace CFramework
 
             if (slot == null)
             {
+                handle.Dispose();
                 LogUtility.Warning("Audio", $"No available slot in group {groupPath}");
                 return null;
             }
