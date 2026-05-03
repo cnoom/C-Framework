@@ -268,26 +268,45 @@ namespace CFramework
         }
 
         /// <summary>
+        ///     Action 委托缓存（Type -> Action），避免每次 Clear 调用反射
+        /// </summary>
+        private static readonly Dictionary<Type, Action<object>> _notifyActions = new();
+
+        /// <summary>
         ///     通知 Subject 的 OnNext(default)
-        ///     <para>使用泛型辅助方法避免反射调用</para>
+        ///     <para>首次遇到新类型时构建委托并缓存，后续直接调用，零反射开销</para>
         /// </summary>
         private static void NotifySubject(object subject, Type valueType)
         {
-            // 使用泛型辅助方法，避免每次反射调用 GetMethod/Invoke
-            var helperType = typeof(SubjectHelper<>).MakeGenericType(valueType);
-            var action = helperType.GetMethod(nameof(SubjectHelper<object>.NotifyDefault));
-            action.Invoke(null, new[] { subject });
+            if (!_notifyActions.TryGetValue(valueType, out var action))
+            {
+                action = SubjectHelper.CreateNotifyAction(valueType);
+                _notifyActions[valueType] = action;
+            }
+
+            action(subject);
         }
 
         /// <summary>
-        ///     泛型辅助类，用于无反射地通知 Subject
+        ///     泛型辅助类，用于创建强类型通知委托
         /// </summary>
-        private static class SubjectHelper<T>
+        private static class SubjectHelper
         {
-            public static void NotifyDefault(object subject)
+            public static Action<object> CreateNotifyAction(Type valueType)
             {
-                if (subject is Subject<T> s)
-                    s.OnNext(default);
+                var helperType = typeof(Inner<>).MakeGenericType(valueType);
+                var method = helperType.GetMethod(nameof(Inner<object>.NotifyDefault),
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                return (Action<object>)method.CreateDelegate(typeof(Action<object>));
+            }
+
+            private static class Inner<T>
+            {
+                public static void NotifyDefault(object subject)
+                {
+                    if (subject is Subject<T> s)
+                        s.OnNext(default);
+                }
             }
         }
 

@@ -191,6 +191,12 @@ namespace CFramework
         #region 反射辅助
 
         /// <summary>
+        ///     缓存的 InvokeLoadInternal MethodInfo（仅查找一次）
+        /// </summary>
+        private static readonly MethodInfo InvokeLoadInternalMethod = typeof(ConfigService)
+            .GetMethod(nameof(InvokeLoadInternal), BindingFlags.Instance | BindingFlags.NonPublic);
+
+        /// <summary>
         ///     获取 IConfigItem&lt;TKey&gt; 中的 TKey 类型
         /// </summary>
         private static Type GetKeyType(Type valueType)
@@ -212,9 +218,7 @@ namespace CFramework
         {
             try
             {
-                var loadMethod = typeof(ConfigService).GetMethod(nameof(InvokeLoadInternal),
-                    BindingFlags.Instance | BindingFlags.NonPublic);
-                var genericMethod = loadMethod.MakeGenericMethod(keyType, valueType);
+                var genericMethod = InvokeLoadInternalMethod.MakeGenericMethod(keyType, valueType);
                 var task = (UniTask)genericMethod.Invoke(this, new object[] { address, ct });
                 await task;
 

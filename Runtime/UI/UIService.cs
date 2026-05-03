@@ -26,7 +26,7 @@ namespace CFramework
 
         private readonly Dictionary<string, UIPanelData> _panels = new();
         private readonly UISettings _settings;
-        private readonly UniTaskCompletionSource _uiRootReady = new();
+        private UniTaskCompletionSource _uiRootReady = new();
         private CancellationTokenSource _cancellationTokenSource;
         [Inject] ILogger _logger;
 
@@ -150,11 +150,15 @@ namespace CFramework
         {
             // 等待 UIRoot 初始化完成（事件信号，无轮询）
             var readyTask = _uiRootReady.Task;
-            if (readyTask.Status != UniTaskStatus.Pending)
+            if (readyTask.Status == UniTaskStatus.Faulted)
             {
-                // UIRoot 已初始化完成，直接跳过等待
+                // 上次初始化失败，重置 Source 并重试
+                _uiRootReady = new UniTaskCompletionSource();
+                InitializeAsync().Forget();
+                readyTask = _uiRootReady.Task;
             }
-            else
+
+            if (readyTask.Status == UniTaskStatus.Pending)
             {
                 // UIRoot 尚未就绪，等待（超时保护 30 秒）
                 var timeout = UniTask.Delay(TimeSpan.FromSeconds(30));

@@ -45,6 +45,11 @@ namespace CFramework
 
         public bool IsDirty { get; private set; }
 
+        /// <summary>
+        ///     脏状态版本号，每次 MarkDirty 递增，用于 SaveAsync 原子清除
+        /// </summary>
+        private int _dirtyVersion;
+
         public Observable<bool> OnDirtyChanged => _dirtyChanged;
 
         #region 存档槽管理
@@ -114,9 +119,12 @@ namespace CFramework
             Directory.CreateDirectory(SavePath);
 
             // ConcurrentDictionary 的迭代器是快照式的，可直接遍历，无需复制
+            var savedVersion = _dirtyVersion;
             foreach (var kvp in _cache) await SaveToFileAsync(kvp.Key, kvp.Value, ct);
 
-            ClearDirty();
+            // 仅在保存期间没有新的脏数据时才清除
+            if (_dirtyVersion == savedVersion)
+                ClearDirty();
         }
 
         public async UniTask<T> LoadAsync<T>(string key, T defaultValue = default)
@@ -255,6 +263,7 @@ namespace CFramework
 
         public void MarkDirty()
         {
+            Interlocked.Increment(ref _dirtyVersion);
             if (!IsDirty)
             {
                 IsDirty = true;
