@@ -621,8 +621,6 @@ namespace CFramework.Editor.Windows.Config
 
         #endregion
 
-        #endregion
-
         #region 字段列表项元素
 
         /// <summary>
