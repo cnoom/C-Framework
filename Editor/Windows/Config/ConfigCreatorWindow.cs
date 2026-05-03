@@ -18,7 +18,9 @@ namespace CFramework.Editor.Windows.Config
     {
         #region 菜单项
 
-        [MenuItem("CFramework/创建配置表", priority = 101)]
+                /// <summary>
+        ///     打开窗口（由 Dashboard 调用）
+        /// </summary>
         public static void OpenWindow()
         {
             var window = GetWindow<ConfigCreatorWindow>("创建配置表");
