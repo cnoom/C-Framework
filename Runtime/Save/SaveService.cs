@@ -138,7 +138,7 @@ namespace CFramework
             }
             catch (Exception ex)
             {
-                LogUtility.Warning("SaveService", $"Failed to load: {key}, Error: {ex.Message}");
+                LogUtility.Warning("SaveService", $"加载失败: {key}，错误: {ex.Message}");
                 return defaultValue;
             }
         }
@@ -178,7 +178,7 @@ namespace CFramework
             }
             catch (Exception ex)
             {
-                LogUtility.Error("SaveService", $"Failed to save: {key}, Error: {ex.Message}");
+                LogUtility.Error("SaveService", $"保存失败: {key}，错误: {ex.Message}");
 
                 // 清理临时文件
                 if (File.Exists(tempPath)) File.Delete(tempPath);
@@ -215,7 +215,7 @@ namespace CFramework
                 }
                 catch (Exception ex)
                 {
-                    LogUtility.Warning("SaveService", $"Failed to delete: {key}, Error: {ex.Message}");
+                    LogUtility.Warning("SaveService", $"删除失败: {key}，错误: {ex.Message}");
                     return false;
                 }
 
@@ -238,7 +238,7 @@ namespace CFramework
                 }
                 catch (Exception ex)
                 {
-                    LogUtility.Warning("SaveService", $"Failed to delete all: {ex.Message}");
+                    LogUtility.Warning("SaveService", $"删除全部失败: {ex.Message}");
                 }
 
             ClearDirty();
@@ -304,7 +304,7 @@ namespace CFramework
                     }
                     catch (Exception ex)
                     {
-                        LogUtility.Warning("SaveService", $"Auto save failed: {ex.Message}");
+                        LogUtility.Warning("SaveService", $"自动保存失败: {ex.Message}");
                     }
             }
         }

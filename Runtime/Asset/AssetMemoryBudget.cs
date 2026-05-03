@@ -24,11 +24,24 @@ namespace CFramework
         }
 
         /// <summary>
-        ///     原子增加内存使用量
+        ///     原子增加内存使用量（不允许负数下溢）
         /// </summary>
         internal void AddUsedBytes(long delta)
         {
-            Interlocked.Add(ref _usedBytes, delta);
+            if (delta >= 0)
+            {
+                Interlocked.Add(ref _usedBytes, delta);
+            }
+            else
+            {
+                // 释放时防止下溢到负数
+                long current, target;
+                do
+                {
+                    current = Volatile.Read(ref _usedBytes);
+                    target = Math.Max(0, current + delta);
+                } while (Interlocked.CompareExchange(ref _usedBytes, target, current) != current);
+            }
         }
 
         public float UsageRatio => BudgetBytes > 0 ? (float)UsedBytes / BudgetBytes : 0f;
@@ -37,7 +50,15 @@ namespace CFramework
 
         internal void CheckBudget()
         {
-            if (UsedBytes > BudgetBytes) OnBudgetExceeded?.Invoke(UsageRatio);
+            if (UsedBytes > BudgetBytes)
+            {
+                var handler = OnBudgetExceeded;
+                if (handler != null)
+                {
+                    try { handler.Invoke(UsageRatio); }
+                    catch { /* 防止外部监听器异常中断正常流程 */ }
+                }
+            }
         }
     }
 }

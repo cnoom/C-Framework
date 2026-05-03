@@ -87,10 +87,11 @@ namespace CFramework
                     }
                 }
 
-                // 资源已被释放，静默重新加载（最多重试3次）
+                // 资源已被释放，让出当前帧后重新加载（防止竞态条件下的快速递归循环）
                 if (retryCount >= 3)
                     throw new InvalidOperationException($"Asset load retry limit exceeded for key: {key}");
-
+                
+                await UniTask.Yield();
                 return await LoadAsyncCore<T>(key, ct, retryCount + 1);
             }
 
@@ -215,7 +216,7 @@ namespace CFramework
                 }
                 catch (Exception ex)
                 {
-                    LogUtility.Warning("AssetService", $"Failed to preload: {key}, Error: {ex.Message}");
+                    LogUtility.Warning("AssetService", $"预加载失败: {key}，错误: {ex.Message}");
                 }
 
                 // 每处理一个资源就更新进度

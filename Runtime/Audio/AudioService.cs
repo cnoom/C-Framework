@@ -40,15 +40,14 @@ namespace CFramework
         {
             if (_initialized)
             {
-                LogUtility.Warning("Audio", "Already initialized, disposing old resources first.");
+                LogUtility.Warning("Audio", "已初始化，先释放旧资源");
                 DisposeInternal();
             }
 
             _mixer = _settings.AudioMixerRef;
             if (_mixer == null)
             {
-                LogUtility.Error("Audio",
-                    "AudioMixerRef is null in AudioSettings. Please assign an AudioMixer in AudioSettings.");
+                LogUtility.Error("Audio", "AudioSettings 中 AudioMixerRef 为空，请在 AudioSettings 中分配 AudioMixer");
                 return UniTask.CompletedTask;
             }
 
@@ -59,14 +58,14 @@ namespace CFramework
         {
             if (_initialized)
             {
-                LogUtility.Warning("Audio", "Already initialized, disposing old resources first.");
+                LogUtility.Warning("Audio", "已初始化，先释放旧资源");
                 DisposeInternal();
             }
 
             _mixer = mixer;
             if (_mixer == null)
             {
-                LogUtility.Error("Audio", "AudioMixer is null.");
+                LogUtility.Error("Audio", "AudioMixer 为空");
                 return UniTask.CompletedTask;
             }
 
@@ -90,8 +89,8 @@ namespace CFramework
             _snapshotCtrl = new AudioSnapshotController(_mixer, snapshots);
 
             _initialized = true;
-            LogUtility.Debug("Audio", $"Initialized. Groups: {_tree.GetAllPaths().Count}, " +
-                       $"Snapshots: {_snapshotCtrl.SnapshotNames.Count}");
+            LogUtility.Debug("Audio", $"初始化完成。分组: {_tree.GetAllPaths().Count}, " +
+                       $"快照: {_snapshotCtrl.SnapshotNames.Count}");
             return UniTask.CompletedTask;
         }
 
@@ -285,7 +284,7 @@ namespace CFramework
         {
             if (!_initialized)
                 throw new System.InvalidOperationException(
-                    "[Audio] AudioService has not been initialized. Call InitializeAsync() first.");
+                    "[Audio] AudioService 尚未初始化，请先调用 InitializeAsync()");
         }
 
         /// <summary>路径字符串 → 哈希值（与编辑器代码生成器一致：Animator.StringToHash）</summary>

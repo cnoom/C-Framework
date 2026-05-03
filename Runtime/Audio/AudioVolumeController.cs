@@ -60,8 +60,8 @@ namespace CFramework
 
                 var paramName = ExposedParamName(path);
                 if (!_mixer.GetFloat(paramName, out _))
-                    LogUtility.Warning("Audio", $"Exposed Parameter '{paramName}' not found. " +
-                                     $"Group '{path}' volume control will not work.");
+                    LogUtility.Warning("Audio", $"未找到 Exposed Parameter '{paramName}'，" +
+                                     $"分组 '{path}' 的音量控制将无法工作");
             }
         }
 

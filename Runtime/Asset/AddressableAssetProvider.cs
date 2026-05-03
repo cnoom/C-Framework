@@ -24,7 +24,7 @@ namespace CFramework
             if (handle.Status != AsyncOperationStatus.Succeeded)
             {
                 Addressables.Release(handle);
-                throw new System.Exception($"Failed to load asset: {key}");
+                throw new System.Exception($"资源加载失败: {key}");
             }
 
             lock (_handles)
@@ -44,7 +44,7 @@ namespace CFramework
             if (handle.Status != AsyncOperationStatus.Succeeded)
             {
                 Addressables.Release(handle);
-                throw new System.Exception($"Failed to instantiate: {key}");
+                throw new System.Exception($"实例化失败: {key}");
             }
 
             var instance = handle.Result;

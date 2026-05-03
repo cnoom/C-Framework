@@ -88,7 +88,7 @@ namespace CFramework
             }
             catch (Exception e)
             {
-                _logger.LogWithLevelColor("UIService", $"Initialize failed: {e.Message}", LogLevel.Error);
+                _logger.LogWithLevelColor("UIService", $"初始化失败: {e.Message}", LogLevel.Error);
                 _uiRootReady.TrySetException(e);
             }
         }

@@ -127,7 +127,7 @@ namespace CFramework
             catch (Exception ex)
             {
                 LogUtility.Warning("StateMachine",
-                    $"TryChangeState failed: {key}, Error: {ex.Message}");
+                    $"TryChangeState 失败: {key}，错误: {ex.Message}");
                 return false;
             }
         }

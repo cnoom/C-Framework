@@ -59,8 +59,10 @@ namespace CFramework
             var oldScene = CurrentScene;
             CurrentScene = sceneName;
 
-            _sceneUnloaded.OnNext(oldScene);
-            _sceneLoaded.OnNext(sceneName);
+            try { _sceneUnloaded.OnNext(oldScene); }
+            catch (Exception ex) { UnityEngine.Debug.LogException(ex); }
+            try { _sceneLoaded.OnNext(sceneName); }
+            catch (Exception ex) { UnityEngine.Debug.LogException(ex); }
 
             // 播放退出过渡动画
             if (Transition != null) await Transition.PlayExitAsync(ct);
@@ -76,13 +78,15 @@ namespace CFramework
                 await UniTask.Yield(ct);
             }
 
-            _sceneLoaded.OnNext(sceneName);
+            try { _sceneLoaded.OnNext(sceneName); }
+            catch (Exception ex) { UnityEngine.Debug.LogException(ex); }
         }
 
         public async UniTask UnloadAdditiveAsync(string sceneName, CancellationToken ct = default)
         {
             await UnloadAdditiveInternalAsync(sceneName, ct);
-            _sceneUnloaded.OnNext(sceneName);
+            try { _sceneUnloaded.OnNext(sceneName); }
+            catch (Exception ex) { UnityEngine.Debug.LogException(ex); }
         }
 
         public UniTask InitializeAsync()
