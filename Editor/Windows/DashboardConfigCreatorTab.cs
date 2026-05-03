@@ -117,6 +117,7 @@ namespace CFramework.Editor.Windows
         {
             var container = new ScrollView(ScrollViewMode.Vertical);
             container.AddToClassList("tab-scroll");
+            container.style.flexGrow = 1;
 
             container.Add(CreateBasicConfigSection());
             container.Add(CreateTypeConfigSection());
