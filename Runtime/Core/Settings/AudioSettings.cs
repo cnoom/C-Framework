@@ -33,8 +33,8 @@ namespace CFramework
             if (settings == null)
             {
                 settings = CreateInstance<AudioSettings>();
-                LogUtility.Warning("CFramework",
-                    $"AudioSettings not found at Resources/{DefaultPath}, using default values.");
+                LogUtility.Debug("CFramework",
+                    $"{nameof(AudioSettings)} 未在 Resources/{DefaultPath} 找到，使用默认值");
             }
 
             return settings;

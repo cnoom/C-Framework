@@ -25,8 +25,8 @@ namespace CFramework
             if (settings == null)
             {
                 settings = CreateInstance<AssetSettings>();
-                LogUtility.Warning("CFramework",
-                    $"AssetSettings not found at Resources/{DefaultPath}, using default values.");
+                LogUtility.Debug("CFramework",
+                    $"{nameof(AssetSettings)} 未在 Resources/{DefaultPath} 找到，使用默认值");
             }
 
             return settings;

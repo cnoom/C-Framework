@@ -22,8 +22,8 @@ namespace CFramework
             if (settings == null)
             {
                 settings = CreateInstance<LogSettings>();
-                LogUtility.Warning("CFramework",
-                    $"LogSettings not found at Resources/{DefaultPath}, using default values.");
+                LogUtility.Debug("CFramework",
+                    $"{nameof(LogSettings)} 未在 Resources/{DefaultPath} 找到，使用默认值");
             }
 
             return settings;

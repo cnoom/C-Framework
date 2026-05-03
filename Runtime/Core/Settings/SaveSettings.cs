@@ -25,8 +25,8 @@ namespace CFramework
             if (settings == null)
             {
                 settings = CreateInstance<SaveSettings>();
-                LogUtility.Warning("CFramework",
-                    $"SaveSettings not found at Resources/{DefaultPath}, using default values.");
+                LogUtility.Debug("CFramework",
+                    $"{nameof(SaveSettings)} 未在 Resources/{DefaultPath} 找到，使用默认值");
             }
 
             return settings;
