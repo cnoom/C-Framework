@@ -233,7 +233,7 @@ namespace CFramework.Tests
 
         private class TestAsyncEvent : IAsyncEvent
         {
-            public TimeSpan Timeout => TimeSpan.FromSeconds(1); // 缩短超时时间
+            public TimeSpan Timeout => TimeSpan.FromMilliseconds(100); // 处理器延迟500ms，超时100ms确保触发
         }
     }
 }
