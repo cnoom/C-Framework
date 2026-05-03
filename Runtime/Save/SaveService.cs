@@ -18,15 +18,15 @@ namespace CFramework
     {
         private readonly ConcurrentDictionary<string, object> _cache = new();
         private readonly Subject<bool> _dirtyChanged = new();
-        private readonly FrameworkSettings _settings;
+        private readonly SaveSettings _settings;
         private readonly ISaveSerializer _serializer;
         private CancellationTokenSource _autoSaveCts;
 
-        public SaveService(FrameworkSettings settings) : this(settings, new NewtonsoftJsonSerializer())
+        public SaveService(SaveSettings settings) : this(settings, new NewtonsoftJsonSerializer())
         {
         }
 
-        public SaveService(FrameworkSettings settings, ISaveSerializer serializer)
+        public SaveService(SaveSettings settings, ISaveSerializer serializer)
         {
             _settings = settings;
             _serializer = serializer;

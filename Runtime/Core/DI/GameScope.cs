@@ -99,6 +99,11 @@ namespace CFramework
                 Instance = null;
                 _isBuilt = false;
                 _isInitialized = false;
+
+                // 清理静态缓存，防止关机阶段访问已释放服务
+                ServiceCache.Logger = null;
+                ServiceCache.ConfigService = null;
+                LogUtility.Logger = null;
             }
 
             // 仅在已初始化时执行 base.OnDestroy（DisposeCore 需要 Container 存在）
@@ -120,16 +125,20 @@ namespace CFramework
 
         protected override void Configure(IContainerBuilder builder)
         {
-            // 注册 FrameworkSettings
-            if (_settings != null)
-            {
-                builder.RegisterInstance(_settings);
-            }
-            else
-            {
-                var defaultSettings = FrameworkSettings.LoadDefault();
-                builder.RegisterInstance(defaultSettings);
-            }
+            // 加载 FrameworkSettings
+            var settings = _settings ?? FrameworkSettings.LoadDefault();
+
+            // 注册 FrameworkSettings（向后兼容）
+            builder.RegisterInstance(settings);
+
+            // 注册各模块 Settings（子 Settings 为空时自动 fallback）
+            builder.RegisterInstance(settings.GetLogSettings());
+            builder.RegisterInstance(settings.GetAssetSettings());
+            builder.RegisterInstance(settings.GetUISettings());
+            builder.RegisterInstance(settings.GetAudioSettings());
+            builder.RegisterInstance(settings.GetSaveSettings());
+            builder.RegisterInstance(settings.GetPoolSettings());
+            builder.RegisterInstance(settings.GetConfigSettings());
 
             // 安装框架内置服务
             foreach (var installer in _builtInInstallers) builder.Install(installer);
@@ -145,23 +154,15 @@ namespace CFramework
         }
 
         /// <summary>
-        ///     解析框架公共服务到属性
+        ///     解析框架核心服务并初始化静态桥接
+        ///     <para>LogUtility.Logger / ServiceCache 均在此处初始化，供非 DI 管理的对象使用</para>
         /// </summary>
         private void ResolveFrameworkServices()
         {
             Logger = Container.Resolve<ILogger>();
             LogUtility.Logger = Logger;
-            EventBus = Container.Resolve<IEventBus>();
-            ExceptionDispatcher = Container.Resolve<IExceptionDispatcher>();
-            AssetService = Container.Resolve<IAssetService>();
-#if CFRAMEWORK_AUDIO
-            AudioService = Container.Resolve<IAudioService>();
-#endif
-            SceneService = Container.Resolve<ISceneService>();
-            ConfigService = Container.Resolve<IConfigService>();
-            SaveService = Container.Resolve<ISaveService>();
-            PoolService = Container.Resolve<IPoolService>();
-            UIService = Container.Resolve<IUIService>();
+            ServiceCache.Logger = Logger;
+            ServiceCache.ConfigService = Container.Resolve<IConfigService>();
         }
 
         /// <summary>
@@ -183,22 +184,10 @@ namespace CFramework
             return scope;
         }
 
-        #region 公共服务属性
-
-        public ILogger Logger { get; private set; }
-        public IEventBus EventBus { get; private set; }
-        public IExceptionDispatcher ExceptionDispatcher { get; private set; }
-        public IAssetService AssetService { get; private set; }
-#if CFRAMEWORK_AUDIO
-        public IAudioService AudioService { get; private set; }
-#endif
-        public ISceneService SceneService { get; private set; }
-        public IConfigService ConfigService { get; private set; }
-        public ISaveService SaveService { get; private set; }
-        public IPoolService PoolService { get; private set; }
-        public IUIService UIService { get; private set; }
-
-        #endregion
+        /// <summary>
+        ///     内部日志桥接（仅供 LogUtility 使用，不对外暴露）
+        /// </summary>
+        internal ILogger Logger { get; private set; }
 
         #region 动态注册
 

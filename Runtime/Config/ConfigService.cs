@@ -17,7 +17,7 @@ namespace CFramework
     public sealed class ConfigService : IConfigService
     {
         private readonly IConfigProvider _provider;
-        private readonly FrameworkSettings _settings;
+        private readonly ConfigSettings _settings;
 
         /// <summary>
         ///     数据类型 → ConfigTable 实例（object 装箱，因为 TKey 编译期未知）
@@ -31,7 +31,7 @@ namespace CFramework
 
         private bool _disposed;
 
-        public ConfigService(IConfigProvider provider, FrameworkSettings settings)
+        public ConfigService(IConfigProvider provider, ConfigSettings settings)
         {
             _provider = provider;
             _settings = settings;

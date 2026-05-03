@@ -14,11 +14,11 @@ namespace CFramework
     {
         private readonly Dictionary<string, object> _pools = new();
         private readonly IAssetService _assetService;
-        private readonly FrameworkSettings _settings;
+        private readonly PoolSettings _settings;
         private readonly object _lock = new();
         private bool _disposed;
 
-        public PoolService(FrameworkSettings settings, IAssetService assetService)
+        public PoolService(PoolSettings settings, IAssetService assetService)
         {
             _settings = settings;
             _assetService = assetService;

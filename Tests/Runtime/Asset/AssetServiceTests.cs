@@ -27,7 +27,7 @@ namespace CFramework.Tests
         [SetUp]
         public void SetUp()
         {
-            var settings = ScriptableObject.CreateInstance<FrameworkSettings>();
+            var settings = ScriptableObject.CreateInstance<AssetSettings>();
             settings.MemoryBudgetMB = 512;
             settings.MaxLoadPerFrame = 5;
 
@@ -323,7 +323,7 @@ namespace CFramework.Tests
             return UniTask.ToCoroutine(async () =>
             {
                 // Arrange - 使用带延迟的 provider 确保取消可以生效
-                var settings = ScriptableObject.CreateInstance<FrameworkSettings>();
+                var settings = ScriptableObject.CreateInstance<AssetSettings>();
                 var delayProvider = new MockAssetProvider(loadDelayMs: 500);
                 delayProvider.RegisterGameObject("SlowAsset", "SlowAsset");
                 var slowService = new AssetService(settings, delayProvider);
@@ -358,7 +358,7 @@ namespace CFramework.Tests
             return UniTask.ToCoroutine(async () =>
             {
                 // Arrange - 使用带延迟的 provider 模拟慢加载
-                var settings = ScriptableObject.CreateInstance<FrameworkSettings>();
+                var settings = ScriptableObject.CreateInstance<AssetSettings>();
                 var delayProvider = new MockAssetProvider(loadDelayMs: 100);
                 delayProvider.RegisterGameObject("ConcurrentAsset", "ConcurrentAsset");
                 var service = new AssetService(settings, delayProvider);
@@ -398,7 +398,7 @@ namespace CFramework.Tests
         public void MemoryBudget_DefaultValues_AreCorrect()
         {
             // Arrange
-            var settings = ScriptableObject.CreateInstance<FrameworkSettings>();
+            var settings = ScriptableObject.CreateInstance<AssetSettings>();
             settings.MemoryBudgetMB = 256;
 
             // Act
@@ -416,7 +416,7 @@ namespace CFramework.Tests
         public void MemoryBudget_BudgetExceeded_TriggersEvent()
         {
             // Arrange
-            var settings = ScriptableObject.CreateInstance<FrameworkSettings>();
+            var settings = ScriptableObject.CreateInstance<AssetSettings>();
             var service = new AssetService(settings, _mockProvider);
 
             service.MemoryBudget.BudgetBytes = 100L;

@@ -16,21 +16,21 @@ namespace CFramework.Tests
         [SetUp]
         public void SetUp()
         {
-            // 创建测试用的 FrameworkSettings
-            _settings = ScriptableObject.CreateInstance<FrameworkSettings>();
-            _settings.LogLevel = LogLevel.Debug;
+            // 创建测试用的 LogSettings
+            _logSettings = ScriptableObject.CreateInstance<LogSettings>();
+            _logSettings.LogLevel = LogLevel.Debug;
 
             // 创建日志服务
-            _logger = new UnityLogger(_settings);
+            _logger = new UnityLogger(_logSettings);
         }
 
         [TearDown]
         public void TearDown()
         {
-            if (_settings != null) Object.DestroyImmediate(_settings);
+            if (_logSettings != null) Object.DestroyImmediate(_logSettings);
         }
 
-        private FrameworkSettings _settings;
+        private LogSettings _logSettings;
         private UnityLogger _logger;
 
         [Test]

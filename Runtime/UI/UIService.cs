@@ -19,12 +19,13 @@ namespace CFramework
     public sealed class UIService : IUIService, IAsyncInitializable, IDisposable
     {
         private readonly IAssetService _assetService;
+        private readonly IObjectResolver _resolver;
         private readonly LinkedList<string> _navigationStack = new();
         private readonly Subject<string> _panelClosed = new();
         private readonly Subject<string> _panelOpened = new();
 
         private readonly Dictionary<string, UIPanelData> _panels = new();
-        private readonly FrameworkSettings _settings;
+        private readonly UISettings _settings;
         private readonly UniTaskCompletionSource _uiRootReady = new();
         private CancellationTokenSource _cancellationTokenSource;
         [Inject] ILogger _logger;
@@ -34,9 +35,10 @@ namespace CFramework
         private Transform _uiRoot;
         private AssetHandle _uiRootHandle;
 
-        public UIService(IAssetService assetService, FrameworkSettings settings)
+        public UIService(IAssetService assetService, IObjectResolver resolver, UISettings settings)
         {
             _assetService = assetService;
+            _resolver = resolver;
             _settings = settings;
             _maxStackCapacity = settings.MaxNavigationStack;
             _cancellationTokenSource = new CancellationTokenSource();
@@ -192,8 +194,9 @@ namespace CFramework
                 throw new InvalidOperationException($"[UIService] Prefab 上未找到 UIBinder 组件: {panelKey}");
             }
 
-            // 创建 IUI 实例、注入组件并初始化
+            // 创建 IUI 实例、通过 DI 容器执行属性/方法注入、注入组件并初始化
             var ui = new T();
+            _resolver.Inject(ui);
             ui.InjectUI(binder);
             ui.OnCreate();
 

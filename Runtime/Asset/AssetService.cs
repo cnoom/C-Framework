@@ -18,7 +18,7 @@ namespace CFramework
         private readonly IAssetProvider _provider;
         private readonly Dictionary<object, int> _refCounts = new();
 
-        public AssetService(FrameworkSettings settings, IAssetProvider provider = null)
+        public AssetService(AssetSettings settings, IAssetProvider provider = null)
         {
             _provider = provider ?? new AddressableAssetProvider();
             MemoryBudget = new AssetMemoryBudget
