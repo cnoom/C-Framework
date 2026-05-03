@@ -31,8 +31,10 @@ namespace CFramework.Editor.Windows
 
         private const int TAB_CONFIG_EDITOR = 0;
         private const int TAB_CONFIG_CREATOR = 1;
+        private const int TAB_AUDIO_DEBUGGER = 2;
+        private const int TAB_EXCEPTION_VIEWER = 3;
 
-        private static readonly string[] TabNames = { "配置管理", "创建配置" };
+        private static readonly string[] TabNames = { "配置管理", "创建配置", "音频调试", "异常查看" };
 
         #endregion
 
@@ -66,6 +68,22 @@ namespace CFramework.Editor.Windows
         #region 配置创建 Tab
 
         private DashboardConfigCreatorTab _creatorTab;
+
+        #endregion
+
+        #region 音频调试 Tab
+
+#if CFRAMEWORK_AUDIO
+        private DashboardAudioDebuggerTab _audioDebuggerTab;
+#endif
+        private VisualElement _audioDebuggerRoot;
+
+        #endregion
+
+        #region 异常查看 Tab
+
+        private DashboardExceptionViewerTab _exceptionViewerTab;
+        private VisualElement _exceptionViewerRoot;
 
         #endregion
 
@@ -119,9 +137,14 @@ namespace CFramework.Editor.Windows
             _contentContainer.style.flexGrow = 1;
             root.Add(_contentContainer);
 
-            // 初始化各 Tab 内容（惰性创建，仅构建 VisualTree）
+            // 初始化各 Tab 内容
             InitConfigEditorContent();
             InitConfigCreatorContent();
+            InitAudioDebuggerContent();
+            InitExceptionViewerContent();
+
+            // 注册 Play Mode 状态变化回调
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
 
             // 默认激活第一个 Tab
             SwitchTab(TAB_CONFIG_EDITOR);
@@ -131,6 +154,8 @@ namespace CFramework.Editor.Windows
         {
             CleanupConfigEditor();
             _creatorTab?.SavePreferences();
+            _exceptionViewerTab?.Disable();
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
         }
 
         #endregion
@@ -166,7 +191,50 @@ namespace CFramework.Editor.Windows
                     _contentContainer.Add(_configCreatorRoot);
                     _countLabel.style.display = DisplayStyle.None;
                     break;
+
+                case TAB_AUDIO_DEBUGGER:
+                    _contentContainer.Add(_audioDebuggerRoot);
+                    _countLabel.style.display = DisplayStyle.None;
+                    break;
+
+                case TAB_EXCEPTION_VIEWER:
+                    _contentContainer.Add(_exceptionViewerRoot);
+                    _countLabel.style.display = DisplayStyle.None;
+                    _exceptionViewerTab?.Enable();
+                    break;
             }
+        }
+
+        #endregion
+
+        #region 运行时生命周期
+
+        private void Update()
+        {
+            // 仅当音频调试 Tab 处于激活状态时才轮询
+#if CFRAMEWORK_AUDIO
+            if (_activeTabIndex == TAB_AUDIO_DEBUGGER && _audioDebuggerTab != null)
+            {
+                _audioDebuggerTab.Update();
+            }
+#endif
+        }
+
+        private void OnPlayModeStateChanged(PlayModeStateChange state)
+        {
+            // 异常查看 Tab 需要感知 Play Mode 变化
+            if (_exceptionViewerTab != null)
+            {
+                _exceptionViewerTab.OnPlayModeStateChanged(state);
+            }
+
+#if CFRAMEWORK_AUDIO
+            // 音频调试 Tab 在进入 Play Mode 时需要激活
+            if (state == PlayModeStateChange.EnteredPlayMode && _audioDebuggerTab != null)
+            {
+                _audioDebuggerTab.Update();
+            }
+#endif
         }
 
         #endregion
@@ -183,6 +251,9 @@ namespace CFramework.Editor.Windows
 
             var creatorSS = EditorStyleSheet.Find("ConfigCreatorWindow.uss");
             if (creatorSS != null) root.styleSheets.Add(creatorSS);
+
+            var audioSS = EditorStyleSheet.Find("AudioDebuggerWindow.uss");
+            if (audioSS != null) root.styleSheets.Add(audioSS);
         }
 
         #endregion
@@ -566,6 +637,83 @@ namespace CFramework.Editor.Windows
             _creatorTab = new DashboardConfigCreatorTab();
             _creatorTab.LoadPreferences();
             _configCreatorRoot = _creatorTab.CreateContent();
+        }
+
+        #endregion
+
+        // ============================================================
+        //  音频调试 Tab
+        // ============================================================
+
+        #region 音频调试 - 内容构建
+
+        private void InitAudioDebuggerContent()
+        {
+#if CFRAMEWORK_AUDIO
+            _audioDebuggerTab = new DashboardAudioDebuggerTab();
+            _audioDebuggerRoot = _audioDebuggerTab.CreateContent();
+#else
+            // 未启用 CFRAMEWORK_AUDIO 时显示提示
+            _audioDebuggerRoot = CreateDisabledTabContent(
+                "音频调试",
+                "需要启用 CFRAMEWORK_AUDIO 脚本定义符号才能使用此功能。\n\n请在 Project Settings > Player > Scripting Define Symbols 中添加 CFRAMEWORK_AUDIO。"
+            );
+#endif
+        }
+
+        #endregion
+
+        // ============================================================
+        //  异常查看 Tab
+        // ============================================================
+
+        #region 异常查看 - 内容构建
+
+        private void InitExceptionViewerContent()
+        {
+            _exceptionViewerTab = new DashboardExceptionViewerTab();
+            _exceptionViewerRoot = _exceptionViewerTab.CreateContent();
+        }
+
+        #endregion
+
+        // ============================================================
+        //  通用工具
+        // ============================================================
+
+        #region 通用工具
+
+        /// <summary>
+        ///     创建功能不可用时的提示内容
+        /// </summary>
+        private static VisualElement CreateDisabledTabContent(string title, string message)
+        {
+            var container = new VisualElement();
+            container.style.flexGrow = 1;
+            container.style.justifyContent = Justify.Center;
+            container.style.alignItems = Align.Center;
+
+            var box = new VisualElement();
+            box.style.maxWidth = 400;
+            box.style.paddingTop = 20;
+            box.style.paddingBottom = 20;
+            box.style.paddingLeft = 20;
+            box.style.paddingRight = 20;
+
+            var titleLabel = new Label($"{title} 不可用");
+            titleLabel.style.fontSize = 14;
+            titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            titleLabel.style.marginBottom = 10;
+            titleLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+            box.Add(titleLabel);
+
+            var messageLabel = new Label(message);
+            messageLabel.style.whiteSpace = WhiteSpace.Normal;
+            messageLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+            box.Add(messageLabel);
+
+            container.Add(box);
+            return container;
         }
 
         #endregion

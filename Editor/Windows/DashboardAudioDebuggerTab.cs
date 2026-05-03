@@ -7,23 +7,16 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace CFramework.Editor
+namespace CFramework.Editor.Windows
 {
     /// <summary>
-    ///     音频调试窗口 —— 运行时查看和调节所有分组的音量/Slot/快照（UIToolkit 实现）
+    ///     Dashboard 音频调试 Tab 的内容构建器
+    ///     从 AudioDebuggerWindow 提取，嵌入 Dashboard 使用
+    ///     仅在 Play Mode + AudioService 可用时激活内容区域
     /// </summary>
-    public class AudioDebuggerWindow : EditorWindow
+    public class DashboardAudioDebuggerTab
     {
-        private const string USS_FILE_NAME = "AudioDebuggerWindow.uss";
-
-        /// <summary>
-        ///     打开窗口（保留独立入口供向后兼容）
-        /// </summary>
-        private static void Open()
-        {
-            var window = GetWindow<AudioDebuggerWindow>("Audio Debugger");
-            window.minSize = new Vector2(350, 500);
-        }
+        #region 控件引用
 
         private VisualElement _rootContainer;
         private Label _statusLabel;
@@ -33,18 +26,26 @@ namespace CFramework.Editor
 
         private IAudioService _cachedAudioService;
 
-        private void CreateGUI()
+        #endregion
+
+        #region 公开接口
+
+        /// <summary>
+        ///     创建 Tab 内容
+        /// </summary>
+        public VisualElement CreateContent()
         {
-            var root = rootVisualElement;
+            var container = new VisualElement();
+            container.style.flexGrow = 1;
 
-            // 加载 USS 样式表
-            var styleSheet = EditorStyleSheet.Find(USS_FILE_NAME);
-            if (styleSheet != null) root.styleSheets.Add(styleSheet);
+            // 加载 USS
+            var styleSheet = EditorStyleSheet.Find("AudioDebuggerWindow.uss");
+            if (styleSheet != null) container.styleSheets.Add(styleSheet);
 
-            // 状态提示标签
-            _statusLabel = new Label { text = "" };
-            _statusLabel.AddToClassList("status-label");
-            root.Add(_statusLabel);
+            // 状态提示标签（非运行时 / 服务不可用时显示）
+            _statusLabel = new Label { text = "Audio Debugger 仅在运行时可用。" };
+            _statusLabel.AddToClassList("runtime-status-label");
+            container.Add(_statusLabel);
 
             // 主容器
             _rootContainer = new VisualElement();
@@ -73,10 +74,18 @@ namespace CFramework.Editor
             _saveButton.AddToClassList("save-button");
             _rootContainer.Add(_saveButton);
 
-            root.Add(_rootContainer);
+            container.Add(_rootContainer);
+
+            // 默认隐藏主内容
+            _rootContainer.style.display = DisplayStyle.None;
+
+            return container;
         }
 
-        private void Update()
+        /// <summary>
+        ///     每帧更新（由 Dashboard 的 Update 调用）
+        /// </summary>
+        public void Update()
         {
             if (_rootContainer == null) return;
 
@@ -103,6 +112,10 @@ namespace CFramework.Editor
 
             RefreshUI(audioService);
         }
+
+        #endregion
+
+        #region UI 刷新
 
         private void RefreshUI(IAudioService audioService)
         {
@@ -197,10 +210,11 @@ namespace CFramework.Editor
             _cachedAudioService?.SaveVolumes();
         }
 
-        /// <summary>
-        ///     获取 AudioService 实例
-        /// </summary>
-        private IAudioService GetAudioService()
+        #endregion
+
+        #region 服务获取
+
+        private static IAudioService GetAudioService()
         {
             var gameScope = UnityEngine.Object.FindObjectOfType<GameScope>();
             if (gameScope == null) return null;
@@ -210,8 +224,11 @@ namespace CFramework.Editor
                 if (comp is IAudioService audioService)
                     return audioService;
             }
+
             return null;
         }
+
+        #endregion
     }
 }
 #endif

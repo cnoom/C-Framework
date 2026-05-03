@@ -48,3 +48,15 @@
 .tab-scroll {
     padding: 4px;
 }
+
+/* 运行时状态提示标签 */
+.runtime-status-label {
+    font-size: 13px;
+    color: rgb(160, 160, 160);
+    -unity-text-align: middle-center;
+    white-space: normal;
+    padding-top: 20px;
+    padding-bottom: 10px;
+    padding-left: 10px;
+    padding-right: 10px;
+}
