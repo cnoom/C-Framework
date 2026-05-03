@@ -18,6 +18,16 @@ namespace CFramework
         private static readonly ConcurrentDictionary<Type, List<SubscribeInfo>> _cache = new();
 
         /// <summary>
+        ///     IEventBus.Subscribe 泛型方法定义缓存（类级别，仅初始化一次）
+        /// </summary>
+        private static readonly MethodInfo SubscribeMethodBase = typeof(IEventBus)
+            .GetMethods()
+            .First(m => m.Name == nameof(IEventBus.Subscribe)
+                        && m.IsGenericMethod
+                        && m.GetParameters().Length == 2
+                        && m.GetParameters()[1].ParameterType == typeof(int));
+
+        /// <summary>
         ///     扫描订阅者类型的 [EventSubscribe] 方法并自动订阅
         /// </summary>
         public static void AutoSubscribe(IEventSubscriber subscriber, IEventBus eventBus)
@@ -27,20 +37,12 @@ namespace CFramework
 
             var subscribeInfos = GetOrBuildSubscribeInfos(subscriber.GetType());
 
-            // 缓存 Subscribe 方法的基础 MethodInfo，避免每次循环迭代都反射查找
-            var subscribeMethodBase = typeof(IEventBus)
-                .GetMethods()
-                .First(m => m.Name == nameof(IEventBus.Subscribe)
-                            && m.IsGenericMethod
-                            && m.GetParameters().Length == 2
-                            && m.GetParameters()[1].ParameterType == typeof(int));
-
             foreach (var info in subscribeInfos)
             {
                 var delegateType = typeof(Action<>).MakeGenericType(info.EventType);
                 var callback = Delegate.CreateDelegate(delegateType, subscriber, info.Method);
 
-                var subscribeMethod = subscribeMethodBase.MakeGenericMethod(info.EventType);
+                var subscribeMethod = SubscribeMethodBase.MakeGenericMethod(info.EventType);
                 var disposable =
                     (IDisposable)subscribeMethod.Invoke(eventBus, new object[] { callback, info.Priority });
                 subscriber.EventSubscriptions.Add(disposable);
