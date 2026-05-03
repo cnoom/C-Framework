@@ -118,6 +118,8 @@ namespace CFramework.Editor.Windows
             var container = new ScrollView(ScrollViewMode.Vertical);
             container.AddToClassList("tab-scroll");
             container.style.flexGrow = 1;
+            // 强制子元素宽度等于 viewport 宽度，防止横向溢出
+            container.contentContainer.style.alignItems = Align.Stretch;
 
             container.Add(CreateBasicConfigSection());
             container.Add(CreateTypeConfigSection());
