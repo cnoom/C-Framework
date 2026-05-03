@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
+using CFramework.Editor.Generators;
 using CFramework.Editor.Utilities;
 using Sirenix.OdinInspector;
 using Sirenix.OdinInspector.Editor;
@@ -155,41 +155,6 @@ namespace CFramework.Editor.Windows.Config
             new ValueField { fieldName = "name", fieldType = "string" }
         };
 
-        [Serializable]
-        public sealed class ValueField
-        {
-            [LabelText("字段名")] [Tooltip("字段名称")] [Required]
-            public string fieldName;
-
-            [LabelText("类型")] [ValueDropdown(nameof(FieldTypeOptions))]
-            public string fieldType = "int";
-
-            [LabelText("主键")] [Tooltip("是否作为主键字段")]
-            public bool isKeyField;
-
-            [LabelText("描述")] [Tooltip("字段描述（用于注释）")] [TextArea(1, 2)]
-            public string description;
-
-            private IEnumerable<string> FieldTypeOptions = new[]
-            {
-                "int",
-                "float",
-                "string",
-                "bool",
-                "long",
-                "double",
-                "Vector2",
-                "Vector3",
-                "Vector4",
-                "Color",
-                "GameObject",
-                "Transform",
-                "Sprite",
-                "Texture",
-                "AudioClip"
-            };
-        }
-
         #endregion
 
         #region 预览
@@ -303,171 +268,29 @@ namespace CFramework.Editor.Windows.Config
 
         private void GenerateScriptFiles()
         {
-            // 确保目录存在
-            if (!Directory.Exists(configOutputPath)) Directory.CreateDirectory(configOutputPath);
-
-            if (!Directory.Exists(dataOutputPath)) Directory.CreateDirectory(dataOutputPath);
-
-            // 生成数据类
-            var dataCode = GenerateDataClassCode();
-            var dataFilePath = Path.Combine(dataOutputPath, $"{valueTypeName}.cs");
-            File.WriteAllText(dataFilePath, dataCode, Encoding.UTF8);
-
-            // 生成配置表类
-            var configCode = GenerateConfigClassCode();
-            var configFilePath = Path.Combine(configOutputPath, $"{configName}.cs");
-            File.WriteAllText(configFilePath, configCode, Encoding.UTF8);
-
-            Debug.Log($"[ConfigCreator] 生成文件：\n{dataFilePath}\n{configFilePath}");
-
-            // 打开生成的脚本
-            if (openGeneratedScript)
-            {
-                AssetDatabase.Refresh();
-
-                var dataAsset = AssetDatabase.LoadAssetAtPath<TextAsset>(dataFilePath);
-                var configAsset = AssetDatabase.LoadAssetAtPath<TextAsset>(configFilePath);
-
-                if (dataAsset != null)
-                    AssetDatabase.OpenAsset(dataAsset);
-                if (configAsset != null)
-                    AssetDatabase.OpenAsset(configAsset);
-            }
+            ConfigCodeGenerator.WriteScriptFiles(
+                configOutputPath,
+                dataOutputPath,
+                configName,
+                valueTypeName,
+                configNamespace,
+                dataNamespace,
+                keyType,
+                valueFields,
+                openGeneratedScript);
         }
 
         private string GenerateDataClassCode()
         {
-            var sb = new StringBuilder();
-
-            // 查找主键字段
-            var keyField = valueFields.Find(f => f.isKeyField);
-            if (keyField == null && valueFields.Count > 0) keyField = valueFields[0]; // 默认第一个字段为主键
-
-            // Using 语句
-            sb.AppendLine("using System;");
-            sb.AppendLine("using CFramework;");
-            sb.AppendLine("using UnityEngine;");
-            sb.AppendLine();
-
-            // 命名空间
-            if (!string.IsNullOrEmpty(dataNamespace))
-            {
-                sb.AppendLine($"namespace {dataNamespace}");
-                sb.AppendLine("{");
-            }
-
-            // 数据类
-            sb.AppendLine("    /// <summary>");
-            sb.AppendLine($"    /// {valueTypeName} 数据结构");
-            sb.AppendLine("    /// </summary>");
-            sb.AppendLine("    [Serializable]");
-            sb.AppendLine($"    public sealed class {valueTypeName} : IConfigItem<{keyType}>");
-            sb.AppendLine("    {");
-
-            // 字段
-            foreach (var field in valueFields)
-            {
-                if (!string.IsNullOrEmpty(field.description))
-                {
-                    sb.AppendLine("        /// <summary>");
-                    sb.AppendLine($"        /// {field.description}");
-                    sb.AppendLine("        /// </summary>");
-                }
-
-                sb.Append($"        public {field.fieldType} {field.fieldName}");
-
-                // 默认值
-                if (field.fieldType == "string")
-                    sb.AppendLine(" = \"\";");
-                else if (field.fieldType == "bool")
-                    sb.AppendLine(" = false;");
-                else if (IsNumericType(field.fieldType))
-                    sb.AppendLine(" = 0;");
-                else
-                    sb.AppendLine(";");
-
-                sb.AppendLine();
-            }
-
-            // Key 属性
-            if (keyField != null)
-            {
-                sb.AppendLine("        /// <summary>");
-                sb.AppendLine("        /// 配置数据主键");
-                sb.AppendLine("        /// </summary>");
-                sb.AppendLine($"        public {keyType} Key => {keyField.fieldName};");
-                sb.AppendLine();
-            }
-
-            // 克隆方法
-            sb.AppendLine("        /// <summary>");
-            sb.AppendLine("        /// 克隆当前对象");
-            sb.AppendLine("        /// </summary>");
-            sb.AppendLine("        /// <returns>对象的深拷贝</returns>");
-            sb.AppendLine($"        public {valueTypeName} Clone()");
-            sb.AppendLine("        {");
-            sb.AppendLine($"            return new {valueTypeName}");
-            sb.AppendLine("            {");
-
-            // 字段赋值
-            for (var i = 0; i < valueFields.Count; i++)
-            {
-                var field = valueFields[i];
-                sb.Append($"                {field.fieldName} = {field.fieldName}");
-
-                if (i < valueFields.Count - 1)
-                    sb.AppendLine(",");
-                else
-                    sb.AppendLine();
-            }
-
-            sb.AppendLine("            };");
-            sb.AppendLine("        }");
-            sb.AppendLine();
-
-            sb.AppendLine("    }");
-
-            if (!string.IsNullOrEmpty(dataNamespace)) sb.AppendLine("}");
-
-            return sb.ToString();
+            return ConfigCodeGenerator.GenerateDataClassCode(
+                valueTypeName, keyType, dataNamespace, valueFields);
         }
 
         private string GenerateConfigClassCode()
         {
-            var sb = new StringBuilder();
-
-            // Using 语句
-            sb.AppendLine("using CFramework;");
-            sb.AppendLine("using UnityEngine;");
-
-            // 如果数据类在不同命名空间，添加 using
-            if (!string.IsNullOrEmpty(dataNamespace) && dataNamespace != configNamespace)
-                sb.AppendLine($"using {dataNamespace};");
-
-            sb.AppendLine();
-
-            // 命名空间
-            if (!string.IsNullOrEmpty(configNamespace))
-            {
-                sb.AppendLine($"namespace {configNamespace}");
-                sb.AppendLine("{");
-            }
-
-            // 配置表类
-            sb.AppendLine("    /// <summary>");
-            sb.AppendLine($"    /// {configName} 配置表");
-            sb.AppendLine("    /// </summary>");
-            sb.AppendLine(
-                $"    [CreateAssetMenu(fileName = \"{configName}\", menuName = \"Game/Config/{configName}\")]");
-            sb.AppendLine(
-                $"    public sealed class {configName} : ConfigTableAsset<{keyType}, {valueTypeName}>");
-            sb.AppendLine("    {");
-            sb.AppendLine("        // 数据在 Inspector 中配置");
-            sb.AppendLine("    }");
-
-            if (!string.IsNullOrEmpty(configNamespace)) sb.AppendLine("}");
-
-            return sb.ToString();
+            return ConfigCodeGenerator.GenerateConfigClassCode(
+                configName, configNamespace, dataNamespace,
+                keyType, valueTypeName);
         }
 
         private void CreateConfigAsset()
@@ -486,13 +309,6 @@ namespace CFramework.Editor.Windows.Config
             AssetDatabase.Refresh();
 
             Debug.Log("[ConfigCreator] 脚本已生成，等待编译完成后自动创建资产...");
-        }
-
-        private bool IsNumericType(string type)
-        {
-            return type == "int" || type == "float" || type == "long" ||
-                   type == "double" || type == "byte" || type == "short" ||
-                   type == "uint" || type == "ulong" || type == "ushort";
         }
 
         #endregion

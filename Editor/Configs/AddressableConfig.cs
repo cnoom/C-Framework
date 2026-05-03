@@ -671,32 +671,19 @@ namespace CFramework.Editor.Configs
         }
 
         /// <summary>
-        ///     简单的通配符匹配
+        ///     通配符匹配，支持 *（匹配零或多个字符）和 ?（匹配恰好一个字符）
         /// </summary>
         private static bool IsMatch(string input, string pattern)
         {
-            // 简化实现，仅支持 * 通配符
             if (string.IsNullOrEmpty(pattern) || pattern == "*") return true;
 
-            if (pattern.StartsWith("*") && pattern.EndsWith("*"))
-            {
-                var middle = pattern.Substring(1, pattern.Length - 2);
-                return input.Contains(middle);
-            }
-
-            if (pattern.StartsWith("*"))
-            {
-                var suffix = pattern.Substring(1);
-                return input.EndsWith(suffix, StringComparison.OrdinalIgnoreCase);
-            }
-
-            if (pattern.EndsWith("*"))
-            {
-                var prefix = pattern.Substring(0, pattern.Length - 1);
-                return input.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
-            }
-
-            return input.Equals(pattern, StringComparison.OrdinalIgnoreCase);
+            // 转换为正则表达式：* -> .*，? -> .，其余转义
+            var regexPattern = System.Text.RegularExpressions.Regex.Escape(pattern)
+                .Replace("\\*", ".*")
+                .Replace("\\?", ".");
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                input, "^" + regexPattern + "$",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         }
 
         #endregion
@@ -711,6 +698,7 @@ namespace CFramework.Editor.Configs
         /// <param name="createIfNotFound">如果找不到是否创建新实例</param>
         public static AddressableConfig GetOrCreateInstance(bool createIfNotFound = true)
         {
+            // 域重载后 Unity 会将 static 字段重置为 null，此处自动重新查找
             if (_instance != null) return _instance;
 
             // 查找现有实例
@@ -737,6 +725,18 @@ namespace CFramework.Editor.Configs
             Debug.Log($"[AddressableConfig] 创建默认配置: {defaultPath}");
 
             return _instance;
+        }
+
+        /// <summary>
+        ///     清除缓存的实例引用（域重载时由 Unity 自动触发）
+        /// </summary>
+        [UnityEditor.Callbacks.DidReloadScripts]
+        private static void OnDomainReload()
+        {
+            // 域重载后 static 字段已被 Unity 重置为 null，无需额外处理。
+            // 但如果因某种原因 _instance 残留了一个被销毁的引用，在此清理。
+            if (_instance != null && _instance.Equals(null))
+                _instance = null;
         }
 
         #endregion

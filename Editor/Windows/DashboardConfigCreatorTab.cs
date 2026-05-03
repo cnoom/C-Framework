@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using CFramework.Editor.Generators;
 using CFramework.Editor.Utilities;
 using CNoom.UnityTool.Editor;
 using UnityEditor;
@@ -506,32 +507,22 @@ namespace CFramework.Editor.Windows
 
         #region 生成逻辑
 
+        private string GetCurrentDataNamespace() => _dataNamespaceField?.value ?? _dataNamespace;
+
+        private string GetCurrentConfigNamespace() => _configNamespaceField?.value ?? _configNamespace;
+
         private void GenerateScriptFiles()
         {
-            var cfgOut = _configOutputField.value;
-            var dataOut = _dataOutputField.value;
-
-            if (!Directory.Exists(cfgOut)) Directory.CreateDirectory(cfgOut);
-            if (!Directory.Exists(dataOut)) Directory.CreateDirectory(dataOut);
-
-            var dataCode = GenerateDataClassCode();
-            var dataFilePath = Path.Combine(dataOut, $"{_valueTypeName}.cs");
-            File.WriteAllText(dataFilePath, dataCode, Encoding.UTF8);
-
-            var configCode = GenerateConfigClassCode();
-            var configFilePath = Path.Combine(cfgOut, $"{_configName}.cs");
-            File.WriteAllText(configFilePath, configCode, Encoding.UTF8);
-
-            Debug.Log($"[ConfigCreator] 生成文件：\n{dataFilePath}\n{configFilePath}");
-
-            if (_openScriptToggle.value)
-            {
-                AssetDatabase.Refresh();
-                var dataAsset = AssetDatabase.LoadAssetAtPath<TextAsset>(dataFilePath);
-                var configAsset = AssetDatabase.LoadAssetAtPath<TextAsset>(configFilePath);
-                if (dataAsset != null) AssetDatabase.OpenAsset(dataAsset);
-                if (configAsset != null) AssetDatabase.OpenAsset(configAsset);
-            }
+            Generators.ConfigCodeGenerator.WriteScriptFiles(
+                _configOutputField.value,
+                _dataOutputField.value,
+                _configName,
+                _valueTypeName,
+                GetCurrentConfigNamespace(),
+                GetCurrentDataNamespace(),
+                _keyType,
+                _valueFields,
+                _openScriptToggle.value);
         }
 
         private void CreateConfigAsset()
@@ -546,125 +537,15 @@ namespace CFramework.Editor.Windows
 
         private string GenerateDataClassCode()
         {
-            var sb = new StringBuilder();
-            var keyField = _valueFields.Find(f => f.isKeyField);
-            if (keyField == null && _valueFields.Count > 0) keyField = _valueFields[0];
-
-            sb.AppendLine("using System;");
-            sb.AppendLine("using CFramework;");
-            sb.AppendLine("using UnityEngine;");
-            sb.AppendLine();
-
-            if (!string.IsNullOrEmpty(_dataNamespace))
-            {
-                sb.AppendLine($"namespace {_dataNamespaceField.value}");
-                sb.AppendLine("{");
-            }
-
-            sb.AppendLine("    /// <summary>");
-            sb.AppendLine($"    /// {_valueTypeName} 数据结构");
-            sb.AppendLine("    /// </summary>");
-            sb.AppendLine("    [Serializable]");
-            sb.AppendLine($"    public sealed class {_valueTypeName} : IConfigItem<{_keyType}>");
-            sb.AppendLine("    {");
-
-            foreach (var field in _valueFields)
-            {
-                if (!string.IsNullOrEmpty(field.description))
-                {
-                    sb.AppendLine("        /// <summary>");
-                    sb.AppendLine($"        /// {field.description}");
-                    sb.AppendLine("        /// </summary>");
-                }
-
-                sb.Append($"        public {field.fieldType} {field.fieldName}");
-
-                if (field.fieldType == "string")
-                    sb.AppendLine(" = \"\";");
-                else if (field.fieldType == "bool")
-                    sb.AppendLine(" = false;");
-                else if (IsNumericType(field.fieldType))
-                    sb.AppendLine(" = 0;");
-                else
-                    sb.AppendLine(";");
-
-                sb.AppendLine();
-            }
-
-            if (keyField != null)
-            {
-                sb.AppendLine("        /// <summary>");
-                sb.AppendLine("        /// 配置数据主键");
-                sb.AppendLine("        /// </summary>");
-                sb.AppendLine($"        public {_keyType} Key => {keyField.fieldName};");
-                sb.AppendLine();
-            }
-
-            sb.AppendLine("        /// <summary>");
-            sb.AppendLine("        /// 克隆当前对象");
-            sb.AppendLine("        /// </summary>");
-            sb.AppendLine($"        public {_valueTypeName} Clone()");
-            sb.AppendLine("        {");
-            sb.AppendLine($"            return new {_valueTypeName}");
-            sb.AppendLine("            {");
-
-            for (var i = 0; i < _valueFields.Count; i++)
-            {
-                var field = _valueFields[i];
-                sb.Append($"                {field.fieldName} = {field.fieldName}");
-                sb.AppendLine(i < _valueFields.Count - 1 ? "," : "");
-            }
-
-            sb.AppendLine("            };");
-            sb.AppendLine("        }");
-            sb.AppendLine();
-
-            sb.AppendLine("    }");
-
-            if (!string.IsNullOrEmpty(_dataNamespace)) sb.AppendLine("}");
-
-            return sb.ToString();
+            return Generators.ConfigCodeGenerator.GenerateDataClassCode(
+                _valueTypeName, _keyType, GetCurrentDataNamespace(), _valueFields);
         }
 
         private string GenerateConfigClassCode()
         {
-            var sb = new StringBuilder();
-
-            sb.AppendLine("using CFramework;");
-            sb.AppendLine("using UnityEngine;");
-
-            if (!string.IsNullOrEmpty(_dataNamespace) && _dataNamespace != _configNamespaceField.value)
-                sb.AppendLine($"using {_dataNamespace};");
-
-            sb.AppendLine();
-
-            if (!string.IsNullOrEmpty(_configNamespaceField.value))
-            {
-                sb.AppendLine($"namespace {_configNamespaceField.value}");
-                sb.AppendLine("{");
-            }
-
-            sb.AppendLine("    /// <summary>");
-            sb.AppendLine($"    /// {_configName} 配置表");
-            sb.AppendLine("    /// </summary>");
-            sb.AppendLine(
-                $"    [CreateAssetMenu(fileName = \"{_configName}\", menuName = \"Game/Config/{_configName}\")]");
-            sb.AppendLine(
-                $"    public sealed class {_configName} : ConfigTableAsset<{_keyType}, {_valueTypeName}>");
-            sb.AppendLine("    {");
-            sb.AppendLine("        // 数据在 Inspector 中配置");
-            sb.AppendLine("    }");
-
-            if (!string.IsNullOrEmpty(_configNamespaceField.value)) sb.AppendLine("}");
-
-            return sb.ToString();
-        }
-
-        private static bool IsNumericType(string type)
-        {
-            return type == "int" || type == "float" || type == "long" ||
-                   type == "double" || type == "byte" || type == "short" ||
-                   type == "uint" || type == "ulong" || type == "ushort";
+            return Generators.ConfigCodeGenerator.GenerateConfigClassCode(
+                _configName, GetCurrentConfigNamespace(), GetCurrentDataNamespace(),
+                _keyType, _valueTypeName);
         }
 
         #endregion
@@ -738,17 +619,5 @@ namespace CFramework.Editor.Windows
         }
 
         #endregion
-    }
-
-    /// <summary>
-    ///     值类型字段定义（共享数据结构）
-    /// </summary>
-    [Serializable]
-    public sealed class ValueField
-    {
-        public string fieldName;
-        public string fieldType = "int";
-        public bool isKeyField;
-        public string description;
     }
 }
