@@ -8,12 +8,7 @@ namespace CFramework
     /// </summary>
     public sealed class NewtonsoftJsonSerializer : ISaveSerializer
     {
-        private readonly JsonSerializerSettings _settings = new()
-        {
-            Formatting = Formatting.Indented,
-            NullValueHandling = NullValueHandling.Include,
-            ReferenceLoopHandling = ReferenceLoopHandling.Ignore
-        };
+        private readonly JsonSerializerSettings _settings = JsonPresets.Save;
 
         public string Serialize<T>(T value)
         {

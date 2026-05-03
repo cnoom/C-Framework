@@ -36,7 +36,7 @@ namespace CFramework
             }
 
             // Newtonsoft.Json 直接支持顶层数组反序列化
-            var items = JsonConvert.DeserializeObject<List<TValue>>(textAsset.text);
+            var items = JsonConvert.DeserializeObject<List<TValue>>(textAsset.text, JsonPresets.Plain);
 
             if (items == null)
             {
