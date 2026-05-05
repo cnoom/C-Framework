@@ -10,7 +10,7 @@ namespace CFramework
     [CreateAssetMenu(fileName = "FrameworkSettings", menuName = "CFramework/Settings")]
     public sealed class FrameworkSettings : ScriptableObject
     {
-        private const string DefaultPath = "FrameworkSettings";
+        public const string DefaultPath = "FrameworkSettings";
 
         #region 模块配置
 

@@ -105,7 +105,7 @@ namespace CFramework.Editor
             }
 
             // 2. 生成 FrameworkSettings
-            var frameworkPath = Path.Combine(outputRoot, "FrameworkSettings.asset").Replace('\\', '/');
+            var frameworkPath = "Assets/Resources/" + FrameworkSettings.DefaultPath + ".asset";
             var frameworkAsset = AssetDatabase.LoadAssetAtPath<FrameworkSettings>(frameworkPath);
 
             if (frameworkAsset == null)
@@ -126,7 +126,8 @@ namespace CFramework.Editor
             foreach (var info in SubSettings)
             {
                 var prop = serialized.FindProperty(info.FieldName);
-                if (prop != null && prop.objectReferenceValue == null && subAssets.TryGetValue(info.FieldName, out var subAsset))
+                if (prop != null && prop.objectReferenceValue == null &&
+                    subAssets.TryGetValue(info.FieldName, out var subAsset))
                 {
                     prop.objectReferenceValue = subAsset;
                     dirty = true;
