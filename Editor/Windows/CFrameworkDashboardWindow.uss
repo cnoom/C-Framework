@@ -28,9 +28,10 @@
     color: rgb(220, 220, 220);
 }
 
-/* ToolbarToggle 选中态（通过 .unity-toggle__input:checked 控制） */
-.tab-toggle > .unity-toggle__input:checked + .unity-toggle__checkmark {
+/* ToolbarToggle 选中态 */
+.tab-toggle:checked {
     background-color: rgba(50, 120, 200, 0.5);
+    color: rgb(240, 240, 240);
 }
 
 /* Tab 下方分割线 */
