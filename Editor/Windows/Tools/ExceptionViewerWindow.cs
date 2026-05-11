@@ -72,7 +72,9 @@ namespace CFramework.Editor.Windows.Tools
             RefreshExceptionList();
         }
 
-        [MenuItem("CFramework/异常查看器", priority = 300)]
+        /// <summary>
+        ///     打开窗口（由 Dashboard 调用）
+        /// </summary>
         public static void ShowWindow()
         {
             GetWindow<ExceptionViewerWindow>("异常查看器");

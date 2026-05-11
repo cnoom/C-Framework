@@ -11,6 +11,7 @@ namespace CFramework
         ///     注册一个支持自动事件订阅的服务
         ///     <para>容器构建完成后会自动扫描 [EventSubscribe] 标记的方法并订阅到 IEventBus</para>
         ///     <para>容器销毁时自动取消所有订阅</para>
+        ///     <para>同时映射所有接口（含 IInitializable / ITickable 等 VContainer 生命周期接口）</para>
         /// </summary>
         /// <typeparam name="T">实现 IEventSubscriber 的服务类型</typeparam>
         /// <param name="builder">容器构建器</param>
@@ -21,7 +22,9 @@ namespace CFramework
             Lifetime lifetime = Lifetime.Singleton)
             where T : class, IEventSubscriber
         {
-            var registrationBuilder = builder.Register<T>(lifetime);
+            var registrationBuilder = builder.Register<T>(lifetime)
+                .AsImplementedInterfaces()
+                .AsSelf();
 
             builder.RegisterBuildCallback(resolver =>
             {
@@ -48,13 +51,15 @@ namespace CFramework
             where TImplement : class, TInterface, IEventSubscriber
             where TInterface : class
         {
-            var registrationBuilder = builder.Register<TImplement>(lifetime).As<TInterface>();
+            var registrationBuilder = builder.Register<TImplement>(lifetime)
+                .AsImplementedInterfaces()
+                .AsSelf();
 
             // 同时注册为实现类型，以便回调中能 Resolve 到实例
             builder.RegisterBuildCallback(resolver =>
             {
-                // 通过接口类型解析，确保拿到的是同一个实例
-                var subscriber = (IEventSubscriber)resolver.Resolve<TInterface>();
+                // 通过实现类型解析，确保拿到同一个实例
+                var subscriber = (IEventSubscriber)resolver.Resolve<TImplement>();
                 var eventBus = resolver.Resolve<IEventBus>();
                 EventSubscriberHelper.AutoSubscribe(subscriber, eventBus);
             });

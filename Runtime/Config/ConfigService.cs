@@ -17,7 +17,7 @@ namespace CFramework
     public sealed class ConfigService : IConfigService
     {
         private readonly IConfigProvider _provider;
-        private readonly FrameworkSettings _settings;
+        private readonly ConfigSettings _settings;
 
         /// <summary>
         ///     数据类型 → ConfigTable 实例（object 装箱，因为 TKey 编译期未知）
@@ -31,7 +31,7 @@ namespace CFramework
 
         private bool _disposed;
 
-        public ConfigService(IConfigProvider provider, FrameworkSettings settings)
+        public ConfigService(IConfigProvider provider, ConfigSettings settings)
         {
             _provider = provider;
             _settings = settings;
@@ -191,6 +191,12 @@ namespace CFramework
         #region 反射辅助
 
         /// <summary>
+        ///     缓存的 InvokeLoadInternal MethodInfo（仅查找一次）
+        /// </summary>
+        private static readonly MethodInfo InvokeLoadInternalMethod = typeof(ConfigService)
+            .GetMethod(nameof(InvokeLoadInternal), BindingFlags.Instance | BindingFlags.NonPublic);
+
+        /// <summary>
         ///     获取 IConfigItem&lt;TKey&gt; 中的 TKey 类型
         /// </summary>
         private static Type GetKeyType(Type valueType)
@@ -212,9 +218,7 @@ namespace CFramework
         {
             try
             {
-                var loadMethod = typeof(ConfigService).GetMethod(nameof(InvokeLoadInternal),
-                    BindingFlags.Instance | BindingFlags.NonPublic);
-                var genericMethod = loadMethod.MakeGenericMethod(keyType, valueType);
+                var genericMethod = InvokeLoadInternalMethod.MakeGenericMethod(keyType, valueType);
                 var task = (UniTask)genericMethod.Invoke(this, new object[] { address, ct });
                 await task;
 

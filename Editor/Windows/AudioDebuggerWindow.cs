@@ -16,7 +16,9 @@ namespace CFramework.Editor
     {
         private const string USS_FILE_NAME = "AudioDebuggerWindow.uss";
 
-        [MenuItem("CFramework/Audio/Audio Debugger", priority = 100)]
+        /// <summary>
+        ///     打开窗口（保留独立入口供向后兼容）
+        /// </summary>
         private static void Open()
         {
             var window = GetWindow<AudioDebuggerWindow>("Audio Debugger");
@@ -30,6 +32,8 @@ namespace CFramework.Editor
         private Button _saveButton;
 
         private IAudioService _cachedAudioService;
+        private GameScope _cachedGameScope;
+        private bool _serviceLookupFailed;
 
         private void CreateGUI()
         {
@@ -83,10 +87,12 @@ namespace CFramework.Editor
                 _statusLabel.text = "Audio Debugger 仅在运行时可用。";
                 _statusLabel.style.display = DisplayStyle.Flex;
                 _rootContainer.style.display = DisplayStyle.None;
+                InvalidateServiceCache();
                 return;
             }
 
-            var audioService = GetAudioService();
+            // 尝试使用缓存的服务引用，仅在缓存失效时重新查找
+            var audioService = ResolveAudioService();
             if (audioService == null)
             {
                 _statusLabel.text = "AudioService 未初始化。";
@@ -100,6 +106,65 @@ namespace CFramework.Editor
             _rootContainer.style.display = DisplayStyle.Flex;
 
             RefreshUI(audioService);
+        }
+
+        private void OnEnable()
+        {
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+        }
+
+        private void OnDisable()
+        {
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+            InvalidateServiceCache();
+        }
+
+        private void OnPlayModeStateChanged(PlayModeStateChange state)
+        {
+            if (state == PlayModeStateChange.ExitingPlayMode)
+                InvalidateServiceCache();
+        }
+
+        private void InvalidateServiceCache()
+        {
+            _cachedGameScope = null;
+            _cachedAudioService = null;
+            _serviceLookupFailed = false;
+        }
+
+        /// <summary>
+        ///     解析 AudioService 实例（优先使用缓存，避免每帧 FindObjectOfType）
+        /// </summary>
+        private IAudioService ResolveAudioService()
+        {
+            // 快速路径：缓存仍然有效
+            if (_cachedGameScope != null && _cachedAudioService != null)
+                return _cachedAudioService;
+
+            // 跳过本轮已确认失败的查找，下一帧重试
+            if (_serviceLookupFailed)
+                return null;
+
+            var gameScope = UnityEngine.Object.FindObjectOfType<GameScope>();
+            if (gameScope == null)
+            {
+                _serviceLookupFailed = true;
+                return null;
+            }
+
+            _cachedGameScope = gameScope;
+            var components = gameScope.GetComponents<Component>();
+            foreach (var comp in components)
+            {
+                if (comp is IAudioService audioService)
+                {
+                    _cachedAudioService = audioService;
+                    return audioService;
+                }
+            }
+
+            _serviceLookupFailed = true;
+            return null;
         }
 
         private void RefreshUI(IAudioService audioService)
@@ -193,22 +258,6 @@ namespace CFramework.Editor
         private void OnSaveClicked()
         {
             _cachedAudioService?.SaveVolumes();
-        }
-
-        /// <summary>
-        ///     获取 AudioService 实例
-        /// </summary>
-        private IAudioService GetAudioService()
-        {
-            var gameScope = UnityEngine.Object.FindObjectOfType<GameScope>();
-            if (gameScope == null) return null;
-            var components = gameScope.GetComponents<Component>();
-            foreach (var comp in components)
-            {
-                if (comp is IAudioService audioService)
-                    return audioService;
-            }
-            return null;
         }
     }
 }

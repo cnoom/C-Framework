@@ -1,57 +1,77 @@
 using UnityEngine;
-using UnityEngine.Audio;
 
 namespace CFramework
 {
     /// <summary>
-    ///     框架全局配置
+    ///     框架全局配置（组合容器）
+    ///     <para>引用各模块级 Settings，各服务通过 DI 注入自己需要的模块配置</para>
+    ///     <para>子 Settings 为空时自动加载默认值</para>
     /// </summary>
     [CreateAssetMenu(fileName = "FrameworkSettings", menuName = "CFramework/Settings")]
     public sealed class FrameworkSettings : ScriptableObject
     {
-        private const string DefaultPath = "FrameworkSettings";
+        public const string DefaultPath = "FrameworkSettings";
 
-        [Header("Asset")] [Tooltip("内存预算(MB)")]
-        public int MemoryBudgetMB = 512;
+        #region 模块配置
 
-        [Tooltip("每帧最大加载数量")] public int MaxLoadPerFrame = 5;
+        [Header("模块配置")]
+        [Tooltip("资源模块配置")]
+        public AssetSettings Asset;
 
-        [Header("UI")] [Tooltip("导航栈最大容量")] public int MaxNavigationStack = 10;
+        [Tooltip("UI 模块配置")]
+        public UISettings UI;
 
-        [Tooltip("UIRoot Prefab 的 Addressable Key")]
-        public string UIRootAddress = "UIRoot";
+        [Tooltip("音频模块配置")]
+        public AudioSettings Audio;
 
-        [Header("Audio")]
-        [Tooltip("音频混合器引用（框架内置或自定义）\n未设置时自动加载框架内置的 AudioMixer（Prefabs/AudioMixer.mixer）")]
-        public AudioMixer AudioMixerRef;
+        [Tooltip("存档模块配置")]
+        public SaveSettings Save;
 
-        [Tooltip("各分组预分配 Slot 数量（枚举名:数量，逗号分隔）\n如 Master_Music:2,Master_Effect:5")]
-        [TextArea(2, 4)]
-        public string GroupSlotConfig = "Master_Music:2,Master_Effect:5";
+        [Tooltip("对象池模块配置")]
+        public PoolSettings Pool;
 
-        [Tooltip("分组 Slot 自动扩容上限")]
-        public int MaxSlotsPerGroup = 20;
+        [Tooltip("日志模块配置")]
+        public LogSettings Log;
 
-        [Tooltip("音量持久化存储键前缀")]
-        public string VolumePrefsPrefix = "Audio_Volume_";
+        [Tooltip("配置表模块配置")]
+        public ConfigSettings Config;
 
-        [Header("Save")] [Tooltip("自动保存间隔(秒)")]
-        public int AutoSaveInterval = 60;
+        #endregion
 
-        [Tooltip("存档加密密钥（AES-128 需要 16 字符，AES-256 需要 32 字符）\n留空则不加密，以明文存储")]
-        public string EncryptionKey = "";
+        /// <summary>
+        ///     获取资源配置（null 时自动 fallback）
+        /// </summary>
+        public AssetSettings GetAssetSettings() => Asset ? Asset : AssetSettings.LoadDefault();
 
-        [Header("Pool")]
-        [Tooltip("对象池默认初始容量")]
-        public int PoolDefaultCapacity = 10;
+        /// <summary>
+        ///     获取 UI 配置（null 时自动 fallback）
+        /// </summary>
+        public UISettings GetUISettings() => UI ? UI : UISettings.LoadDefault();
 
-        [Tooltip("对象池默认最大容量（0=不限）")]
-        public int PoolMaxSize = 100;
+        /// <summary>
+        ///     获取音频配置（null 时自动 fallback）
+        /// </summary>
+        public AudioSettings GetAudioSettings() => Audio ? Audio : AudioSettings.LoadDefault();
 
-        [Header("Log")] [Tooltip("日志级别")] public LogLevel LogLevel = LogLevel.Debug;
+        /// <summary>
+        ///     获取存档配置（null 时自动 fallback）
+        /// </summary>
+        public SaveSettings GetSaveSettings() => Save ? Save : SaveSettings.LoadDefault();
 
-        [Header("Config")] [Tooltip("配置表地址前缀")]
-        public string ConfigAddressPrefix = "Config";
+        /// <summary>
+        ///     获取对象池配置（null 时自动 fallback）
+        /// </summary>
+        public PoolSettings GetPoolSettings() => Pool ? Pool : PoolSettings.LoadDefault();
+
+        /// <summary>
+        ///     获取日志配置（null 时自动 fallback）
+        /// </summary>
+        public LogSettings GetLogSettings() => Log ? Log : LogSettings.LoadDefault();
+
+        /// <summary>
+        ///     获取配置表配置（null 时自动 fallback）
+        /// </summary>
+        public ConfigSettings GetConfigSettings() => Config ? Config : ConfigSettings.LoadDefault();
 
         /// <summary>
         ///     加载默认设置
@@ -62,8 +82,8 @@ namespace CFramework
             if (settings == null)
             {
                 settings = CreateInstance<FrameworkSettings>();
-                LogUtility.Warning("CFramework",
-                    $"FrameworkSettings not found at Resources/{DefaultPath}, using default values.");
+                LogUtility.Debug("CFramework",
+                    $"{nameof(FrameworkSettings)} 未在 Resources/{DefaultPath} 找到，使用默认值");
             }
 
             return settings;

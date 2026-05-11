@@ -17,7 +17,7 @@ namespace CFramework
 
         /// <summary>
         ///     初始化音频系统
-        ///     <para>使用 FrameworkSettings 中指定的 AudioMixer 自动初始化</para>
+        ///     <para>使用 AudioSettings 中指定的 AudioMixer 自动初始化</para>
         ///     <para>解析 Group 层级 → 生成 GameObject → 挂载 AudioSource → 绑定 MixerGroup</para>
         ///     <para>解析 Snapshot 列表 → 构建快照缓存</para>
         ///     <para>解析 Exposed Parameters → 构建音量控制映射</para>

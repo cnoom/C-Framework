@@ -19,12 +19,12 @@ namespace CFramework.Editor
         /// <summary>
         ///     CFramework 库根路径
         /// </summary>
-        public const string CFrameworkRoot = "Assets/CFramework";
+        public const string CFrameworkRoot = "Assets/Plugins/CFramework";
 
         /// <summary>
         ///     CFramework 编辑器路径
         /// </summary>
-        public const string CFrameworkEditor = "Assets/CFramework/Editor";
+        public const string CFrameworkEditor = "Assets/Plugins/CFramework/Editor";
 
         #endregion
 
@@ -98,6 +98,17 @@ namespace CFramework.Editor
         #endregion
 
         #region 资源路径
+
+        /// <summary>
+        ///     Resources 目录（运行时加载根）
+        /// </summary>
+        public const string Resources = "Assets/Resources";
+
+        /// <summary>
+        ///     框架 Settings 默认输出目录
+        ///     <para>FrameworkSettings 及各模块 Settings 默认存放在此</para>
+        /// </summary>
+        public const string FrameworkSettings = "Assets/Resources";
 
         /// <summary>
         ///     预制体目录

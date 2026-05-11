@@ -19,13 +19,14 @@ namespace CFramework
     public sealed class UIService : IUIService, IAsyncInitializable, IDisposable
     {
         private readonly IAssetService _assetService;
+        private readonly IObjectResolver _resolver;
         private readonly LinkedList<string> _navigationStack = new();
         private readonly Subject<string> _panelClosed = new();
         private readonly Subject<string> _panelOpened = new();
 
         private readonly Dictionary<string, UIPanelData> _panels = new();
-        private readonly FrameworkSettings _settings;
-        private readonly UniTaskCompletionSource _uiRootReady = new();
+        private readonly UISettings _settings;
+        private UniTaskCompletionSource _uiRootReady = new();
         private CancellationTokenSource _cancellationTokenSource;
         [Inject] ILogger _logger;
 
@@ -34,9 +35,10 @@ namespace CFramework
         private Transform _uiRoot;
         private AssetHandle _uiRootHandle;
 
-        public UIService(IAssetService assetService, FrameworkSettings settings)
+        public UIService(IAssetService assetService, IObjectResolver resolver, UISettings settings)
         {
             _assetService = assetService;
+            _resolver = resolver;
             _settings = settings;
             _maxStackCapacity = settings.MaxNavigationStack;
             _cancellationTokenSource = new CancellationTokenSource();
@@ -86,7 +88,7 @@ namespace CFramework
             }
             catch (Exception e)
             {
-                _logger.LogWithLevelColor("UIService", $"Initialize failed: {e.Message}", LogLevel.Error);
+                _logger.LogWithLevelColor("UIService", $"初始化失败: {e.Message}", LogLevel.Error);
                 _uiRootReady.TrySetException(e);
             }
         }
@@ -100,9 +102,16 @@ namespace CFramework
             // 销毁所有缓存的面板
             foreach (var kvp in _panels)
             {
-                kvp.Value.UI.OnDestroy();
-                if (kvp.Value.GameObject != null) Object.Destroy(kvp.Value.GameObject);
+                try
+                {
+                    kvp.Value.UI.OnDestroy();
+                }
+                catch (Exception e)
+                {
+                    LogUtility.Warning("UIService", $"OnDestroy 异常: {kvp.Key}, {e.Message}");
+                }
 
+                if (kvp.Value.GameObject != null) Object.Destroy(kvp.Value.GameObject);
                 kvp.Value.Handle.Dispose();
             }
 
@@ -141,11 +150,15 @@ namespace CFramework
         {
             // 等待 UIRoot 初始化完成（事件信号，无轮询）
             var readyTask = _uiRootReady.Task;
-            if (readyTask.Status != UniTaskStatus.Pending)
+            if (readyTask.Status == UniTaskStatus.Faulted)
             {
-                // UIRoot 已初始化完成，直接跳过等待
+                // 上次初始化失败，重置 Source 并重试
+                _uiRootReady = new UniTaskCompletionSource();
+                InitializeAsync().Forget();
+                readyTask = _uiRootReady.Task;
             }
-            else
+
+            if (readyTask.Status == UniTaskStatus.Pending)
             {
                 // UIRoot 尚未就绪，等待（超时保护 30 秒）
                 var timeout = UniTask.Delay(TimeSpan.FromSeconds(30));
@@ -185,8 +198,9 @@ namespace CFramework
                 throw new InvalidOperationException($"[UIService] Prefab 上未找到 UIBinder 组件: {panelKey}");
             }
 
-            // 创建 IUI 实例、注入组件并初始化
+            // 创建 IUI 实例、通过 DI 容器执行属性/方法注入、注入组件并初始化
             var ui = new T();
+            _resolver.Inject(ui);
             ui.InjectUI(binder);
             ui.OnCreate();
 

@@ -8,10 +8,10 @@ namespace CFramework
     /// </summary>
     public sealed class UnityLogger : ILogger
     {
-        private readonly FrameworkSettings _settings;
+        private readonly LogSettings _settings;
         private LogLevel _logLevel = LogLevel.Debug;
 
-        public UnityLogger(FrameworkSettings settings)
+        public UnityLogger(LogSettings settings)
         {
             _settings = settings;
             _logLevel = settings != null ? settings.LogLevel : LogLevel.Debug;

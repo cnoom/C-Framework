@@ -14,11 +14,11 @@ namespace CFramework
     {
         private readonly Dictionary<string, object> _pools = new();
         private readonly IAssetService _assetService;
-        private readonly FrameworkSettings _settings;
+        private readonly PoolSettings _settings;
         private readonly object _lock = new();
         private bool _disposed;
 
-        public PoolService(FrameworkSettings settings, IAssetService assetService)
+        public PoolService(PoolSettings settings, IAssetService assetService)
         {
             _settings = settings;
             _assetService = assetService;
@@ -106,9 +106,18 @@ namespace CFramework
         {
             lock (_lock)
             {
-                if (_pools.Remove(name, out var pool))
+                // 泛型池的 key 为 "name_Type.FullName"，需要移除所有以 name 开头的池
+                var keysToRemove = new List<string>();
+                foreach (var key in _pools.Keys)
                 {
-                    (pool as IDisposable)?.Dispose();
+                    if (key == name || key.StartsWith(name + "_"))
+                        keysToRemove.Add(key);
+                }
+
+                foreach (var key in keysToRemove)
+                {
+                    if (_pools.Remove(key, out var pool))
+                        (pool as IDisposable)?.Dispose();
                 }
             }
         }

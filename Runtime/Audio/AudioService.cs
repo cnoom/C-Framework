@@ -11,13 +11,13 @@ namespace CFramework
     /// <summary>
     ///     音频服务实现 —— 数据驱动，基于 AudioMixer 动态解析
     ///     <para>核心职责：协调 AudioMixerTree / AudioVolumeController / AudioPlaybackController / AudioSnapshotController</para>
-    ///     <para>使用 FrameworkSettings 中指定的 AudioMixer 自动初始化</para>
+    ///     <para>使用 AudioSettings 中指定的 AudioMixer 自动初始化</para>
     ///     <para>分组寻址通过字符串路径（如 "Master/BGM"），与用户生成的 AudioGroup 枚举完全解耦</para>
     /// </summary>
     public sealed class AudioService : IAudioService, IAsyncInitializable
     {
         private readonly IAssetService _assetService;
-        private readonly FrameworkSettings _settings;
+        private readonly AudioSettings _settings;
 
         private AudioMixerTree _tree;
         private AudioVolumeController _volumeCtrl;
@@ -28,7 +28,7 @@ namespace CFramework
         private bool _initialized;
         private List<(string path, int slotIndex)> _pausedSlots = new();
 
-        public AudioService(IAssetService assetService, FrameworkSettings settings)
+        public AudioService(IAssetService assetService, AudioSettings settings)
         {
             _assetService = assetService;
             _settings = settings;
@@ -40,15 +40,14 @@ namespace CFramework
         {
             if (_initialized)
             {
-                LogUtility.Warning("Audio", "Already initialized, disposing old resources first.");
+                LogUtility.Warning("Audio", "已初始化，先释放旧资源");
                 DisposeInternal();
             }
 
             _mixer = _settings.AudioMixerRef;
             if (_mixer == null)
             {
-                LogUtility.Error("Audio",
-                    "AudioMixerRef is null in FrameworkSettings. Please assign an AudioMixer in FrameworkSettings.");
+                LogUtility.Error("Audio", "AudioSettings 中 AudioMixerRef 为空，请在 AudioSettings 中分配 AudioMixer");
                 return UniTask.CompletedTask;
             }
 
@@ -59,14 +58,14 @@ namespace CFramework
         {
             if (_initialized)
             {
-                LogUtility.Warning("Audio", "Already initialized, disposing old resources first.");
+                LogUtility.Warning("Audio", "已初始化，先释放旧资源");
                 DisposeInternal();
             }
 
             _mixer = mixer;
             if (_mixer == null)
             {
-                LogUtility.Error("Audio", "AudioMixer is null.");
+                LogUtility.Error("Audio", "AudioMixer 为空");
                 return UniTask.CompletedTask;
             }
 
@@ -90,8 +89,8 @@ namespace CFramework
             _snapshotCtrl = new AudioSnapshotController(_mixer, snapshots);
 
             _initialized = true;
-            LogUtility.Debug("Audio", $"Initialized. Groups: {_tree.GetAllPaths().Count}, " +
-                       $"Snapshots: {_snapshotCtrl.SnapshotNames.Count}");
+            LogUtility.Debug("Audio", $"初始化完成。分组: {_tree.GetAllPaths().Count}, " +
+                       $"快照: {_snapshotCtrl.SnapshotNames.Count}");
             return UniTask.CompletedTask;
         }
 
@@ -285,7 +284,7 @@ namespace CFramework
         {
             if (!_initialized)
                 throw new System.InvalidOperationException(
-                    "[Audio] AudioService has not been initialized. Call InitializeAsync() first.");
+                    "[Audio] AudioService 尚未初始化，请先调用 InitializeAsync()");
         }
 
         /// <summary>路径字符串 → 哈希值（与编辑器代码生成器一致：Animator.StringToHash）</summary>

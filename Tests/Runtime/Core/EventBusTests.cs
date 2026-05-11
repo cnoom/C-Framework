@@ -94,6 +94,7 @@ namespace CFramework.Tests
 
                 // Assert
                 Assert.IsTrue(handlerCalled, "处理器应该被调用");
+                Assert.IsTrue(timeoutOccurred, "应该触发超时错误回调");
             }
             finally
             {
@@ -232,7 +233,7 @@ namespace CFramework.Tests
 
         private class TestAsyncEvent : IAsyncEvent
         {
-            public TimeSpan Timeout => TimeSpan.FromSeconds(1); // 缩短超时时间
+            public TimeSpan Timeout => TimeSpan.FromMilliseconds(100); // 处理器延迟500ms，超时100ms确保触发
         }
     }
 }

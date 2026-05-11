@@ -3,12 +3,15 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 
 namespace CFramework
 {
     /// <summary>
     ///     事件订阅扫描与绑定工具
     ///     <para>扫描 [EventSubscribe] 标记的方法，自动创建委托并订阅到 IEventBus</para>
+    ///     <para>支持同步方法 (void) 和异步方法 (UniTask/UniTask&lt;T&gt;)</para>
     /// </summary>
     public static class EventSubscriberHelper
     {
@@ -18,7 +21,27 @@ namespace CFramework
         private static readonly ConcurrentDictionary<Type, List<SubscribeInfo>> _cache = new();
 
         /// <summary>
-        ///     扫描订阅者类型的 [EventSubscribe] 方法并自动订阅
+        ///     IEventBus.Subscribe 泛型方法定义缓存（类级别，仅初始化一次）
+        /// </summary>
+        private static readonly MethodInfo SubscribeMethodBase = typeof(IEventBus)
+            .GetMethods()
+            .First(m => m.Name == nameof(IEventBus.Subscribe)
+                        && m.IsGenericMethod
+                        && m.GetParameters().Length == 2
+                        && m.GetParameters()[1].ParameterType == typeof(int));
+
+        /// <summary>
+        ///     IEventBus.SubscribeAsync 泛型方法定义缓存（类级别，仅初始化一次）
+        /// </summary>
+        private static readonly MethodInfo SubscribeAsyncMethodBase = typeof(IEventBus)
+            .GetMethods()
+            .First(m => m.Name == nameof(IEventBus.SubscribeAsync)
+                        && m.IsGenericMethod
+                        && m.GetParameters().Length == 2
+                        && m.GetParameters()[1].ParameterType == typeof(int));
+
+        /// <summary>
+        ///     订阅者类型的自动订阅
         /// </summary>
         public static void AutoSubscribe(IEventSubscriber subscriber, IEventBus eventBus)
         {
@@ -29,19 +52,25 @@ namespace CFramework
 
             foreach (var info in subscribeInfos)
             {
-                var delegateType = typeof(Action<>).MakeGenericType(info.EventType);
-                var callback = Delegate.CreateDelegate(delegateType, subscriber, info.Method);
+                IDisposable disposable;
 
-                var subscribeMethod = typeof(IEventBus)
-                    .GetMethods()
-                    .First(m => m.Name == nameof(IEventBus.Subscribe)
-                                && m.IsGenericMethod
-                                && m.GetParameters().Length == 2
-                                && m.GetParameters()[1].ParameterType == typeof(int))
-                    .MakeGenericMethod(info.EventType);
+                if (info.IsAsync)
+                {
+                    // 异步订阅：创建 Func<T, CancellationToken, UniTask> 委托
+                    var funcType = typeof(Func<,,>).MakeGenericType(info.EventType, typeof(CancellationToken), typeof(UniTask));
+                    var callback = Delegate.CreateDelegate(funcType, subscriber, info.Method);
+                    var subscribeMethod = SubscribeAsyncMethodBase.MakeGenericMethod(info.EventType);
+                    disposable = (IDisposable)subscribeMethod.Invoke(eventBus, new object[] { callback, info.Priority });
+                }
+                else
+                {
+                    // 同步订阅：创建 Action<T> 委托
+                    var delegateType = typeof(Action<>).MakeGenericType(info.EventType);
+                    var callback = Delegate.CreateDelegate(delegateType, subscriber, info.Method);
+                    var subscribeMethod = SubscribeMethodBase.MakeGenericMethod(info.EventType);
+                    disposable = (IDisposable)subscribeMethod.Invoke(eventBus, new object[] { callback, info.Priority });
+                }
 
-                var disposable =
-                    (IDisposable)subscribeMethod.Invoke(eventBus, new object[] { callback, info.Priority });
                 subscriber.EventSubscriptions.Add(disposable);
             }
         }
@@ -71,22 +100,42 @@ namespace CFramework
                 if (attr == null) continue;
 
                 var parameters = method.GetParameters();
-                if (parameters.Length != 1)
+
+                // 判断是否为异步方法：返回 UniTask 且参数为 (T, CancellationToken)
+                var isAsync = method.ReturnType == typeof(UniTask) &&
+                             parameters.Length == 2 &&
+                             parameters[1].ParameterType == typeof(CancellationToken);
+
+                if (!isAsync && parameters.Length != 1)
                     throw new InvalidOperationException(
                         $"[EventSubscribe] 标记的方法 '{type.Name}.{method.Name}' 参数数量错误，" +
-                        $"期望 1 个参数，实际 {parameters.Length} 个");
+                        $"同步方法期望 1 个参数，异步方法期望 (T, CancellationToken) 两个参数，实际 {parameters.Length} 个");
 
                 var eventType = parameters[0].ParameterType;
-                if (!typeof(IEvent).IsAssignableFrom(eventType))
-                    throw new InvalidOperationException(
-                        $"[EventSubscribe] 标记的方法 '{type.Name}.{method.Name}' 参数类型 " +
-                        $"'{eventType.Name}' 未实现 IEvent 接口");
+
+                if (isAsync)
+                {
+                    // 异步方法：事件类型必须实现 IAsyncEvent
+                    if (!typeof(IAsyncEvent).IsAssignableFrom(eventType))
+                        throw new InvalidOperationException(
+                            $"[EventSubscribe] 异步方法 '{type.Name}.{method.Name}' 的参数类型 " +
+                            $"'{eventType.Name}' 必须实现 IAsyncEvent 接口");
+                }
+                else
+                {
+                    // 同步方法：事件类型必须实现 IEvent
+                    if (!typeof(IEvent).IsAssignableFrom(eventType))
+                        throw new InvalidOperationException(
+                            $"[EventSubscribe] 标记的方法 '{type.Name}.{method.Name}' 参数类型 " +
+                            $"'{eventType.Name}' 未实现 IEvent 接口");
+                }
 
                 result.Add(new SubscribeInfo
                 {
                     Method = method,
                     EventType = eventType,
-                    Priority = attr.Priority
+                    Priority = attr.Priority,
+                    IsAsync = isAsync
                 });
             }
 
@@ -101,6 +150,7 @@ namespace CFramework
             public MethodInfo Method { get; set; }
             public Type EventType { get; set; }
             public int Priority { get; set; }
+            public bool IsAsync { get; set; }
         }
     }
 }

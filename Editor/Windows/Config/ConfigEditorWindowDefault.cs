@@ -17,7 +17,9 @@ namespace CFramework.Editor.Windows.Config
     {
         #region 菜单项
 
-        [MenuItem("CFramework/配置管理", priority = 100)]
+        /// <summary>
+        ///     打开配置管理窗口（由 Dashboard 调用）
+        /// </summary>
         public static void OpenWindow()
         {
             var window = GetWindow<ConfigEditorWindow>("配置管理");

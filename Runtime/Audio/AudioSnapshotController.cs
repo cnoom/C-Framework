@@ -48,7 +48,7 @@ namespace CFramework
         {
             if (!_snapshots.TryGetValue(snapshotName, out var snapshot))
             {
-                LogUtility.Warning("Audio", $"Snapshot not found: {snapshotName}");
+                LogUtility.Warning("Audio", $"未找到快照: {snapshotName}");
                 return UniTask.CompletedTask;
             }
 
@@ -68,7 +68,7 @@ namespace CFramework
                 if (_snapshots.TryGetValue(name, out var snapshot))
                     snapshots.Add(snapshot);
                 else
-                    LogUtility.Warning("Audio", $"Snapshot not found in blend: {name}");
+                    LogUtility.Warning("Audio", $"混合快照中未找到: {name}");
             }
 
             if (snapshots.Count == 0) return;

@@ -18,15 +18,15 @@ namespace CFramework
     {
         private readonly ConcurrentDictionary<string, object> _cache = new();
         private readonly Subject<bool> _dirtyChanged = new();
-        private readonly FrameworkSettings _settings;
+        private readonly SaveSettings _settings;
         private readonly ISaveSerializer _serializer;
         private CancellationTokenSource _autoSaveCts;
 
-        public SaveService(FrameworkSettings settings) : this(settings, new NewtonsoftJsonSerializer())
+        public SaveService(SaveSettings settings) : this(settings, new NewtonsoftJsonSerializer())
         {
         }
 
-        public SaveService(FrameworkSettings settings, ISaveSerializer serializer)
+        public SaveService(SaveSettings settings, ISaveSerializer serializer)
         {
             _settings = settings;
             _serializer = serializer;
@@ -44,6 +44,11 @@ namespace CFramework
         public int CurrentSlot { get; private set; }
 
         public bool IsDirty { get; private set; }
+
+        /// <summary>
+        ///     脏状态版本号，每次 MarkDirty 递增，用于 SaveAsync 原子清除
+        /// </summary>
+        private int _dirtyVersion;
 
         public Observable<bool> OnDirtyChanged => _dirtyChanged;
 
@@ -114,9 +119,12 @@ namespace CFramework
             Directory.CreateDirectory(SavePath);
 
             // ConcurrentDictionary 的迭代器是快照式的，可直接遍历，无需复制
+            var savedVersion = _dirtyVersion;
             foreach (var kvp in _cache) await SaveToFileAsync(kvp.Key, kvp.Value, ct);
 
-            ClearDirty();
+            // 仅在保存期间没有新的脏数据时才清除
+            if (_dirtyVersion == savedVersion)
+                ClearDirty();
         }
 
         public async UniTask<T> LoadAsync<T>(string key, T defaultValue = default)
@@ -138,7 +146,7 @@ namespace CFramework
             }
             catch (Exception ex)
             {
-                LogUtility.Warning("SaveService", $"Failed to load: {key}, Error: {ex.Message}");
+                LogUtility.Warning("SaveService", $"加载失败: {key}，错误: {ex.Message}");
                 return defaultValue;
             }
         }
@@ -178,7 +186,7 @@ namespace CFramework
             }
             catch (Exception ex)
             {
-                LogUtility.Error("SaveService", $"Failed to save: {key}, Error: {ex.Message}");
+                LogUtility.Error("SaveService", $"保存失败: {key}，错误: {ex.Message}");
 
                 // 清理临时文件
                 if (File.Exists(tempPath)) File.Delete(tempPath);
@@ -215,7 +223,7 @@ namespace CFramework
                 }
                 catch (Exception ex)
                 {
-                    LogUtility.Warning("SaveService", $"Failed to delete: {key}, Error: {ex.Message}");
+                    LogUtility.Warning("SaveService", $"删除失败: {key}，错误: {ex.Message}");
                     return false;
                 }
 
@@ -238,7 +246,7 @@ namespace CFramework
                 }
                 catch (Exception ex)
                 {
-                    LogUtility.Warning("SaveService", $"Failed to delete all: {ex.Message}");
+                    LogUtility.Warning("SaveService", $"删除全部失败: {ex.Message}");
                 }
 
             ClearDirty();
@@ -255,6 +263,7 @@ namespace CFramework
 
         public void MarkDirty()
         {
+            Interlocked.Increment(ref _dirtyVersion);
             if (!IsDirty)
             {
                 IsDirty = true;
@@ -304,7 +313,7 @@ namespace CFramework
                     }
                     catch (Exception ex)
                     {
-                        LogUtility.Warning("SaveService", $"Auto save failed: {ex.Message}");
+                        LogUtility.Warning("SaveService", $"自动保存失败: {ex.Message}");
                     }
             }
         }
@@ -315,31 +324,68 @@ namespace CFramework
 
         private const int HmacSize = 32; // HMAC-SHA256 输出长度
 
+        /// <summary>
+        ///     使用 HMAC-SHA256 从用户密码派生 AES 密钥（16 字节）
+        ///     <para>通过 info="AES" 做单轮 HMAC 派生，确保不同长度的密码都能产生均匀分布的密钥</para>
+        /// </summary>
         private byte[] GetEncryptionKeyBytes()
         {
             var keyStr = _settings.EncryptionKey;
             if (string.IsNullOrEmpty(keyStr)) return null;
 
-            // 按 UTF-8 编码，截取或填充到恰好 16 字节（AES-128）
-            var bytes = Encoding.UTF8.GetBytes(keyStr);
-            var key = new byte[16];
-            var copyLen = Math.Min(bytes.Length, 16);
-            Buffer.BlockCopy(bytes, 0, key, 0, copyLen);
-            return key;
+            return DeriveKey(keyStr, "AES", 16);
         }
 
         /// <summary>
-        ///     使用 HMAC-SHA256 派生密钥，用于签名验证
+        ///     使用 HMAC-SHA256 从用户密码派生 HMAC 签名密钥（32 字节）
+        ///     <para>通过 info="HMAC" 与 AES 密钥做密钥分离，确保两者相互独立</para>
         /// </summary>
         private byte[] GetHmacKey()
         {
-            var aesKey = GetEncryptionKeyBytes();
-            // 简单派生：在 AES 密钥后追加固定后缀，扩展到足够长度
-            var derived = new byte[aesKey.Length + 8];
-            Buffer.BlockCopy(aesKey, 0, derived, 0, aesKey.Length);
-            var suffix = Encoding.UTF8.GetBytes("_hmac_v1");
-            Buffer.BlockCopy(suffix, 0, derived, aesKey.Length, suffix.Length);
-            return derived;
+            var keyStr = _settings.EncryptionKey;
+            return DeriveKey(keyStr, "HMAC", 32);
+        }
+
+        /// <summary>
+        ///     基于 HMAC-SHA256 的简易密钥派生
+        ///     <para>HMAC(password, info) 产生均匀分布的派生密钥</para>
+        ///     <para>不同 info 产生不同派生密钥，实现 AES 与 HMAC 的密钥分离</para>
+        /// </summary>
+        private static byte[] DeriveKey(string password, string info, int outputLength)
+        {
+            var passwordBytes = Encoding.UTF8.GetBytes(password);
+            var infoBytes = Encoding.UTF8.GetBytes(info);
+
+            // HMAC-SHA256 输出 32 字节，足够覆盖 AES-128 (16) 和 HMAC-SHA256 (32)
+            using var hmac = new HMACSHA256(passwordBytes);
+            var derived = hmac.ComputeHash(infoBytes);
+
+            if (outputLength <= 32)
+            {
+                var result = new byte[outputLength];
+                Buffer.BlockCopy(derived, 0, result, 0, outputLength);
+                return result;
+            }
+
+            // 超过 32 字节时扩展（当前不会触发，预留可扩展性）
+            var expanded = new byte[outputLength];
+            var offset = 0;
+            var counter = 1;
+            while (offset < outputLength)
+            {
+                var counterBytes = BitConverter.GetBytes(counter);
+                using var iterHmac = new HMACSHA256(passwordBytes);
+                var input = new byte[infoBytes.Length + counterBytes.Length];
+                Buffer.BlockCopy(infoBytes, 0, input, 0, infoBytes.Length);
+                Buffer.BlockCopy(counterBytes, 0, input, infoBytes.Length, counterBytes.Length);
+                var block = iterHmac.ComputeHash(input);
+                var copyLen = Math.Min(32, outputLength - offset);
+                Buffer.BlockCopy(block, 0, expanded, offset, copyLen);
+                offset += copyLen;
+                counter++;
+            }
+
+            return expanded;
         }
 
         private byte[] Encrypt(string data)

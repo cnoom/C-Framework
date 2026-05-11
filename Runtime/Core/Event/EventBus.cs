@@ -14,7 +14,7 @@ namespace CFramework
         private bool _disposed;
 
         // 异步事件处理器：Type -> List<Handler>
-        private readonly Dictionary<Type, List<AsyncHandler>> _asyncHandlers = new();
+        private readonly Dictionary<Type, List<Handler>> _asyncHandlers = new();
 
         private readonly object _lock = new();
 
@@ -22,7 +22,7 @@ namespace CFramework
         private readonly Dictionary<Type, object> _subjects = new();
 
         // 同步事件处理器（带优先级）：Type -> SortedList
-        private readonly Dictionary<Type, List<SyncHandler>> _syncHandlers = new();
+        private readonly Dictionary<Type, List<Handler>> _syncHandlers = new();
 
         public void Dispose()
         {
@@ -48,7 +48,7 @@ namespace CFramework
 
             Subject<T> subject = null;
             bool hasSubject;
-            List<SyncHandler> handlers;
+            List<Handler> handlers;
 
             // 单次锁获取，防止与 Dispose 竞态
             lock (_lock)
@@ -58,11 +58,23 @@ namespace CFramework
                 if (hasSubject) subject = (Subject<T>)s;
 
                 if (!_syncHandlers.TryGetValue(type, out handlers)) handlers = null;
-                else handlers = new List<SyncHandler>(handlers);
+                else handlers = new List<Handler>(handlers);
             }
 
-            // 1. 触发Subject（响应式订阅）
-            if (hasSubject) subject.OnNext(evt);
+            // 1. 触发Subject（响应式订阅，每个订阅者独立 try-catch）
+            if (hasSubject)
+            {
+                // Subject<T> 内部维护观察者列表，需要逐个通知以隔离异常
+                // 但 R3 Subject 不暴露内部观察者，所以用整体 try-catch 并报告错误
+                try
+                {
+                    subject.OnNext(evt);
+                }
+                catch (Exception ex)
+                {
+                    OnHandlerError?.Invoke(ex, evt, subject);
+                }
+            }
 
             // 2. 触发同步处理器（已在订阅时按优先级降序排列）
             if (handlers == null) return;
@@ -83,14 +95,14 @@ namespace CFramework
             if (handler == null) throw new ArgumentNullException(nameof(handler));
 
             var type = typeof(T);
-            var syncHandler = new SyncHandler(handler, priority);
+            var syncHandler = new Handler(handler, priority);
 
             lock (_lock)
             {
                 if (_disposed) return Disposable.Empty;
                 if (!_syncHandlers.TryGetValue(type, out var list))
                 {
-                    list = new List<SyncHandler>();
+                    list = new List<Handler>();
                     _syncHandlers[type] = list;
                 }
 
@@ -135,14 +147,14 @@ namespace CFramework
         public async UniTask PublishAsync<T>(T evt, CancellationToken ct = default) where T : IAsyncEvent
         {
             var type = typeof(T);
-            List<AsyncHandler> handlers;
+            List<Handler> handlers;
 
             lock (_lock)
             {
                 if (_disposed) return;
                 if (!_asyncHandlers.TryGetValue(type, out handlers)) return; // 无订阅者
                 // 复制列表以避免迭代时修改（已在订阅时按优先级降序排列）
-                handlers = new List<AsyncHandler>(handlers);
+                handlers = new List<Handler>(handlers);
             }
 
             // 获取超时时间
@@ -172,14 +184,14 @@ namespace CFramework
             if (handler == null) throw new ArgumentNullException(nameof(handler));
 
             var type = typeof(T);
-            var asyncHandler = new AsyncHandler(handler, priority);
+            var asyncHandler = new Handler(handler, priority);
 
             lock (_lock)
             {
                 if (_disposed) return Disposable.Empty;
                 if (!_asyncHandlers.TryGetValue(type, out var list))
                 {
-                    list = new List<AsyncHandler>();
+                    list = new List<Handler>();
                     _asyncHandlers[type] = list;
                 }
 
@@ -204,21 +216,12 @@ namespace CFramework
 
         #region 内部类
 
-        private sealed class SyncHandler
+        /// <summary>
+        ///     统一事件处理器（同步/异步共用）
+        /// </summary>
+        private sealed class Handler
         {
-            public SyncHandler(Delegate callback, int priority)
-            {
-                Callback = callback;
-                Priority = priority;
-            }
-
-            public Delegate Callback { get; }
-            public int Priority { get; }
-        }
-
-        private sealed class AsyncHandler
-        {
-            public AsyncHandler(Delegate callback, int priority)
+            public Handler(Delegate callback, int priority)
             {
                 Callback = callback;
                 Priority = priority;

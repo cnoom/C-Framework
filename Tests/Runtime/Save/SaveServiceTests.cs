@@ -23,12 +23,12 @@ namespace CFramework.Tests
             _disposables = new List<IDisposable>();
             _testSavePath = Path.Combine(Application.temporaryCachePath, "TestSaves", Guid.NewGuid().ToString());
 
-            // 创建测试用的 FrameworkSettings
-            _settings = ScriptableObject.CreateInstance<FrameworkSettings>();
-            _settings.EncryptionKey = "TestEncryptionKey";
-            _settings.AutoSaveInterval = 1; // 测试用短间隔
+            // 创建测试用的 SaveSettings
+            _saveSettings = ScriptableObject.CreateInstance<SaveSettings>();
+            _saveSettings.EncryptionKey = "TestEncryptionKey";
+            _saveSettings.AutoSaveInterval = 1; // 测试用短间隔
 
-            _saveService = new SaveService(_settings);
+            _saveService = new SaveService(_saveSettings);
         }
 
         [TearDown]
@@ -38,6 +38,9 @@ namespace CFramework.Tests
             _disposables.Clear();
 
             _saveService?.Dispose();
+
+            if (_saveSettings != null)
+                UnityEngine.Object.DestroyImmediate(_saveSettings);
 
             // 清理测试文件
             if (Directory.Exists(_testSavePath))
@@ -52,7 +55,7 @@ namespace CFramework.Tests
         }
 
         private SaveService _saveService;
-        private FrameworkSettings _settings;
+        private SaveSettings _saveSettings;
         private string _testSavePath;
         private List<IDisposable> _disposables;
 
